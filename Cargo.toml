@@ -1,0 +1,19 @@
+[package]
+name = "termite"
+description = "Turns plain requests into checked shell commands with a local model"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "Apache-2.0"
+
+[dependencies]
+libc = "0.2.191"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+shell-words = "1.1.0"
+thiserror = "2.0.18"
+tokio = { version = "1.54.1", features = ["rt", "time"] }
+
+[dev-dependencies]
+mockall = "0.15.0"

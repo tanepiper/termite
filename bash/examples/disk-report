@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+# --- termite preamble 1: checks bash, then loads the termite library ---
+if [ -z "${BASH_VERSINFO-}" ] || [ "${BASH_VERSINFO[0]}" -lt 5 ] ||
+  { [ "${BASH_VERSINFO[0]}" -eq 5 ] && [ "${BASH_VERSINFO[1]}" -lt 3 ]; }; then
+  if [ "$(uname -s)" = Darwin ]; then
+    _termite_fix='brew install bash'
+  else
+    _termite_fix='install bash 5.3 or later with your package manager'
+  fi
+  printf '%s needs bash 5.3 or later; this is %s (%s).\nFix: %s\n' \
+    "${0##*/}" "${BASH_VERSION:-not bash}" "${BASH:-sh}" "$_termite_fix" >&2
+  exit 1
+fi
+_termite_load() {
+  local home=${TERMITE_HOME:-$HOME/.config/termite} path problem version
+  local lib=$home/lib/termite
+  if [[ $home != /* ]]; then
+    printf '%s: TERMITE_HOME must be an absolute path, not %s\n' \
+      "${0##*/}" "$home" >&2
+    exit 1
+  fi
+  for path in "$home" "$home/lib" "$lib" "$lib/VERSION" "$lib/core.sh" "$lib"/*.sh; do
+    if [[ -L $path ]]; then
+      problem='a symlink'
+    elif [[ ! -e $path ]]; then
+      problem='missing'
+    elif [[ ! -O $path ]]; then
+      problem='not owned by you'
+    elif [[ -n $(find "$path" -prune \( -perm -020 -o -perm -002 \) -print) ]]; then
+      problem='writable by other users'
+    else
+      continue
+    fi
+    printf '%s: cannot load the termite library: %s is %s.\nFix: run tmite setup\n' \
+      "${0##*/}" "$path" "$problem" >&2
+    exit 1
+  done
+  IFS= read -r version <"$lib/VERSION" || version=
+  if [[ ! $version =~ ^[0-9]+$ ]] || ((version < 1)); then
+    printf '%s: the termite library is version %s; this script needs 1 or later.\nFix: run tmite setup\n' \
+      "${0##*/}" "${version:-unknown}" >&2
+    exit 1
+  fi
+}
+_termite_load
+unset -f _termite_load
+# shellcheck source=lib/termite/core.sh
+source "${TERMITE_HOME:-$HOME/.config/termite}/lib/termite/core.sh"
+# --- end of termite preamble ---
+
+
+usage() {
+  cat <<'HELP'
+disk-report: show the biggest folders under a folder.
+
+Usage: disk-report [options] [FOLDER]
+
+Measures each folder directly inside FOLDER (default: the current folder)
+and lists the biggest first. Reads only; changes nothing.
+
+Options:
+  -n, --top N     how many folders to show (default 10)
+  -v, --verbose   say what is being measured
+  -q, --quiet     only warnings and errors
+  -h, --help      show this help
+      --version   show the version
+
+Examples:
+  disk-report
+  disk-report --top 5 ~/code
+
+Exit status: 0 done, 1 failed, 64 bad usage.
+HELP
+}
+
+# Print SIZE (in KiB) the way people read it: 512K, 3.4M, 12G.
+human_size() {
+  local kib=$1
+  if ((kib >= 1024 * 1024)); then
+    printf '%d.%dG' $((kib / 1048576)) $((kib % 1048576 * 10 / 1048576))
+  elif ((kib >= 1024)); then
+    printf '%d.%dM' $((kib / 1024)) $((kib % 1024 * 10 / 1024))
+  else
+    printf '%dK' "$kib"
+  fi
+}
+
+main() {
+  args_version 1.0.0
+  args_value top n 10
+  args_parse "$@"
+
+  ((${#ARGS_REST[@]} <= 1)) || args_error "give at most one folder"
+  local root=${ARGS_REST[0]:-.} top=${ARGS[top]}
+  [[ $top =~ ^[1-9][0-9]{0,5}$ ]] || args_error "--top must be a whole number from 1"
+  [[ -d $root ]] || die "$(log_printable "$root") is not a folder"
+  require_cmd du sort
+
+  local -a folders=()
+  local folder
+  shopt -s nullglob dotglob
+  for folder in "$root"/*/; do
+    [[ -L ${folder%/} ]] || folders+=("${folder%/}")
+  done
+  shopt -u nullglob dotglob
+  if ((${#folders[@]} == 0)); then
+    log_info "no folders in $root"
+    return 0
+  fi
+
+  # Measure one folder at a time, so any file name works, then sort
+  # "size<TAB>index" lines and look the names up by index.
+  local -a sizes=() order=()
+  local index size unreadable=0
+  for index in "${!folders[@]}"; do
+    log_verbose "measuring ${folders[index]}"
+    if size=$(du -sk -- "${folders[index]}" 2>/dev/null); then
+      sizes[index]=${size%%[[:space:]]*}
+    else
+      unreadable=$((unreadable + 1))
+      sizes[index]=${size%%[[:space:]]*}
+      sizes[index]=${sizes[index]:-0}
+    fi
+  done
+  ((unreadable == 0)) || log_warn "$unreadable folders could not be read in full"
+
+  mapfile -t order < <(
+    for index in "${!sizes[@]}"; do
+      printf '%s\t%s\n' "${sizes[index]}" "$index"
+    done | sort -rn -k1,1
+  )
+
+  local line
+  for line in "${order[@]:0:top}"; do
+    index=${line#*$'\t'}
+    printf '%8s  %s\n' "$(human_size "${sizes[index]}")" \
+      "$(log_printable "${folders[index]}")"
+  done
+}
+
+main "$@"
