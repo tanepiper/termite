@@ -1,0 +1,125 @@
+# termite's own invariants for its Rust code, as Semgrep rules.
+# Each rule has cases in termite-rust.rs; run `semgrep --test semgrep/`.
+---
+rules:
+  - id: termite-library-never-prints
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      The termite library must not print; return the text or an error and
+      let the tmite binary decide what reaches the terminal.
+    paths:
+      include: [/src/]
+      exclude: [/src/bin/, "tests.rs", /semgrep/]
+    pattern-either:
+      - pattern: println!(...)
+      - pattern: print!(...)
+      - pattern: eprintln!(...)
+      - pattern: eprint!(...)
+      - pattern: dbg!(...)
+
+  - id: termite-only-setup-starts-programs
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Only `tmite setup` may start programs, and only after the user says
+      yes. termite never runs the commands it suggests.
+    paths:
+      exclude: [/src/bin/tmite/setup/, "tests.rs", /tests/, /semgrep/]
+    pattern-either:
+      - pattern: std::process::Command::new(...)
+      - pattern: Command::new(...)
+      - pattern: libc::system(...)
+      - pattern: libc::execv(...)
+      - pattern: libc::execvp(...)
+      - pattern: libc::fork()
+
+  - id: termite-files-are-written-privately
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Write files with termite::write_private or termite::create_private:
+      owner-only modes, no symlinks followed, no half-written files.
+    paths:
+      exclude: [/src/home/write.rs, "tests.rs", /tests/, /semgrep/]
+    pattern-either:
+      - pattern: std::fs::write(...)
+      - pattern: fs::write(...)
+      - pattern: std::fs::File::create(...)
+      - pattern: fs::File::create(...)
+      - pattern: File::create(...)
+      - pattern: OpenOptions::new()
+      - pattern: std::fs::OpenOptions::new()
+
+  - id: termite-unsafe-only-in-home
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      `unsafe` is allowed only in src/home/mod.rs (geteuid). Anything else
+      needs a review and an entry in this rule.
+    paths:
+      exclude: [/src/home/mod.rs, /semgrep/]
+    pattern: "unsafe { ... }"
+
+  - id: termite-decision-token-read-only-in-config
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      The decision token is read from the environment only by
+      termite::decision_token (src/config.rs), and never stored.
+    paths:
+      exclude: [/src/config.rs, /semgrep/]
+    pattern-either:
+      - pattern: std::env::var("TERMITE_DECISION_TOKEN")
+      - pattern: env::var("TERMITE_DECISION_TOKEN")
+      - pattern: std::env::var_os("TERMITE_DECISION_TOKEN")
+      - pattern: env::var_os("TERMITE_DECISION_TOKEN")
+      - pattern: env::var(DECISION_TOKEN_VAR)
+      - pattern: env::var_os(DECISION_TOKEN_VAR)
+      - pattern: std::env::var(DECISION_TOKEN_VAR)
+
+  - id: termite-decision-token-never-shown
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      The decision token reaches the terminal or a file here. It may only be
+      sent as a bearer token.
+    mode: taint
+    pattern-sources:
+      - pattern: decision_token()
+      - pattern: termite::decision_token()
+      - pattern: self.token
+    pattern-sinks:
+      - pattern: println!(...)
+      - pattern: print!(...)
+      - pattern: eprintln!(...)
+      - pattern: eprint!(...)
+      - pattern: dbg!(...)
+      - pattern: format!(...)
+      - pattern: write_private(...)
+
+  - id: termite-decision-token-not-in-format-strings
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      A format string names a token variable (`{token}`). Taint tracking
+      cannot see inside format strings, so this is refused by name.
+    paths:
+      exclude: [/semgrep/]
+    pattern-regex: "\\b(?:e?print(?:ln)?|format|write(?:ln)?|panic)!\
+      \\(\\s*\"[^\"]*\\{\\s*(?:token|api_key|secret|password)\\b[^}]*\\}"
+
+  - id: termite-http-client-has-a-timeout
+    languages: [rust]
+    severity: ERROR
+    message: >-
+      Every HTTP client needs a timeout, so a stuck model server cannot hang
+      the terminal.
+    paths:
+      exclude: [/semgrep/]
+    pattern-either:
+      - pattern: reqwest::Client::new()
+      - patterns:
+          - pattern: reqwest::Client::builder(). ... .build()
+          - pattern-not: >-
+              reqwest::Client::builder(). ... .timeout(...). ... .build()

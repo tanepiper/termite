@@ -1,0 +1,6 @@
+# The tests hold script bodies as single-quoted text on purpose: they are
+# written to files and run, not expanded here.
+disable=SC2016
+# bats runs each @test in a subshell; the variables run sets are read in the
+# same test, so nothing is lost.
+disable=SC2030,SC2031

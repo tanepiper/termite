@@ -10,7 +10,10 @@ use std::path::{Path, PathBuf};
 use std::process;
 use std::time::SystemTime;
 
-use super::HomeError;
+use super::{
+    HomeError, PRIVATE_FILE_MODE, check_folder, create_private_folder,
+    current_uid,
+};
 
 /// Write `bytes` to `folder/name` with `mode` (for example 0o600 or 0o700):
 ///
@@ -56,6 +59,35 @@ pub fn write_private(
         let _ = folder_handle.sync_all();
     }
     Ok(target)
+}
+
+/// Open `folder/name` as a new, empty file only the owner can read, for
+/// output that is written as it comes (a log). `folder` is created with
+/// mode 0700 when missing and must then pass the home folder checks; the
+/// file is truncated, given mode 0600, and never opened through a symlink.
+pub fn create_private(folder: &Path, name: &str) -> Result<File, HomeError> {
+    if !is_plain_file_name(name) {
+        return Err(HomeError::BadFileName {
+            name: name.to_owned(),
+        });
+    }
+    if fs::symlink_metadata(folder).is_err() {
+        create_private_folder(folder)?;
+    }
+    check_folder(folder, current_uid())?;
+
+    let path = folder.join(name);
+    let file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(PRIVATE_FILE_MODE)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(&path)
+        .map_err(HomeError::io("create", &path))?;
+    file.set_permissions(Permissions::from_mode(PRIVATE_FILE_MODE))
+        .map_err(HomeError::io("set the mode of", &path))?;
+    Ok(file)
 }
 
 fn write_then_rename(

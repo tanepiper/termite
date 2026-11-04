@@ -15,7 +15,7 @@ setup() {
 @test "the library is found under HOME when TERMITE_HOME is unset" {
   mkdir -p -- "$BATS_TEST_TMPDIR/user/.config"
   mv -- "$TERMITE_HOME" "$BATS_TEST_TMPDIR/user/.config/termite"
-  HOME=$BATS_TEST_TMPDIR/user TERMITE_HOME= run bash "$script"
+  HOME=$BATS_TEST_TMPDIR/user TERMITE_HOME='' run bash "$script"
   [ "$output" = loaded ]
 }
 

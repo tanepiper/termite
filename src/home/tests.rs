@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use super::{
-    Home, HomeError, NameTaken, Problem, ScriptName, current_uid, write_private,
+    Home, HomeError, NameTaken, Problem, ScriptName, create_private,
+    current_uid, write_private,
 };
 
 /// A private folder under the system temp folder, removed when dropped.
@@ -14,6 +15,9 @@ pub(crate) struct TempFolder(PathBuf);
 impl TempFolder {
     pub(crate) fn new() -> Self {
         static NEXT: AtomicU32 = AtomicU32::new(0);
+        // Test-only: the folder is made fresh with mode 0700 below, and the
+        // tests check modes and ownership themselves.
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let path = std::env::temp_dir().join(format!(
             "termite-test-{}-{}",
             std::process::id(),
@@ -210,6 +214,42 @@ fn given_a_symlink_at_the_target_when_written_then_it_is_refused() {
         "{result:?}"
     );
     assert_eq!(fs::read(&victim).expect("read"), b"keep");
+}
+
+#[test]
+fn given_a_new_log_when_created_privately_then_folder_and_file_are_private() {
+    use std::io::Write;
+
+    let temp = TempFolder::new();
+    let folder = temp.path().join(".cache/termite");
+    let mut log = create_private(&folder, "server.log").expect("created");
+    log.write_all(b"first run").expect("written");
+    drop(log);
+    assert_eq!(mode(&folder), 0o700);
+    assert_eq!(mode(&folder.join("server.log")), 0o600);
+
+    let log = create_private(&folder, "server.log").expect("created again");
+    drop(log);
+    assert_eq!(fs::read(folder.join("server.log")).expect("read"), b"");
+}
+
+#[test]
+fn given_a_symlink_or_open_folder_when_a_log_is_created_then_it_is_refused() {
+    let temp = TempFolder::new();
+    let victim = temp.path().join("victim");
+    fs::write(&victim, "keep").expect("victim");
+    symlink(&victim, temp.path().join("server.log")).expect("symlink");
+
+    assert!(create_private(temp.path(), "server.log").is_err());
+    assert_eq!(fs::read_to_string(&victim).expect("read"), "keep");
+
+    let open = temp.path().join("open");
+    fs::create_dir(&open).expect("folder");
+    fs::set_permissions(&open, Permissions::from_mode(0o777)).expect("mode");
+    let (_, problem) =
+        unsafe_problem(create_private(&open, "server.log").map(drop));
+    assert_eq!(problem, Problem::WritableByOthers);
+    assert!(create_private(temp.path(), "../escape.log").is_err());
 }
 
 #[test]

@@ -93,6 +93,8 @@ _tmite_accept_line() {
         menu+="$i. ${options[i]%%$'\t'*}"$'\n'"   ${options[i]#*$'\t'}"$'\n'
       done
       zle -M -- "${menu}Press a number, or any other key to cancel."
+      # Draw the menu now: read -k below blocks before the next redisplay.
+      zle -R
 
       local key
       read -k 1 key

@@ -175,64 +175,123 @@ fn is_operator_word(text: &str) -> bool {
 /// Split a command at whitespace outside quotes, keeping each word exactly
 /// as written. Returns `None` for an unclosed quote or a trailing `\`.
 fn split_raw_words(command: &str) -> Option<Vec<RawWord>> {
-    let mut words = Vec::new();
-    let mut text = String::new();
-    let mut has_operator = false;
-    let mut quote: Option<char> = None;
-    let mut escaped = false;
-
+    let mut splitter = WordSplitter::default();
     for c in command.chars() {
-        if escaped {
-            text.push(c);
-            escaped = false;
-            continue;
-        }
+        splitter.push(c);
+    }
+    splitter.finish()
+}
 
-        match quote {
-            Some(open) => {
-                text.push(c);
-                if c == open {
-                    quote = None;
-                } else if c == '\\' && open == '"' {
-                    escaped = true;
-                }
-            },
-            None if c.is_whitespace() => {
-                if !text.is_empty() {
-                    words.push(RawWord {
-                        text: std::mem::take(&mut text),
-                        has_operator,
-                    });
-                    has_operator = false;
-                }
-            },
-            None => {
-                text.push(c);
-                match c {
-                    '\\' => escaped = true,
-                    '\'' | '"' => quote = Some(c),
-                    _ if OPERATOR_CHARS.contains(&c) => has_operator = true,
-                    _ => {},
-                }
-            },
+/// The state of [`split_raw_words`] part way through a command.
+#[derive(Default)]
+struct WordSplitter {
+    words: Vec<RawWord>,
+    text: String,
+    has_operator: bool,
+    quote: Option<char>,
+    escaped: bool,
+}
+
+impl WordSplitter {
+    fn push(&mut self, c: char) {
+        if self.escaped {
+            self.text.push(c);
+            self.escaped = false;
+        } else if let Some(open) = self.quote {
+            self.push_quoted(c, open);
+        } else if c.is_whitespace() {
+            self.end_word();
+        } else {
+            self.push_plain(c);
         }
     }
 
-    if quote.is_some() || escaped {
-        return None;
+    /// A character inside quotes: only the closing quote, or a `\` inside
+    /// double quotes, changes the state.
+    fn push_quoted(&mut self, c: char, open: char) {
+        self.text.push(c);
+        match c {
+            _ if c == open => self.quote = None,
+            '\\' if open == '"' => self.escaped = true,
+            _ => {},
+        }
     }
 
-    if !text.is_empty() {
-        words.push(RawWord { text, has_operator });
+    fn push_plain(&mut self, c: char) {
+        self.text.push(c);
+        match c {
+            '\\' => self.escaped = true,
+            '\'' | '"' => self.quote = Some(c),
+            _ if OPERATOR_CHARS.contains(&c) => self.has_operator = true,
+            _ => {},
+        }
     }
 
-    Some(words)
+    fn end_word(&mut self) {
+        if !self.text.is_empty() {
+            self.words.push(RawWord {
+                text: std::mem::take(&mut self.text),
+                has_operator: std::mem::take(&mut self.has_operator),
+            });
+        }
+    }
+
+    fn finish(mut self) -> Option<Vec<RawWord>> {
+        if self.quote.is_some() || self.escaped {
+            return None;
+        }
+        self.end_word();
+        Some(self.words)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::merge_candidates;
+    use super::{merge_candidates, split_raw_words};
     use crate::candidate::{Candidate, Risk};
+
+    fn words(command: &str) -> Option<Vec<(String, bool)>> {
+        split_raw_words(command).map(|words| {
+            words
+                .into_iter()
+                .map(|word| (word.text, word.has_operator))
+                .collect()
+        })
+    }
+
+    fn word(text: &str, has_operator: bool) -> (String, bool) {
+        (text.to_owned(), has_operator)
+    }
+
+    #[test]
+    fn words_keep_quotes_and_escapes_as_written() {
+        assert_eq!(
+            words(r#"ls a\ b "c d" 'e\' "f\"g""#),
+            Some(vec![
+                word("ls", false),
+                word(r"a\ b", false),
+                word(r#""c d""#, false),
+                word(r"'e\'", false),
+                word(r#""f\"g""#, false),
+            ])
+        );
+    }
+
+    #[test]
+    fn operators_are_marked_only_outside_quotes() {
+        assert_eq!(
+            words(r#"a|b "c|d""#),
+            Some(vec![word("a|b", true), word(r#""c|d""#, false)])
+        );
+    }
+
+    #[test]
+    fn unclosed_quotes_and_trailing_escapes_are_refused() {
+        assert_eq!(words(r#"echo "open"#), None);
+        assert_eq!(words("echo 'open"), None);
+        assert_eq!(words(r"echo end\"), None);
+        assert_eq!(words(r#"echo "end\""#), None);
+    }
 
     fn commands(candidates: &[Candidate]) -> Vec<&str> {
         candidates.iter().map(Candidate::command).collect()

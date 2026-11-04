@@ -3,8 +3,8 @@
 Created: 2026-11-04
 Author: me@tane.dev
 Agent: Claude Code
-Status: DRAFT
-Approved: No
+Status: READY
+Approved: Yes
 Worktree: No
 Type: Build
 
@@ -19,8 +19,10 @@ an attacker. The easiest attack is a build with the guards switched off. A
 binary cannot hold its own hash, so the proof has to live outside it, in
 public, signed records.
 
-**Today:** the repository has no GitHub remote yet, and there is no
-pipeline. `gh` 2.103 (with `gh attestation`) is installed on this machine.
+**Today:** the repository is `github.com/tanepiper/termite` (public), with
+GitHub Pages deployed by workflow at `https://tanepiper.github.io/termite/`.
+There is no pipeline yet. `gh` 2.103 (with `gh attestation`) is installed
+on this machine. There is no Apple Developer ID yet.
 
 ## How it works
 
@@ -83,27 +85,36 @@ pipeline. `gh` 2.103 (with `gh attestation`) is installed on this machine.
       (checked by a workflow lint, for example `zizmor`).
 - [ ] AC5: Two independent builds of the same tag give identical hashes.
 
-## Owner Questions
+## Owner Answers
 
-1. **GitHub home:** which owner or organisation, and the repository name
-   (`termite`)? A remote is needed before anything here can start.
-2. **macOS signing:** is there an Apple Developer ID for code signing and
-   notarization? Without one, macOS binaries still get Sigstore
-   attestations, but Gatekeeper warns.
-3. **How `tmite` verifies:**
-   - **(a)** built in, with the `sigstore` crate: self-contained, but a
-     large new dependency tree in the binary we are trying to keep small
-     and auditable;
-   - **(b)** call `gh attestation verify` or `cosign` when installed, and
-     otherwise check only the SHA-256 against `releases.json` (which is
-     itself served over HTTPS from GitHub Pages).
+Round 1, 2026-11-04:
 
-   Proposed: (b) first.
-4. **Record location:** GitHub Pages now, the owner's domain later
-   (proposed). Or both from the start?
+1. **GitHub home:** `tanepiper/termite`.
+2. **macOS signing:** no Developer ID yet. macOS binaries ship with
+   Sigstore attestations only, and the README says Gatekeeper will warn;
+   Homebrew and `cargo install` are the recommended routes on macOS until
+   then.
+3. **How `tmite` verifies:** owner's choice delegated; (b): use
+   `gh attestation verify` or `cosign` when installed, else the SHA-256
+   against `releases.json` over HTTPS.
+4. **Record location:** GitHub Pages (already enabled, deployed by
+   workflow). The same Pages site hosts the project page.
+
+## Tickets
+
+| # | Ticket | Model | Blocked by |
+|---|---|---|---|
+| 01 | CI workflow: fmt, clippy, tests, bats, `cargo-deny`, `cargo-audit`, `zizmor`; Actions pinned by SHA | Sonnet | — |
+| 02 | Release workflow: four targets, attestations, GitHub Release, reproducibility check | Opus | 01 |
+| 03 | Pages: project page plus chained, attested `releases.json` | Sonnet | 02 |
+| 04 | `tmite --version --verify` and the rollback check | Opus | 03, intents 09 |
+| 05 | Homebrew tap with pinned checksums | Sonnet | 02 |
 
 ## Round Log
 
 - Draft (2026-11-04): from the owner's request for signed releases,
   pipeline provenance and a public record that `tmite` can check itself
   against.
+- Round 1 (2026-11-04, owner): `tanepiper/termite`; no Developer ID yet;
+  verify with `gh`/`cosign` when present, else SHA-256; GitHub Pages.
+  Spec approved; tickets listed.

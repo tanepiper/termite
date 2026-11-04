@@ -43,6 +43,9 @@ Exit status: 0 a command to use, 2 none or refused, 1 failed, 64 usage.
 ";
 
 fn main() -> ExitCode {
+    // The program path (argument 0) is skipped and never trusted; the rest
+    // are the user's words, parsed and checked like any other input.
+    // nosemgrep: rust.lang.security.args.args
     let arguments: Vec<String> = env::args().skip(1).collect();
     if arguments.first().is_some_and(|first| first == "setup") {
         if arguments.len() > 1 {

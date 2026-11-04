@@ -38,6 +38,7 @@ mkdir -- "$work/nested"')
   marker=$BATS_TEST_TMPDIR/where
   start_in_background "$script" "$marker"
   wait_for "$marker"
+  # shellcheck disable=SC2154 # pid is set by start_in_background
   kill -INT "$pid"
   status=0
   wait "$pid" || status=$?

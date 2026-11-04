@@ -11,9 +11,9 @@ setup() {
 }
 
 @test "every example starts with the exact preamble" {
-  lines=$(wc -l <"$BASH_DIR/preamble.sh")
+  preamble_lines=$(wc -l <"$BASH_DIR/preamble.sh")
   for example in "$examples"/*; do
-    diff <(head -n "$lines" -- "$example") "$BASH_DIR/preamble.sh"
+    diff <(head -n "$preamble_lines" -- "$example") "$BASH_DIR/preamble.sh"
   done
 }
 

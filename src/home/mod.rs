@@ -21,7 +21,10 @@ use std::os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 pub use self::names::{NameTaken, ScriptName};
-pub use self::write::write_private;
+pub use self::write::{create_private, write_private};
+
+/// The config file's name in the termite home folder.
+pub const CONFIG_FILE_NAME: &str = "config.json";
 
 /// The environment variable that moves termite's folder.
 pub const TERMITE_HOME_VAR: &str = "TERMITE_HOME";
@@ -138,7 +141,7 @@ impl Home {
     }
 
     pub fn config_file(&self) -> PathBuf {
-        self.root.join("config.json")
+        self.root.join(CONFIG_FILE_NAME)
     }
 
     /// Installed scripts; on `PATH`.

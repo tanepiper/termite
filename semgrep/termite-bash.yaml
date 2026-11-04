@@ -1,0 +1,60 @@
+# termite's own invariants for its bash code, as Semgrep rules.
+# Each rule has cases in termite-bash.sh; run `semgrep --test semgrep/`.
+---
+rules:
+  - id: termite-bash-never-escalates
+    languages: [bash]
+    severity: ERROR
+    message: >-
+      termite's own scripts never gain privileges. A script that needs root
+      says so and stops; the user runs the root step themselves.
+    paths:
+      exclude: [/semgrep/]
+    pattern-either:
+      - pattern: sudo ...
+      - pattern: doas ...
+      - pattern: su ...
+      - pattern: pkexec ...
+
+  - id: termite-bash-no-eval
+    languages: [bash]
+    severity: ERROR
+    message: >-
+      No eval: it runs text as code. Use arrays, namerefs or `case`.
+    paths:
+      exclude: [/semgrep/]
+    pattern: eval ...
+
+  - id: termite-bash-no-download-and-run
+    languages: [bash]
+    severity: ERROR
+    message: >-
+      Never pipe a download into a shell. Download, check the checksum,
+      show it, then run it.
+    paths:
+      exclude: [/semgrep/]
+    pattern-either:
+      - pattern: curl ... | $SHELL ...
+      - pattern: wget ... | $SHELL ...
+      - pattern: $SHELL <(curl ...)
+      - pattern: $SHELL <(wget ...)
+      - pattern: source <(curl ...)
+
+  - id: termite-bash-no-world-writable
+    languages: [bash]
+    severity: ERROR
+    message: >-
+      termite's files are owner-only. No mode that lets others write or
+      read them.
+    paths:
+      exclude: [/semgrep/, /bash/tests/]
+    pattern-either:
+      - pattern: chmod 777 ...
+      - pattern: chmod 666 ...
+      - pattern: chmod 755 ...
+      - pattern: chmod 644 ...
+      - pattern: chmod a+w ...
+      - pattern: chmod o+w ...
+      - pattern: chmod -R 777 ...
+      - pattern: umask 000
+      - pattern: umask 0000

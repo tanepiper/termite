@@ -52,7 +52,7 @@ if args_on dry-run; then printf "dry run\n"; fi')
 
 @test "usage errors exit 64 and point to --help" {
   for bad in --nope -z -é "--days" "--dry-run=yes" "-d" "--=x" "--a]b" "--x[1]=2"; do
-    run --separate-stderr bash "$script" $bad
+    run --separate-stderr bash "$script" "$bad"
     [ "$status" -eq 64 ]
     [[ ${stderr_lines[-1]} == "Try 'opts --help'." ]]
   done

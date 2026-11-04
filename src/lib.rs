@@ -36,8 +36,9 @@ pub use decide::{
 pub use error::{AssistError, Service};
 pub use generate::{CommandSource, LlamaServer, MAX_CANDIDATES};
 pub use home::{
-    Home, HomeError, NameTaken, PRIVATE_DIR_MODE, PRIVATE_FILE_MODE, Problem,
-    ScriptName, TERMITE_HOME_VAR, write_private,
+    CONFIG_FILE_NAME, Home, HomeError, NameTaken, PRIVATE_DIR_MODE,
+    PRIVATE_FILE_MODE, Problem, ScriptName, TERMITE_HOME_VAR, create_private,
+    write_private,
 };
 pub use merge::merge_candidates;
 pub use policy::{PolicyRefusal, read_only};

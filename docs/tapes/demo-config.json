@@ -1,0 +1,8 @@
+{
+  "model_url": "http://127.0.0.1:11434",
+  "model": "qwen2.5-coder:latest",
+  "decision_url": "http://127.0.0.1:9931",
+  "decision_model": "ggml-org/Kev-4B-GGUF:Q8_0",
+  "generation_timeout_secs": 120,
+  "decision_timeout_secs": 60
+}
