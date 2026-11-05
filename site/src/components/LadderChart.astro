@@ -15,7 +15,7 @@ const rows = (scores: Record<string, number>) =>
 ---
 
 <div class="panels">
-  {results.decision.map((model) => (
+  {results.decision.filter((model) => model.pairs > 0).map((model) => (
     <figure>
       <figcaption>{model.name}</figcaption>
       <table>

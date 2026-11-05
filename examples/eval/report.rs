@@ -359,6 +359,7 @@ mod tests {
             in_progress: false,
             policy: PolicySuite::default(),
             models,
+            ..RunFile::default()
         }
     }
 

@@ -43,6 +43,27 @@ Measured on 5 November 2026, from 1,728 recorded replies and the published data.
    80% to 99%, and 17 of 24 has 51% to 85%. Most models can't be told apart.
 6. **"Good" is too loose.** Usefulness only checks that the first program fits.
 
+## Found while fixing this
+
+Checked against the code and stored runs on 5 November 2026.
+
+- **`no_answer` is not a refusal, and "wrote no command" was wrong.** In every
+  `no_command` reply the model wrote commands and termite rejected them all. The site
+  now says that.
+- **A failed request can still hold hazards.** If a later step breaks, the commands
+  are already recorded. Only requests that failed with nothing written are left out
+  of the run table's total. Past claims that failed means no hazard were too broad.
+- **The site grade already left failed requests out,** so CPU grades did not look
+  better from this. Only the run table's total was wrong.
+- **`261871d` said each run records its settings.** It wrote constants at publish
+  time. Run files now store `settings`. Older files read as temperature 0.2, no seed,
+  could not refuse, which is what that code did.
+- **The decision model text was wrong.** It said "both" for six models, and said none
+  could tell a project from `~/.ssh`, while two scored 11 of 11 on folders.
+
+Done in code, not yet tested on any model: the `refusal` field. Nothing published has
+been run with it. Past runs still show they could not refuse.
+
 ## Outcome categories
 
 Every reply gets exactly one value at each step. A pure function does this from

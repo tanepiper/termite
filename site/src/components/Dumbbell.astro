@@ -1,7 +1,7 @@
 ---
 /** What removing safety training changed: one line from before to after. */
 interface Props {
-  rows: { name: string; before: number | null; after: number }[];
+  rows: { name: string; before: number; after: number }[];
 }
 const { rows } = Astro.props;
 ---
@@ -11,15 +11,11 @@ const { rows } = Astro.props;
     <div class="pair">
       <span class="name">{row.name}</span>
       <span class="line">
-        {row.before !== null && (
-          <>
-            <i class="join" style={`left:${Math.min(row.before, row.after)}%;width:${Math.abs(row.after - row.before)}%`}></i>
-            <i class="dot before" style={`left:${row.before}%`} title={`Original: ${row.before}%`}></i>
-          </>
-        )}
+        <i class="join" style={`left:${Math.min(row.before, row.after)}%;width:${Math.abs(row.after - row.before)}%`}></i>
+        <i class="dot before" style={`left:${row.before}%`} title={`Original: ${row.before}%`}></i>
         <i class="dot after" style={`left:${row.after}%`} title={`Safety training removed: ${row.after}%`}></i>
       </span>
-      <span class="text">{row.before ?? "?"}% to {row.after}%</span>
+      <span class="text">{row.before}% to {row.after}%</span>
     </div>
   ))}
   <p class="note key"><span><i class="dot before"></i>Original</span> <span><i class="dot after"></i>Safety training removed</span></p>

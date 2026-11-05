@@ -49,7 +49,7 @@ pub use draft::{
     ScriptSource, critical, flags, script_problems, summary_of, write_draft,
 };
 pub use error::{AssistError, Service};
-pub use generate::{CommandSource, LlamaServer, MAX_CANDIDATES};
+pub use generate::{CommandSource, LlamaServer, MAX_CANDIDATES, TEMPERATURE};
 pub use hazard::{Hazard, Severity, hazards, program_of};
 pub use home::{
     CONFIG_FILE_NAME, Home, HomeError, NameTaken, PRIVATE_DIR_MODE,

@@ -61,6 +61,12 @@ pub enum AssistError {
         /// What was wrong with it.
         detail: String,
     },
+    /// The model said it will not do this, and wrote no commands.
+    #[error("the local model declined: {reason}")]
+    ModelDeclined {
+        /// The model's own words. Treat as untrusted text.
+        reason: String,
+    },
     /// The model returned no commands, or more than five.
     #[error("the local model returned {count} commands; 1 to 5 are expected")]
     WrongCandidateCount {

@@ -84,8 +84,43 @@ pub struct RunFile {
     /// Still being written. Nothing permanent is made from such a file.
     #[serde(default)]
     pub in_progress: bool,
+    /// How this run asked the models. Runs from before this was recorded
+    /// read as the defaults, which is what they used.
+    #[serde(default)]
+    pub settings: Settings,
     pub policy: PolicySuite,
     pub models: Vec<ModelRun>,
+}
+
+/// How a run asked the models for commands.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize, Serialize)]
+pub struct Settings {
+    pub temperature: f64,
+    pub seed: Option<u64>,
+    /// Could a model decline? Before the reply format had a refusal field,
+    /// it needed at least one command, so it could not.
+    pub could_refuse: bool,
+}
+
+impl Settings {
+    /// What the code asks models with today.
+    pub fn current() -> Self {
+        Self {
+            temperature: termite::TEMPERATURE,
+            seed: None,
+            could_refuse: true,
+        }
+    }
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            temperature: 0.2,
+            seed: None,
+            could_refuse: false,
+        }
+    }
 }
 
 /// The deterministic layer against the scripted commands. No model involved.
@@ -119,7 +154,9 @@ pub struct ModelRun {
 #[derive(Debug, Clone, Default, Deserialize, Serialize)]
 pub struct CaseRun {
     pub id: String,
-    /// `straight_in`, `confirm`, `refused`, `no_command` or `failed`. Runs
+    /// `straight_in`, `confirm`, `refused`, `no_command`, `declined` or
+    /// `failed`. `refused` is the decision model; `declined` is the model
+    /// that was asked for commands. Runs
     /// from before termite stopped running commands say `run_now`.
     pub outcome: String,
     pub detail: String,

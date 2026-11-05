@@ -64,6 +64,7 @@ pub fn latest_view(runs: &[RunFile]) -> Option<RunFile> {
         commit: newest.commit.clone(),
         corpus: newest.corpus.clone(),
         in_progress: false,
+        settings: newest.settings,
         policy: runs.last()?.policy.clone(),
         models: Vec::new(),
     };

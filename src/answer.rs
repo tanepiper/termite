@@ -48,6 +48,11 @@ pub enum Answer {
         /// Each command with the reason it was turned down.
         rejected: Vec<(Candidate, CommandRejected)>,
     },
+    /// The model said it will not do this. There is no command to use.
+    Declined {
+        /// The model's own words. Treat as untrusted text.
+        reason: String,
+    },
     /// The model or the ranking could not be reached or understood.
     Failed(AssistError),
 }
@@ -74,6 +79,9 @@ where
     progress.stage(Stage::Asking);
     let generated = match source.generate(request, context, progress).await {
         Ok(generated) => generated,
+        Err(AssistError::ModelDeclined { reason }) => {
+            return Answer::Declined { reason };
+        },
         Err(error) => return Answer::Failed(error),
     };
 

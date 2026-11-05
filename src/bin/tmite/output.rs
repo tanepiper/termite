@@ -129,7 +129,9 @@ pub(crate) fn render_failure(message: &str, format: Format) -> String {
 pub(crate) fn exit_code(answer: &Answer) -> u8 {
     match answer {
         Answer::Failed(_) => 1,
-        Answer::NoUsableCommand { .. } | Answer::Refused { .. } => 2,
+        Answer::NoUsableCommand { .. }
+        | Answer::Refused { .. }
+        | Answer::Declined { .. } => 2,
         _ => 0,
     }
 }
@@ -158,6 +160,7 @@ fn human(answer: &Answer, view: &View) -> String {
             }
             text
         },
+        Answer::Declined { reason } => declined(reason),
         Answer::Failed(error) => {
             render_failure(&error.to_string(), Format::Human)
         },
@@ -199,6 +202,9 @@ fn json(answer: &Answer, view: &View) -> Value {
                 }))
                 .collect::<Vec<_>>(),
         }),
+        Answer::Declined { reason } => {
+            json!({ "kind": "declined", "reason": reason })
+        },
         Answer::Failed(error) => {
             json!({ "kind": "failed", "message": error.to_string() })
         },
@@ -245,10 +251,19 @@ fn zle(answer: &Answer, view: &View) -> String {
             };
             format!("no_command\n\n\n{message}\n")
         },
+        // The shells already know what to do with no command.
+        Answer::Declined { reason } => {
+            format!("no_command\n\n\n{}", declined(reason))
+        },
         Answer::Failed(error) => {
             render_failure(&error.to_string(), Format::Zle)
         },
     }
+}
+
+/// The reason is the model's own text, so it can't add lines or colours.
+fn declined(reason: &str) -> String {
+    format!("The model declined: {}\n", to_printable(reason))
 }
 
 /// The command is already a single printable line (the command checks
@@ -333,6 +348,9 @@ mod tests {
                 ranked: best(),
                 reason: "Do not touch this folder.".into(),
             },
+            Answer::Declined {
+                reason: "Not this one.\n\x1b[31m".into(),
+            },
             Answer::NoUsableCommand {
                 rejected: vec![(
                     Candidate::new("ls\nrm -rf ~", "List", Risk::Read),
@@ -356,6 +374,7 @@ mod tests {
             format!("straight_in\nreads\nls -la ~/code\n{BEST}  Straight to the prompt: It only lists files.\n"),
             format!("confirm\nreads\nls -la ~/code\n{BEST}  Asking first: the model labelled it `write`\n"),
             "refused\n\n\n✗ refused  Do not touch this folder.\n  ls -la ~/code\n".to_owned(),
+            "no_command\n\n\nThe model declined: Not this one.  [31m\n".to_owned(),
             "no_command\n\n\nNo usable command: the command spans more than one line\n".to_owned(),
             "failed\n\n\ntmite: the local model did not answer in time\n".to_owned(),
         ];
@@ -416,6 +435,7 @@ mod tests {
             "straight_in",
             "confirm_reason",
             "refused",
+            "declined",
             "no_command",
             "failed",
         ];
@@ -461,6 +481,7 @@ mod tests {
             format!("{BEST}  Straight to the prompt: It only lists files.\n"),
             format!("{BEST}  Asking first: the model labelled it `write`\n"),
             "✗ refused  Do not touch this folder.\n  ls -la ~/code\n".to_owned(),
+            "The model declined: Not this one.  [31m\n".to_owned(),
             "No usable command:\n  - \"ls\\nrm -rf ~\": the command spans more than one line\n".to_owned(),
             "tmite: the local model did not answer in time\n".to_owned(),
         ];
@@ -474,6 +495,6 @@ mod tests {
     fn given_each_answer_then_the_exit_code_matches() {
         let codes: Vec<u8> = all_answers().iter().map(exit_code).collect();
 
-        assert_eq!(codes, [0, 0, 0, 0, 2, 2, 1]);
+        assert_eq!(codes, [0, 0, 0, 0, 2, 2, 2, 1]);
     }
 }

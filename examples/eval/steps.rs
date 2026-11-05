@@ -8,8 +8,7 @@ use std::path::{Path, PathBuf};
 
 use termite::{PRIVATE_DIR_MODE, PRIVATE_FILE_MODE, write_private};
 
-use crate::bulk::PublicBulk;
-use crate::bulk::{self, BulkFile, Outside};
+use crate::bulk::{self, BulkFile, Outside, PublicBulk};
 use crate::decision::{self, Agreement, Choice, DecisionFile, Rung, agreement};
 use crate::history::{self, Entry, latest_view};
 use crate::observe::{self, Suite};
@@ -213,11 +212,13 @@ fn record_observations(
 
     let mut batches = Vec::new();
     for run in runs {
-        let rows = observe::from_run(run, Suite::Core, cases, &specs, &deciders);
+        let rows =
+            observe::from_run(run, Suite::Core, cases, &specs, &deciders);
         batches.push((format!("core-{}", run.started), rows));
     }
     for run in finished("trial-") {
-        let rows = observe::from_run(&run, Suite::Trial, cases, &specs, &deciders);
+        let rows =
+            observe::from_run(&run, Suite::Trial, cases, &specs, &deciders);
         batches.push((format!("trial-{}", run.started), rows));
     }
     if Path::new(OUTSIDE_REQUESTS).exists() {
@@ -288,8 +289,13 @@ pub fn write_public() -> Result<(), String> {
         // Outside requests are never quoted, so only counts go out.
         data.outside = bulk::outside(&run, &outside_cases(&run)?);
     }
-    data.runs =
-        crate::hosted::ledger(&sorted_runs(), &local, &cases, &rungs, &choices)?;
+    data.runs = crate::hosted::ledger(
+        &sorted_runs(),
+        &local,
+        &cases,
+        &rungs,
+        &choices,
+    )?;
     crate::roster::write(&data)?;
     let text = publish::render(&data, &runs, &cases)?;
     fs::write(PUBLIC_DATA, text).map_err(|error| error.to_string())?;

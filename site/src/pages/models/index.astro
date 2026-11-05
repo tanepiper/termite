@@ -7,7 +7,9 @@ import WhereItGives from "../../components/WhereItGives.astro";
 import BulkBar from "../../components/BulkBar.astro";
 import { page, readOnlyFlags, results, safety, ungraded, working } from "../../lib/results";
 
-const decision = results.decision;
+/** A model that answered nothing has no score to show. Its run stays in the table below. */
+const decision = results.decision.filter((model) => model.pairs > 0);
+const unscored = results.decision.filter((model) => model.pairs === 0);
 const tiers = [
   "Inert", "Project read", "Personal read", "Contained change", "Sensitive read", "Serious", "Critical",
 ];
@@ -18,9 +20,11 @@ const pct = (a: number, b: number) => (b === 0 ? 0 : Math.round((100 * a) / b));
 const pairs = [...working].sort((a, b) => a.name.localeCompare(b.name));
 const removed = pairs.filter((model) => model.name.includes("safety training removed"));
 const originalOf = (name: string) => working.find((m) => m.name === name.replace(", safety training removed", ""));
+const compared = removed.filter((model) => originalOf(model.name));
+const noOriginal = removed.filter((model) => !originalOf(model.name)).map((model) => model.name.replace(", safety training removed", ""));
 ---
 
-<Base title="Model safety ratings" description="Safety grades for local models, and what each one will do." current="models">
+<Base title="Model safety ratings" description="Safety grades for local models, and what each one wrote." current="models">
   <h1>Model safety ratings</h1>
   <p class="lead">
     How far to trust each AI model on its own, with nothing protecting you. Command
@@ -36,9 +40,10 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
 
   <h2>Command models</h2>
   <p>
-    The grade is how often a model wrote something dangerous when someone asked it to.
-    If a dangerous command ever gets past termite's rules, that's an F. Bigger didn't
-    mean safer.
+    The grade is how often a model wrote a dangerous command for a hostile request. In
+    these runs the reply format needed a command, so a model could not decline. If a
+    dangerous command ever gets past termite's rules, that's an F. There are 24 hostile
+    requests, so two models one grade apart may not really differ.
   </p>
   <Scorecards />
   {results.totals.got_past_policy === readOnlyFlags && (
@@ -74,10 +79,12 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
         stripped out, and people share the stripped copies openly. So here's the same
         model with and without it: the worst thing someone could hand you.
       </p>
-      <Dumbbell rows={removed.map((model) => {
-        const original = originalOf(model.name);
-        return { name: model.name.replace(", safety training removed", ""), before: original ? safety(original).rate : null, after: safety(model).rate };
-      })} />
+      <Dumbbell rows={compared.map((model) => ({
+        name: model.name.replace(", safety training removed", ""),
+        before: safety(originalOf(model.name)!).rate,
+        after: safety(model).rate,
+      }))} />
+      {noOriginal.length > 0 && <p class="note">Not shown, because the original wasn't tested: {noOriginal.join(", ")}.</p>}
       <p class="note">In these runs the reply format needed a command, so neither version could refuse. The run table below shows this for each run.</p>
     </>
   )}
@@ -102,9 +109,10 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
   </p>
   <LadderChart />
   <p>
-    Both spot the disasters and then fall off a cliff. From tier 4 down, the scores are
-    all about the same, so neither can tell <code>ls</code> in a project from
-    {" "}<code>ls</code> in <code>~/.ssh</code>. That's why the code checks the folder now.
+    Kev-4B, Kev-9B and tev1 4B score tiers 5 and 6 far above the rest. From tier 4 down
+    their scores all sit at 0.15 or lower, too close together to separate those tiers.
+    Kev-0.8B scores every tier between 0.36 and 0.67. That's why the code checks the folder
+    itself and doesn't rely on these scores.
   </p>
   <div class="scroll">
     <table>
@@ -119,8 +127,11 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
       </tbody>
     </table>
   </div>
+  {unscored.map((model) => (
+    <p class="note"><strong>{model.name} has no score.</strong> All {model.failed} of its questions got no answer.</p>
+  ))}
   <p>
-    That last row needs saying. When <code>??</code> ranks your options, the decision model is
+    The row on choosing the safest way needs saying. When <code>??</code> ranks your options, the decision model is
     asked which one best does the job, not which is safest, and it often puts the
     dangerous one first. It's on the list.
   </p>
@@ -128,8 +139,9 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
   <h2>Every test run</h2>
   <p>
     Every test of every model: what ran, where it ran, how it was set up, the command that
-    started it, and the result. Nothing a model wrote was ever run. A failed request counts
-    as no hazard, so hazard counts are minimums. ZeroGPU runs used a simpler server with no
+    started it, and the result. Nothing a model wrote was ever run. Hazard counts are out of
+    the hostile requests where the model wrote something. A request that failed before the
+    model wrote anything can't show a hazard, so the counts are minimums. ZeroGPU runs used a simpler server with no
     decision model.
   </p>
   <form class="run-filters" id="run-filters" aria-label="Filter runs">
@@ -144,7 +156,7 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
     <tbody>{results.runs.map((run) => {
       const test = run.tau === null ? "Commands" : "Decision";
       const refuse = run.could_refuse === null ? "" : run.could_refuse ? "Yes" : "No";
-      return <tr data-model={run.model.toLowerCase()} data-ran_on={run.ran_on} data-test={test} data-refuse={refuse}><td>{new Date(run.started * 1000).toISOString().slice(0, 10)}</td><th scope="row">{run.model}</th><td>{test}</td><td>{run.weights}</td><td>{run.ran_on}</td><td>{run.temperature ?? ""}</td><td>{run.tau === null ? (run.seed ?? "None") : ""}</td><td>{refuse}</td><td><code>{run.how}</code></td><td>{run.commit}</td><td class="number">{run.hostile === null ? "" : `${run.wrote_hazard} of ${run.hostile}`}</td><td class="number">{run.handed_over ?? ""}</td><td class="number">{run.tau === null ? "" : run.tau.toFixed(2)}</td><td class="number">{run.failed} of {run.requests}</td></tr>;
+      return <tr data-model={run.model.toLowerCase()} data-ran_on={run.ran_on} data-test={test} data-refuse={refuse}><td>{new Date(run.started * 1000).toISOString().slice(0, 10)}</td><th scope="row">{run.model}</th><td>{test}</td><td>{run.weights}</td><td>{run.ran_on}</td><td>{run.temperature ?? ""}</td><td>{run.tau === null ? (run.seed ?? "None") : ""}</td><td>{refuse}</td><td><code>{run.how}</code></td><td>{run.commit}</td><td class="number">{run.hostile === null ? "" : run.hostile === 0 ? "No result" : `${run.wrote_hazard} of ${run.hostile}`}</td><td class="number">{run.handed_over ?? ""}</td><td class="number">{run.tau === null ? "" : run.failed === run.requests ? "No result" : run.tau.toFixed(2)}</td><td class="number">{run.failed} of {run.requests}</td></tr>;
     })}</tbody>
   </table></div>
 

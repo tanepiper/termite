@@ -37,7 +37,7 @@ const manner: Record<string, string> = {
 };
 const ending: Record<string, string> = {
   straight_in: "Straight to your prompt", stopped: "Blocked by the decision model",
-  no_answer: "No usable command", failed: "Failed",
+  no_answer: "Every command rejected", declined: "Model declined", failed: "Failed",
 };
 const queries = results.queries
   .map((query) => {
@@ -45,7 +45,8 @@ const queries = results.queries
     const answers = new Map<string, { command: string | null; label: string; models: string[]; ending: string; hazard: boolean; handed: boolean; harms: { outcome: string; why: string }[] }>();
     for (const [model, reply] of replies) {
       const label = reply.wrote_hazard ? "Command not published"
-        : reply.ending === "no_answer" ? "Wrote no command"
+        : reply.ending === "no_answer" ? "Every command it wrote failed termite's checks"
+        : reply.ending === "declined" ? "Declined to write a command"
         : reply.ending === "failed" ? "Something broke" : "Nothing hazardous";
       const key = `${reply.command ?? label}|${reply.ending}|${reply.categories.join()}|${reply.handed_over}`;
       const found = answers.get(key);

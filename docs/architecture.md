@@ -41,7 +41,7 @@ Each row may use only the rows above it.
 | `script` | reads a script or a stream and rates each command | reads text only; memory stays bounded; anything it can't read is risky | `command`, `hazard`, `policy`, `rating` |
 | `config` | the config file | checks URLs; holds no token | `error`, `home` |
 | `decide` | the decision model's client | can only make an answer stricter than the thresholds allow | `candidate`, `command`, `config`, `context`, `error` |
-| `generate` | the chat model's client | 1 to 5 candidates or a typed error | `candidate`, `command`, `config`, `context`, `error`, `heartbeat`, `progress`, `sse` |
+| `generate` | the chat model's client | 1 to 5 candidates, or a typed error, which includes the model declining | `candidate`, `command`, `config`, `context`, `error`, `heartbeat`, `progress`, `sse` |
 | `draft` | writes a script as a draft | saves nothing itself and runs nothing; a critical hazard is withheld with no second try | `command`, `context`, `decide`, `error`, `generate`, `hazard`, `home`, `progress`, `rating`, `script` |
 | `answer` | the flow: generate, check, merge, rank, gate | never fails open; local checks run before the network | all of the above except `config`, `heartbeat`, `home`, `sse` |
 

@@ -15,6 +15,9 @@ use crate::heartbeat::{self, CHECK_EVERY};
 use crate::progress::{Progress, Stage};
 use crate::sse::{ChatStream, MAX_REPLY_BYTES, too_long};
 
+/// How the model is sampled. Evaluation runs record this value.
+pub const TEMPERATURE: f64 = 0.2;
+
 /// The most commands the model may return for one request.
 pub const MAX_CANDIDATES: usize = 5;
 
@@ -61,11 +64,10 @@ impl LlamaServer {
         model: &str,
         timeout: Duration,
     ) -> Result<Self, AssistError> {
-        let client = config
-            .model_client()
-            .timeout(timeout)
-            .build()
-            .map_err(|error| AssistError::from_http(Service::Model, &error))?;
+        let client =
+            config.model_client().timeout(timeout).build().map_err(
+                |error| AssistError::from_http(Service::Model, &error),
+            )?;
 
         Ok(Self {
             client,
@@ -198,7 +200,7 @@ pub(crate) fn generation_request(
 ) -> Value {
     json!({
         "model": model,
-        "temperature": 0.2,
+        "temperature": TEMPERATURE,
         "stream": stream,
         // Reasoning models think for minutes before a one-line command;
         // the answer is the same without it. llama.cpp reads this, and
@@ -244,6 +246,11 @@ fn parse_candidates(content: &str) -> Result<Vec<Candidate>, AssistError> {
         .map_err(|error| AssistError::invalid(Service::Model, error))?;
 
     let count = reply.candidates.len();
+    if count == 0 && !reply.refusal.trim().is_empty() {
+        return Err(AssistError::ModelDeclined {
+            reason: reply.refusal,
+        });
+    }
     if count == 0 || count > MAX_CANDIDATES {
         return Err(AssistError::WrongCandidateCount { count });
     }
@@ -287,7 +294,9 @@ fn system_prompt(context: &Context) -> String {
          - Prefer standard tools that are installed by default.\n\
          - description: one short sentence saying what the command does.\n\
          - risk: \"read\" if it only looks, \"write\" if it changes something that \
-         can be undone, \"destructive\" if it deletes data or cannot be undone."
+         can be undone, \"destructive\" if it deletes data or cannot be undone.\n\
+         - refusal: if you will not do this, give no commands and say why here. \
+         Otherwise leave it empty."
     )
 }
 
@@ -297,7 +306,6 @@ fn candidates_schema() -> Value {
         "properties": {
             "candidates": {
                 "type": "array",
-                "minItems": 1,
                 "maxItems": MAX_CANDIDATES,
                 "items": {
                     "type": "object",
@@ -313,8 +321,9 @@ fn candidates_schema() -> Value {
                     "additionalProperties": false,
                 },
             },
+            "refusal": { "type": "string" },
         },
-        "required": ["candidates"],
+        "required": ["candidates", "refusal"],
         "additionalProperties": false,
     })
 }
@@ -337,6 +346,9 @@ struct ChatMessage {
 #[derive(Deserialize)]
 struct CandidatesReply {
     candidates: Vec<ReplyCandidate>,
+    /// Why the model will not do this. Only counts with no commands.
+    #[serde(default)]
+    refusal: String,
 }
 
 #[derive(Deserialize)]
@@ -460,6 +472,51 @@ mod tests {
                 Candidate::new("docker ps", "List containers", Risk::Read),
             ])
         );
+    }
+
+    #[test]
+    fn given_a_refusal_and_no_commands_then_the_model_declined() {
+        let reply = chat_reply(&json!({
+            "candidates": [],
+            "refusal": "That would wipe the disk.",
+        }));
+
+        assert_eq!(
+            parse_model_reply(&reply),
+            Err(AssistError::ModelDeclined {
+                reason: "That would wipe the disk.".to_owned(),
+            })
+        );
+    }
+
+    #[test]
+    fn given_commands_and_a_refusal_then_the_commands_still_count() {
+        let reply = chat_reply(&json!({
+            "candidates": [
+                { "command": "ls", "description": "List", "risk": "read" },
+            ],
+            "refusal": "I would rather not.",
+        }));
+
+        assert_eq!(parse_model_reply(&reply).map(|found| found.len()), Ok(1));
+    }
+
+    #[test]
+    fn given_no_commands_and_a_blank_refusal_then_the_reply_is_bad() {
+        let reply = chat_reply(&json!({ "candidates": [], "refusal": "  " }));
+
+        assert_eq!(
+            parse_model_reply(&reply),
+            Err(AssistError::WrongCandidateCount { count: 0 })
+        );
+    }
+
+    #[test]
+    fn given_the_schema_then_a_model_can_decline() {
+        let schema = candidates_schema();
+
+        assert!(schema["properties"]["candidates"].get("minItems").is_none());
+        assert_eq!(schema["required"], json!(["candidates", "refusal"]));
     }
 
     #[test]

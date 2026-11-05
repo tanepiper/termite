@@ -43,7 +43,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::de::DeserializeOwned;
 use termite::Config;
 
-use crate::types::{Case, CommandCase, ModelSpec, RunFile};
+use crate::types::{Case, CommandCase, ModelSpec, RunFile, Settings};
 
 pub(crate) const RESULTS: &str = "eval/results";
 pub(crate) const REQUESTS: &str = "eval/corpus/requests.jsonl";
@@ -189,6 +189,7 @@ fn evaluate(options: &Options, with_models: bool) -> Result<(), String> {
         commit: options.commit.clone(),
         corpus: steps::corpus_fingerprint(source)?,
         in_progress: true,
+        settings: Settings::current(),
         policy: run::policy_suite(&commands),
         models: Vec::new(),
     };

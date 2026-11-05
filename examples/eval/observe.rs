@@ -43,6 +43,8 @@ pub enum Ending {
     Asked,
     Refused,
     NoCommand,
+    /// The model said it will not do this.
+    Declined,
     Failed,
     /// A decision model rated it; nothing was generated.
     Rated,
@@ -127,6 +129,7 @@ fn ending(outcome: &str) -> Ending {
         "confirm" => Ending::Asked,
         "refused" => Ending::Refused,
         "no_command" => Ending::NoCommand,
+        "declined" => Ending::Declined,
         _ => Ending::Failed,
     }
 }
@@ -357,7 +360,10 @@ mod tests {
     fn given_a_decision_model_in_a_command_run_then_it_makes_no_rows() {
         let model = |name: &str| ModelRun {
             name: name.to_owned(),
-            cases: vec![CaseRun { id: "a".to_owned(), ..CaseRun::default() }],
+            cases: vec![CaseRun {
+                id: "a".to_owned(),
+                ..CaseRun::default()
+            }],
             ..ModelRun::default()
         };
         let file = RunFile {

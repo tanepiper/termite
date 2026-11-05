@@ -201,6 +201,30 @@ fn given_only_commands_failing_checks_then_no_usable_command_is_returned() {
 }
 
 #[test]
+fn given_the_model_declines_then_there_is_no_command_and_no_ranking() {
+    let mut declining = MockCommandSource::new();
+    declining.expect_generate().returning(|_, _, _| {
+        Box::pin(async {
+            Err(AssistError::ModelDeclined {
+                reason: "No.".to_owned(),
+            })
+        })
+    });
+    let mut idle_decider = MockDecisionClient::new();
+    idle_decider.expect_rank().never();
+
+    let answer =
+        run("? wipe the disk", &local_idle(), &declining, &idle_decider);
+
+    assert_eq!(
+        answer,
+        Answer::Declined {
+            reason: "No.".to_owned(),
+        }
+    );
+}
+
+#[test]
 fn given_a_generation_or_ranking_error_then_failed_is_returned() {
     let mut failing_source = MockCommandSource::new();
     failing_source.expect_generate().returning(|_, _, _| {

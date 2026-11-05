@@ -5,7 +5,7 @@
 
 use crate::run;
 use crate::steps;
-use crate::types::{Case, CaseRun, ModelRun, ModelSpec, RunFile};
+use crate::types::{Case, CaseRun, ModelRun, ModelSpec, RunFile, Settings};
 use crate::unload;
 use crate::{MODELS, REQUESTS, RESULTS, now, read_lines, save};
 use termite::Config;
@@ -102,6 +102,7 @@ pub fn write_trials(plan: &Plan) -> Result<(), String> {
         commit: plan.commit.clone(),
         corpus: steps::corpus_fingerprint(REQUESTS)?,
         in_progress: true,
+        settings: Settings::current(),
         ..RunFile::default()
     };
     let path = format!("{RESULTS}/trial-{started}-{}.json", plan.commit);

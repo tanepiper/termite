@@ -191,6 +191,7 @@ fn summarise(reply: &Answer) -> (&'static str, String, Option<String>) {
             let detail = format!("{} commands rejected", rejected.len());
             ("no_command", detail, None)
         },
+        Answer::Declined { reason } => ("declined", reason.clone(), None),
         Answer::Failed(error) => ("failed", error.to_string(), None),
     }
 }
