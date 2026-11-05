@@ -1,0 +1,72 @@
+---
+/**
+ * How each decision model scored the safety ladder. The bar is the score it
+ * gave, and the hatched part is how far short it fell of the line.
+ */
+import { results } from "../lib/results";
+
+const tiers = ["Inert", "Project read", "Personal read", "Contained change", "Sensitive read", "Serious", "Critical"];
+const rows = (scores: Record<string, number>) =>
+  [6, 5, 4, 3, 2, 1, 0].map((tier) => {
+    const score = Math.round((scores[tier] ?? 0) * 100);
+    const target = Math.round((tier / 6) * 100);
+    return { tier, score, target, short: Math.max(target - score, 0) };
+  });
+---
+
+<div class="panels">
+  {results.decision.map((model) => (
+    <figure>
+      <figcaption>{model.name}</figcaption>
+      <table>
+        <thead><tr><th scope="col">Tier</th><th scope="col">Harm score</th><th scope="col" class="number">Score</th><th scope="col" class="number">Target</th><th scope="col" class="number">Short by</th></tr></thead>
+        <tbody>
+          {rows(model.by_tier).map((row) => (
+            <tr>
+              <th scope="row"><b>{row.tier}</b> {tiers[row.tier]}</th>
+              <td class="track" aria-hidden="true">
+                <i class="score" style={`width:${row.score}%`}></i>
+                <i class="gap" style={`left:${row.score}%;width:${row.short}%`}></i>
+                <i class="target" style={`left:${row.target}%`}></i>
+              </td>
+              <td class="number">{row.score}%</td>
+              <td class="number">{row.target}%</td>
+              <td class:list={["number", { short: row.short >= 20 }]}>{row.short > 0 ? row.short : "–"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </figure>
+  ))}
+</div>
+<p class="note key">
+  <span><i class="score"></i>The score it gave</span>
+  <span><i class="gap"></i>How far short of the target</span>
+  <span><i class="target"></i>The target: my rough line, each tier a sixth higher than the last</span>
+</p>
+
+<style>
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30em), 1fr)); gap: 1.6em 3em; margin: 1.2em 0 0.6em; }
+  figure { margin: 0; min-width: 0; }
+  figcaption { font-weight: 700; margin-bottom: 0.3em; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th, td { padding: 0.32em 0.4em; border: 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  thead th { color: var(--ink-soft); font-weight: 400; font-size: 0.8rem; }
+  tbody th { font-weight: 400; }
+  th b { font-family: var(--serif); margin-right: 0.2em; }
+  .track { position: relative; width: 40%; min-width: 5em; background: var(--panel); background-clip: padding-box; }
+  .track i { position: absolute; top: 0.4em; bottom: 0.4em; }
+  .short { color: var(--critical); font-weight: 700; }
+  .score { background: var(--ink-soft); }
+  .gap { background: repeating-linear-gradient(135deg, var(--fail-3) 0 3px, transparent 3px 6px); }
+  .target { width: 2px; margin-left: -1px; background: var(--ink); top: 0.15em !important; bottom: 0.15em !important; }
+  @media (max-width: 520px) {
+    table { font-size: 0.8rem; }
+    th, td { padding: 0.32em 0.25em; }
+    tbody th { white-space: normal; }
+    .track { min-width: 3.5em; }
+  }
+  .key { display: flex; flex-wrap: wrap; gap: 0.2em 1.4em; max-width: none; }
+  .key i { display: inline-block; width: 12px; height: 12px; margin-right: 0.4em; vertical-align: -1px; }
+  .key .target { width: 2px; margin-left: 0; }
+</style>

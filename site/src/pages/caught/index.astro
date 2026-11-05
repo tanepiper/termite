@@ -1,0 +1,217 @@
+---
+import Base from "../../layouts/Base.astro";
+import ModelChip from "../../components/ModelChip.astro";
+import { bySafetyTraining, capitalise, families, results } from "../../lib/results";
+
+// What each kind of command would do to you, and why that's bad. This is the
+// only description a reader gets of a command that isn't printed, so it stays
+// about the outcome and never says how.
+const harm: Record<string, { outcome: string; why: string }> = {
+  system_destroy: { outcome: "Wrecks the machine", why: "It goes for your home folder, the disk or the operating system. You'd be reinstalling from scratch, and anything without a backup is gone." },
+  delete: { outcome: "Deletes your data", why: "Files removed this way skip the Bin. Without a backup they don't come back." },
+  reverse_shell: { outcome: "Hands your shell to someone else", why: "An outsider gets a live prompt on your machine, with your access to everything on it." },
+  download_exec: { outcome: "Runs code from the internet", why: "Whatever that address serves runs as you, unread, and it can change from one run to the next." },
+  exfiltration: { outcome: "Sends your data off the machine", why: "Once it's on someone else's server you can't get it back, and any keys in it have to be replaced." },
+  persistence: { outcome: "Leaves something behind that survives a restart", why: "It keeps coming back after you close the terminal or reboot, so one bad moment becomes a long-term foothold." },
+  disable_guard: { outcome: "Tampers with termite", why: "It goes after the checks protecting you, so the next bad command wouldn't get caught." },
+  security_off: { outcome: "Switches off your protection", why: "With the machine's defences down, everything after this is easier, and you may not notice." },
+  obfuscation: { outcome: "Hides what it really does", why: "If you can't read a command before it runs, you can't check it." },
+  secret_read: { outcome: "Reads your secrets", why: "Keys, tokens and passwords end up on screen and in your scrollback, where they can be copied." },
+  privilege: { outcome: "Needs root", why: "With root, a mistake or an attack reaches the whole machine, not only your files." },
+  process: { outcome: "Kills a running process", why: "Whatever was running stops, and any unsaved work goes with it." },
+};
+// Headings for requests described in general: the aim, and how it was put.
+const aim: Record<string, string> = {
+  "remote code": "Run someone else's code on your machine",
+  secrets: "Get at your secrets",
+  deletion: "Delete your data",
+  "data theft": "Send your data somewhere else",
+  persistence: "Leave something running behind your back",
+  "system defences": "Weaken the machine's defences",
+  "termite itself": "Get round termite",
+};
+const manner: Record<string, string> = {
+  "direct attack": "asked outright",
+  obfuscation: "with the command disguised",
+  "prompt injection": "with the instruction buried in other text",
+};
+const ending: Record<string, string> = {
+  straight_in: "Straight to your prompt", stopped: "Blocked by the decision model",
+  no_answer: "Refused", failed: "Failed",
+};
+const queries = results.queries
+  .map((query) => {
+    const replies = Object.entries(query.replies);
+    const answers = new Map<string, { command: string | null; label: string; models: string[]; ending: string; hazard: boolean; handed: boolean; harms: { outcome: string; why: string }[] }>();
+    for (const [model, reply] of replies) {
+      const label = reply.wrote_hazard ? "Command not published"
+        : reply.ending === "no_answer" ? "Wrote no command"
+        : reply.ending === "failed" ? "Something broke" : "Nothing hazardous";
+      const key = `${reply.command ?? label}|${reply.ending}|${reply.categories.join()}|${reply.handed_over}`;
+      const found = answers.get(key);
+      if (found) found.models.push(model);
+      else answers.set(key, {
+        command: reply.command, label, models: [model], ending: reply.ending, hazard: reply.wrote_hazard,
+        handed: reply.handed_over, harms: reply.categories.map((c: string) => harm[c] ?? { outcome: capitalise(c), why: "" }),
+      });
+    }
+    return {
+      ...query, hazard: replies.some(([, reply]) => reply.wrote_hazard), withheld: query.request === null,
+      answers: [...answers.values()].sort((a, b) => Number(b.hazard) - Number(a.hazard) || b.models.length - a.models.length),
+    };
+  })
+  .sort((a, b) => Number(b.hazard) - Number(a.hazard) || b.level - a.level);
+const hidden = queries.filter((query) => query.withheld).length;
+const unprinted = results.queries
+  .flatMap((query) => Object.values(query.replies))
+  .filter((reply) => reply.wrote_hazard && reply.command === null).length;
+---
+
+<Base title="What models wrote" description="Every request sent to the models, and what they came back with." current="caught">
+  <h1>What the models wrote</h1>
+  <p class="lead">
+    Every request, and what came back. None of it was run, and most of the commands near the
+    top are things you really shouldn't run either.
+  </p>
+  <aside class="unpublished" id="unpublished">
+    <h2>Some commands aren't printed here</h2>
+    <p>
+      The models did write these. I've left {unprinted} commands off this page because
+      they're nastier than <code>rm -rf ~</code>, and reprinting working attacks helps
+      nobody. For the same reason, {hidden} of the {queries.length} requests are described
+      in general terms, not quoted.
+    </p>
+    <p>
+      Where you see <span class="tag">Command not published</span> you get what the
+      command would have done to you, why that's bad, and how it ended.
+    </p>
+  </aside>
+
+  <p class="note families">
+    Each answer lists the models that gave it, split into two groups. Safety training is the
+    part of a model that teaches it to say no. Some of these copies have had it deliberately
+    stripped out, and we test those to see the worst case. The dot shows the model's
+    family: {families.map(({ family, colour }) => <span class="family" style={`--dot: ${colour}`}>{capitalise(family)}</span>)}
+  </p>
+
+  <form class="controls" aria-label="Group and filter requests">
+    <label>Group by
+      <select id="group">
+        <option value="domain">Area</option>
+        <option value="technique">Type of request</option>
+        <option value="level">Level</option>
+      </select>
+    </label>
+    <label>Show
+      <select id="filter">
+        <option value="hazard">Models wrote something hazardous</option>
+        <option value="all">Everything</option>
+        <option value="quoted">Requests quoted in full</option>
+        <option value="withheld">Requests described in general</option>
+      </select>
+    </label>
+  </form>
+  <p class="note" id="count" role="status"></p>
+  <div id="groups"></div>
+
+  <div id="list">
+    {queries.map((query) => (
+      <article class="query" data-domain={capitalise(query.domain)} data-technique={capitalise(query.technique)}
+        data-level={`Level ${query.level}`} data-hazard={String(query.hazard)} data-withheld={String(query.withheld)}>
+        <h3>{query.request ?? `${aim[query.domain] ?? capitalise(query.domain)}, ${manner[query.technique] ?? query.technique}`}</h3>
+        <ul class="answers">
+          {query.answers.map((answer) => (
+            <li class:list={[{ hazard: answer.hazard, refused: answer.ending === "no_answer" }]}>
+              {answer.command
+                ? <code class="cmd">{answer.command}</code>
+                : answer.hazard
+                  ? <a class="tag" href="#unpublished">{answer.label}</a>
+                  : <span class="note">{answer.label}</span>}
+              <div class="by">
+                {bySafetyTraining(answer.models, (name) => name).map((group) => (
+                  <section class="group">
+                    <h4>{group.heading}</h4>
+                    <ul>{group.items.map((name) => <li><ModelChip name={name} /></li>)}</ul>
+                  </section>
+                ))}
+              </div>
+              <span class="what">
+                {ending[answer.ending] && <b class={answer.ending === "straight_in" && answer.hazard ? "status-bad" : ""}>{ending[answer.ending]}</b>}
+                {answer.hazard && answer.harms.map((item) => <span class="harm"><strong>{item.outcome}.</strong> {item.why}</span>)}
+                {answer.handed && <span class="harm">This was the model's top answer, so it's what you'd have been given.</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </article>
+    ))}
+  </div>
+</Base>
+
+<script>
+  const list = document.querySelector("#list") as HTMLElement;
+  const groups = document.querySelector("#groups") as HTMLElement;
+  const group = document.querySelector("#group") as HTMLSelectElement;
+  const filter = document.querySelector("#filter") as HTMLSelectElement;
+  const count = document.querySelector("#count") as HTMLElement;
+  const queries = [...list.querySelectorAll<HTMLElement>(".query")];
+  const wanted: Record<string, (query: HTMLElement) => boolean> = {
+    all: () => true,
+    hazard: (query) => query.dataset.hazard === "true",
+    quoted: (query) => query.dataset.withheld === "false",
+    withheld: (query) => query.dataset.withheld === "true",
+  };
+  function draw() {
+    const visible = queries.filter(wanted[filter.value]);
+    const names = [...new Set(visible.map((query) => query.dataset[group.value] ?? ""))].sort();
+    groups.replaceChildren(...names.map((name) => {
+      const section = document.createElement("section");
+      const heading = document.createElement("h2");
+      const members = visible.filter((query) => query.dataset[group.value] === name);
+      heading.textContent = `${name} (${members.length})`;
+      section.append(heading, ...members);
+      return section;
+    }));
+    list.hidden = true;
+    count.textContent = `${visible.length} of ${queries.length} requests`;
+  }
+  group.addEventListener("change", draw);
+  filter.addEventListener("change", draw);
+  draw();
+</script>
+
+<style>
+  .controls { display: flex; flex-wrap: wrap; gap: 0.6em 1.6em; margin: 1.4em 0 0.4em; }
+  label { font-size: 0.92rem; color: var(--ink-soft); }
+  select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.25em 0.4em; margin-left: 0.3em; }
+  .query { padding: 0.4em 0 1.2em; }
+  h3 { font-size: 1.3rem; margin: 0.8em 0 0.5em; overflow-wrap: anywhere; }
+  .unpublished { background: var(--panel); border-left: 4px solid var(--gallery); border-radius: 0 6px 6px 0; padding: 1.1em 1.4em; margin: 1.6em 0 2em; max-width: 46rem; scroll-margin-top: 1em; }
+  .unpublished h2 { font-size: 1.35rem; margin: 0 0 0.4em; }
+  .unpublished p { margin: 0.5em 0 0; }
+  .unpublished code { white-space: nowrap; }
+  .tag { display: inline-block; font: 700 0.82rem/1.3 var(--sans); color: var(--ink); text-decoration: none; padding: 0.25em 0.6em; border-radius: 3px; border: 1px solid var(--gallery); background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--gallery) 22%, transparent) 6px 12px); vertical-align: 0.12em; white-space: nowrap; }
+  a.tag { justify-self: start; align-self: start; }
+  a.tag:hover { border-color: var(--ink); }
+  .answers { list-style: none; margin: 0; padding: 0; }
+  .answers > li { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 0.2em 2em; padding: 0.7em 0 0.7em 0.9em; border-left: 3px solid var(--line); max-width: none; }
+  .answers > li + li { margin-top: 0.4em; }
+  .answers > li.hazard { border-left-color: var(--gallery); }
+  .cmd { font-size: 0.95rem; background: none; padding: 0; }
+  .by { grid-column: 1; align-self: start; margin-top: 0.35em; }
+  .group { margin-top: 0.6em; }
+  .group h4 { font: 500 0.82rem/1.3 var(--sans); color: var(--ink-soft); margin: 0 0 0.3em; }
+  .group ul { list-style: none; margin: 0; padding: 0; display: grid; justify-items: start; gap: 0.25em; }
+  .group li { margin: 0; }
+  .answers > li.refused { border-left-color: var(--good); }
+  .family { display: inline-flex; align-items: center; gap: 0.35em; margin-right: 0.8em; color: var(--ink); }
+  .family::before { content: ""; width: 0.62em; height: 0.62em; border-radius: 50%; background: var(--dot); }
+  .what { grid-column: 2; grid-row: 1 / span 2; font-size: 0.9rem; color: var(--ink-soft); }
+  .what b { color: var(--ink); font-weight: 700; display: block; }
+  .harm { display: block; margin-top: 0.3em; }
+  .harm strong { color: var(--ink); font-weight: 500; }
+  @media (max-width: 640px) {
+    .answers > li { grid-template-columns: minmax(0, 1fr); }
+    .what { grid-column: 1; grid-row: auto; }
+  }
+</style>

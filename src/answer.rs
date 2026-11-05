@@ -3,12 +3,14 @@
 
 use crate::candidate::{Candidate, Risk};
 use crate::command::{CommandRejected, check_command};
-use crate::context::{Context, Session};
+use crate::context::Context;
 use crate::decide::{DecisionClient, Ranked, Verdict};
 use crate::error::AssistError;
 use crate::generate::CommandSource;
+use crate::hazard::{Severity, hazards};
 use crate::merge::merge_candidates;
-use crate::policy::read_only;
+use crate::policy::read_only_in;
+use crate::progress::{Progress, Stage};
 use crate::query::{Mode, Query};
 
 /// What to show the user for a query.
@@ -18,24 +20,23 @@ pub enum Answer {
     Confirm(Ranked),
     /// `??`: every distinct command, best first. May hold only one.
     Choose(Vec<Ranked>),
-    /// `?x`: every gate check passed; run it now. `reason` is the decision
-    /// model's sentence.
-    RunNow {
-        /// The command to run.
+    /// `?x`: every gate check passed; it goes straight to the prompt.
+    /// `reason` is the decision model's sentence.
+    StraightIn {
+        /// The command for the prompt.
         ranked: Ranked,
-        /// Why it may run without asking.
+        /// Why it needs no question first.
         reason: String,
     },
-    /// `?x` fell back to confirming. `reason` completes "Not run
-    /// automatically: …".
+    /// `?x` fell back to asking. `reason` completes "Asking first: …".
     ConfirmWithReason {
         /// The command to confirm.
         ranked: Ranked,
-        /// Why it was not run automatically.
+        /// Why it did not go straight to the prompt.
         reason: String,
     },
-    /// `?x`: the decision model refused the command. It must not be
-    /// offered to run.
+    /// `?x`: the decision model refused the command. It must not reach the
+    /// prompt.
     Refused {
         /// The refused command, shown for information only.
         ranked: Ranked,
@@ -54,12 +55,15 @@ pub enum Answer {
 /// Answer a query: ask `source` for commands, drop the ones that fail the
 /// command checks, merge duplicates, ask `decider` to rank them, then act
 /// on the mode. Nothing here fails open: for `?x`, any doubt or error
-/// falls back to [`Answer::ConfirmWithReason`].
+/// falls back to [`Answer::ConfirmWithReason`]. Nothing here runs a command:
+/// the most any answer does is reach the prompt, and only the user presses
+/// Enter.
 pub async fn answer<S, D>(
     query: &Query,
     context: &Context,
     source: &S,
     decider: &D,
+    progress: &dyn Progress,
 ) -> Answer
 where
     S: CommandSource,
@@ -67,7 +71,8 @@ where
 {
     let request = query.request();
 
-    let generated = match source.generate(request, context).await {
+    progress.stage(Stage::Asking);
+    let generated = match source.generate(request, context, progress).await {
         Ok(generated) => generated,
         Err(error) => return Answer::Failed(error),
     };
@@ -78,6 +83,7 @@ where
     }
     let candidates = merge_candidates(usable);
 
+    progress.stage(Stage::Ranking);
     let mut ranked = match decider.rank(request, context, &candidates).await {
         Ok(ranked) if !ranked.is_empty() => ranked,
         Ok(_) => return Answer::Failed(AssistError::EmptyRanking),
@@ -87,8 +93,9 @@ where
     match query.mode() {
         Mode::Confirm => Answer::Confirm(ranked.swap_remove(0)),
         Mode::Choose => Answer::Choose(ranked),
-        Mode::RunIfSafe => {
-            run_if_safe(request, context, decider, ranked.swap_remove(0)).await
+        Mode::StraightIn => {
+            progress.stage(Stage::Checking);
+            straight_in(request, context, decider, ranked.swap_remove(0)).await
         },
     }
 }
@@ -96,7 +103,7 @@ where
 /// The `?x` gate. The local checks run first, so a command that fails one
 /// never reaches the network. Each check can only make the answer
 /// stricter.
-async fn run_if_safe<D>(
+async fn straight_in<D>(
     request: &str,
     context: &Context,
     decider: &D,
@@ -120,7 +127,7 @@ where
         Ok(verdict) => {
             let reason = verdict.reason();
             match verdict.verdict() {
-                Verdict::SafeUnguarded => Answer::RunNow {
+                Verdict::SafeUnguarded => Answer::StraightIn {
                     ranked: best,
                     reason,
                 },
@@ -142,27 +149,29 @@ where
 }
 
 /// The gate checks that need no network: the model's own risk label, the
-/// read-only policy, a local session and an idle shell. The command checks
-/// already ran in [`split_usable`].
+/// hazard signatures and the read-only policy (including the repository's
+/// git config and the folder `rg` starts from). The command checks already
+/// ran in [`split_usable`].
 fn local_gate(context: &Context, candidate: &Candidate) -> Option<String> {
     if candidate.risk() != Risk::Read {
         let risk = candidate.risk().as_str();
         return Some(format!("the model labelled it `{risk}`"));
     }
 
-    if let Err(refusal) = read_only(candidate.command()) {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    if let Err(refusal) = read_only_in(
+        candidate.command(),
+        std::path::Path::new(context.cwd()),
+        home.as_deref(),
+    ) {
         return Some(refusal.to_string());
     }
 
-    if context.session() != Session::Local {
-        return Some("it runs over SSH".to_owned());
-    }
-
-    if !context.is_idle() {
-        return Some("a command is still running".to_owned());
-    }
-
-    None
+    let hazards = hazards(candidate.command());
+    hazards
+        .iter()
+        .find(|hazard| hazard.severity >= Severity::Medium)
+        .map(|hazard| format!("it looks risky ({})", hazard.category))
 }
 
 /// Keep the commands that pass the command checks, in order, and the

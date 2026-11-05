@@ -1,0 +1,117 @@
+---
+import Base from "../layouts/Base.astro";
+import Outcomes from "../components/Outcomes.astro";
+import { handedOver, page, results, saves, working } from "../lib/results";
+
+const { totals } = results;
+---
+
+<Base title="termite" description="termite finds useful or complex command lines and shell scripts, safely, with AI models on your own machine. It never runs them.">
+  <h1>Validate safe commands and scripts for you and your agents</h1>
+  <p class="lead">
+    termite helps you find useful or complex command lines and shell scripts safely,
+    using AI models and decision models on your own machine. termite never runs these
+    commands, and it can stop agents running destructive ones.
+  </p>
+  <p>
+    It works for both sides of computer security: the blue team who defend, and the red
+    team who attack to find the weak spots first.{" "}
+    <a href={page("docs/plain-english/")}>New to this? Start here</a>.
+  </p>
+  <div class="roles">
+    <section class="blue">
+      <h2>Blue team: get safe commands</h2>
+      <p>Ask your terminal for things in plain English, using AI models on your own machine. termite assumes the model is wrong, or worse. It explains every command, marks the risky ones in red, and never runs anything. Enter stays yours.</p>
+      <p><a href={page("docs/getting-started/")}>Install it</a></p>
+    </section>
+    <section class="red">
+      <h2>Red team: test a model</h2>
+      <p>Point it at an AI model before you trust it. It sends the model hostile requests, records which ones it goes along with, grades its safety, and tells you what to block or shut down.</p>
+      <p><a href={page("docs/red-team/")}>Test a model</a></p>
+    </section>
+  </div>
+
+  <img class="demo" src={page("assets/ask.gif")} width="1200" height="600"
+    alt="Typing a question mark and a request at a zsh prompt; termite explains a find command and asks Y or n; yes puts it at the prompt, not run" />
+
+  <h2>What it would have saved you from</h2>
+  <p>
+    I gave {working.length} AI models on my own machine {totals.requests} requests, from "list the files"
+    to outright attacks. They wrote {totals.commands_written} commands, and
+    {" "}{totals.hazardous} of them were trouble. Here's what they reached for.
+  </p>
+
+  <div class="saves">
+    {saves.map((save) => (
+      <section>
+        <div class="head">
+          <h3>{save.title}</h3>
+          <p class="count"><strong>{save.count}</strong> times, {save.models} of {working.length} models</p>
+        </div>
+        <span class="tally" role="img" aria-label={`${save.count} times`}>
+          {Array.from({ length: save.count }, () => <i></i>)}
+        </span>
+        <p class="note">{save.detail}</p>
+        {save.example && (
+          <div class="exchange">
+            <p class="you">{save.example.request}</p>
+            <pre><code>{save.example.command}</code></pre>
+            <p class="note">Written by {save.example.model}.</p>
+          </div>
+        )}
+      </section>
+    ))}
+  </div>
+
+  <h2>Did it work?</h2>
+  <Outcomes harmless={totals.commands_written - totals.hazardous} held={totals.stopped_by_policy} through={totals.got_past_policy} />
+  <p>
+    {totals.got_past_policy === 0
+      ? `None of those ${totals.hazardous} could reach your prompt without asking you first.`
+      : `${totals.got_past_policy} could reach your prompt without asking, and that's a bug.`}{" "}
+    With no model involved, I also threw {totals.policy_refused + totals.policy_escaped} known
+    tricks at the rules: {totals.policy_escaped} got through.
+  </p>
+  <p>
+    Here's the number that matters. {handedOver} times, the model's top answer was the
+    dangerous command, and that's what it gave you. termite marks those in red and
+    makes no the default answer. It does not block them. If you say yes, the command goes
+    to your prompt, so read it before you press Enter. Blocking is{" "}
+    <a href={page("docs/safety-ladder/")}>on the roadmap</a>.
+  </p>
+
+  <h2>How you use it</h2>
+  <div class="scroll">
+    <table>
+      <tbody>
+        <tr><th scope="row"><code>? what's eating my disk</code></th><td>One command, explained. Say yes and it goes to your prompt.</td></tr>
+        <tr><th scope="row"><code>?? what's on port 8080</code></th><td>Every sensible way to do it, explained. Pick one, ask again or cancel.</td></tr>
+        <tr><th scope="row"><code>?x show disk usage</code></th><td>Straight to your prompt, no question, if it just reads and every check agrees.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>That's with the prompt widget for zsh, bash or fish, which is only a convenience. Without it, <code>tmite</code> prints the same thing in any shell. Your requests and folders stay on your machine. <a href={page("docs/using-termite/")}>More on using it</a>.</p>
+</Base>
+
+<style>
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(16em, 1fr)); gap: 0 2.4em; }
+  .roles h2 { margin-top: 0.4em; }
+  .roles section { border-top: 4px solid; padding-top: 0.4em; }
+  .roles .blue { border-color: #3f8cff; }
+  .roles .red { border-color: #ef4d4d; }
+  .demo { display: block; width: 100%; height: auto; border-radius: 6px; margin-top: 1.6em; }
+  th[scope="row"] { white-space: nowrap; font-weight: 400; }
+  .saves { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30em), 1fr)); gap: 0 3em; }
+  .saves section { padding: 1.4em 0; border-top: 1px solid var(--line); min-width: 0; }
+  .tally { display: flex; flex-wrap: wrap; gap: 3px; margin: 0.7em 0; }
+  .tally i { width: 9px; height: 9px; background: var(--gallery); border-radius: 1px; }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 1em; align-items: baseline; }
+  .head h3 { margin: 0; font-size: 1.35rem; }
+  .count { margin: 0; color: var(--ink-soft); }
+  .count strong { color: var(--ink); font-size: 1.3rem; }
+  .saves .note { margin: 0.2em 0; }
+  .exchange { margin-top: 0.7em; }
+  .you { font-family: var(--serif); font-style: italic; margin: 0 0 0.3em; }
+  .you::before { content: "You: "; font-style: normal; color: var(--ink-soft); }
+  .exchange pre { margin: 0.2em 0; }
+</style>

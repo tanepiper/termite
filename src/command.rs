@@ -94,7 +94,7 @@ fn is_line_break(c: char) -> bool {
 /// Control characters (C0 including tab, DEL, C1) and the invisible
 /// characters that can make displayed text differ from what runs:
 /// zero-width characters and bidirectional overrides.
-fn is_hidden(c: char) -> bool {
+pub(crate) fn is_hidden(c: char) -> bool {
     c.is_control()
         || matches!(
             c,

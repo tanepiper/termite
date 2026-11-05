@@ -1,6 +1,6 @@
 # 09 — Provenance log, file checks and alerts
 
-Status: ready-for-agent
+Status: built, except the diff on a changed file and the check when a script runs
 Type: task
 Model: Opus 5.5 (claude-opus-5-5)
 Blocked by: —

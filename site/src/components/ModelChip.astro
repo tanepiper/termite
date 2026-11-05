@@ -1,0 +1,17 @@
+---
+/** One model: its name, and a dot for its family. */
+import { capitalise, modelInfo } from "../lib/results";
+
+interface Props {
+  name: string;
+}
+const { name } = Astro.props;
+const { label, colour, family } = modelInfo(name);
+---
+
+<span class="chip" style={`--dot: ${colour}`} title={`${capitalise(family)} family`}>{label}</span>
+
+<style>
+  .chip { display: inline-flex; align-items: center; gap: 0.4em; font-size: 0.82rem; line-height: 1.3; white-space: nowrap; padding: 0.14em 0.6em 0.14em 0.5em; border: 1px solid var(--line); border-radius: 99px; color: var(--ink); }
+  .chip::before { content: ""; width: 0.62em; height: 0.62em; border-radius: 50%; background: var(--dot); flex: none; }
+</style>

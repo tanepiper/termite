@@ -1,0 +1,60 @@
+---
+import Base from "../layouts/Base.astro";
+import { page } from "../lib/results";
+---
+
+<Base title="Explore the data" description="Every trial of every model: over time, by repeat, by context fill, by failure." current="explore">
+  <h1>Explore the data</h1>
+  <p class="lead">
+    Every trial of every model, one row each. Filter it, then click anything on a chart to
+    see the rows behind it.
+  </p>
+  <p class="note">
+    Rows hold ids and numbers, never a request or a command.
+    <a href={page("docs/evaluation/")}>How the testing works</a>.
+  </p>
+
+  <div id="tabs" role="tablist" aria-label="Model type"></div>
+  <form id="facets" aria-label="Filters"></form>
+  <p class="note" id="count" role="status" data-base={page()}>Loading…</p>
+  <div id="views"></div>
+
+  <section id="drill" hidden>
+    <h2 id="drill-title"></h2>
+    <div class="scroll"><table id="drill-table"></table></div>
+  </section>
+</Base>
+
+<script src="../scripts/explore.ts"></script>
+
+<style is:global>
+  #tabs { display: flex; flex-wrap: wrap; gap: 0.3em; margin: 1.4em 0 0.8em; }
+  #tabs button { font: inherit; padding: 0.3em 0.8em; color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
+  #tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  #facets { display: flex; flex-wrap: wrap; gap: 0.5em 1.2em; }
+  #facets label { font-size: 0.88rem; color: var(--ink-soft); }
+  #facets select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.15em 0.3em; margin-left: 0.3em; max-width: 12em; }
+  .view svg { display: block; width: 100%; height: auto; }
+  .view svg [data-drill] { cursor: pointer; }
+  .view svg text { fill: var(--ink-soft); font: 11px var(--sans); }
+  .view .legend { display: flex; flex-wrap: wrap; gap: 0.2em 1em; font-size: 0.85rem; color: var(--ink-soft); }
+  .view .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 0.35em; }
+  .view .legend i[style] { background: var(--swatch); }
+  .view .legend i.dashed[style] { height: 0; width: 18px; border-radius: 0; background: none; border-top: 2px dashed var(--swatch); vertical-align: 3px; }
+  .fail { display: grid; grid-template-columns: minmax(6em, 15em) 1fr 6em; gap: 0.7em; align-items: center; font-size: 0.88rem; margin: 0.35em 0; }
+  .fail small { display: block; font-size: 0.8em; color: var(--ink-soft); }
+  .fbar { display: flex; gap: 2px; height: 22px; background: var(--panel); }
+  .fbar i { display: block; min-width: 2px; cursor: pointer; font: 500 0.74rem/22px var(--sans); text-align: center; overflow: hidden; color: #2a2420; }
+  .fbar i.f1, .fbar i.f2, .fbar i.f3, .fbar i.f4 { color: var(--fail-hot-ink); }
+  .f1 { background: var(--fail-1); } .f2 { background: var(--fail-2); } .f3 { background: var(--fail-3); } .f4 { background: var(--fail-4); }
+  .f5 { background: var(--fail-5); } .f6 { background: var(--fail-6); } .f7 { background: var(--fail-7); } .f8 { background: var(--fail-8); }
+  .figures { font-size: 0.8rem; margin-top: 0.8em; }
+  .figures th, .figures td { white-space: nowrap; padding: 0.25em 0.6em; }
+  .figures thead th { color: var(--ink-soft); font-weight: 400; }
+  .figures tbody th { font-weight: 500; }
+  @media (max-width: 640px) { .fail { grid-template-columns: minmax(0, 1fr) 6em; } .fail > span:first-child { grid-column: 1 / -1; } }
+  .grid { border-collapse: separate; border-spacing: 2px; font-size: 0.8rem; }
+  .grid td { text-align: center; padding: 0.25em 0.3em; cursor: pointer; border: 0; font-variant-numeric: tabular-nums; }
+  .grid th { white-space: nowrap; border: 0; font-weight: 500; color: var(--ink); }
+  #drill-table td, #drill-table th { font-size: 0.82rem; white-space: nowrap; }
+</style>

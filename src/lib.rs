@@ -7,18 +7,29 @@
 //! read-only policy for `?x`, and the clients for the local model and the
 //! decision endpoint.
 
+#[cfg(test)]
+mod adversarial_tests;
 mod answer;
 mod candidate;
 mod command;
 mod config;
 mod context;
 mod decide;
+mod draft;
 mod error;
 mod generate;
+mod hazard;
+mod heartbeat;
 mod home;
 mod merge;
+mod place;
 mod policy;
+mod progress;
+mod provenance;
 mod query;
+mod rating;
+mod script;
+mod sse;
 #[cfg(test)]
 mod test_support;
 
@@ -33,13 +44,26 @@ pub use decide::{
     DecisionClient, MAX_HARMFUL, MIN_NO_SECRETS, MIN_ONLY_READS,
     REFUSE_HARMFUL, Ranked, SafetyVerdict, SystemOne, Verdict,
 };
+pub use draft::{
+    Draft, DraftPlace, Drafted, MAX_SCRIPT_BYTES, Retry, ScriptReply,
+    ScriptSource, critical, flags, script_problems, summary_of, write_draft,
+};
 pub use error::{AssistError, Service};
 pub use generate::{CommandSource, LlamaServer, MAX_CANDIDATES};
+pub use hazard::{Hazard, Severity, hazards, program_of};
 pub use home::{
     CONFIG_FILE_NAME, Home, HomeError, NameTaken, PRIVATE_DIR_MODE,
     PRIVATE_FILE_MODE, Problem, ScriptName, TERMITE_HOME_VAR, create_private,
     write_private,
 };
 pub use merge::merge_candidates;
-pub use policy::{PolicyRefusal, read_only};
-pub use query::{Mode, Query, parse_query};
+pub use place::{Isolation, isolation, isolation_under};
+pub use policy::{PolicyRefusal, read_only, read_only_in};
+pub use progress::{NoProgress, Progress, Stage};
+pub use provenance::{
+    Entry, Event, FileStatus, Log, PROVENANCE_FILE, ProvenanceError, Record,
+    sha256_hex,
+};
+pub use query::{Mode, Query, parse_query, script_request};
+pub use rating::{Rating, rate, warnings};
+pub use script::{Finding, MAX_COMMAND_BYTES, Splitter, Statement, assess};

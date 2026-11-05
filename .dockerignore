@@ -1,0 +1,9 @@
+# Only what the build needs. This keeps .env and every result out of the image.
+*
+!Cargo.toml
+!Cargo.lock
+!src
+!examples
+!shell
+!bash
+!prompts

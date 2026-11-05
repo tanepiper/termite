@@ -23,9 +23,19 @@ rules:
     severity: ERROR
     message: >-
       Only `tmite setup` may start programs, and only after the user says
-      yes. termite never runs the commands it suggests.
+      yes. termite never runs the commands it suggests. The only other places
+      are script_tools.rs (bash -n and shellcheck parse a script without running
+      it, and the pager shows it) and provenance_key.rs (the system key store).
     paths:
-      exclude: [/src/bin/tmite/setup/, "tests.rs", /tests/, /semgrep/]
+      exclude:
+        [
+          /src/bin/tmite/setup/,
+          /src/bin/tmite/script_tools.rs,
+          /src/bin/tmite/provenance_key.rs,
+          "tests.rs",
+          /tests/,
+          /semgrep/,
+        ]
     pattern-either:
       - pattern: std::process::Command::new(...)
       - pattern: Command::new(...)
@@ -55,10 +65,11 @@ rules:
     languages: [rust]
     severity: ERROR
     message: >-
-      `unsafe` is allowed only in src/home/mod.rs (geteuid). Anything else
-      needs a review and an entry in this rule.
+      `unsafe` is allowed only in src/home/mod.rs (geteuid) and src/place.rs
+      (one read of a macOS kernel flag). Anything else needs a review and an
+      entry in this rule.
     paths:
-      exclude: [/src/home/mod.rs, /semgrep/]
+      exclude: [/src/home/mod.rs, /src/place.rs, /semgrep/]
     pattern: "unsafe { ... }"
 
   - id: termite-decision-token-read-only-in-config

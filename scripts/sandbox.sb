@@ -1,0 +1,45 @@
+;; The sandbox for termite's tests and model evaluation (macOS sandbox-exec).
+;; Everything is allowed except what is denied here. scripts/sandbox.sh passes
+;; the parameters, and `scripts/sandbox.sh --check` proves each rule holds.
+(version 1)
+(allow default)
+
+;; Network: this machine only. Local model servers are on loopback.
+(deny network*)
+(allow network-bind (local ip "localhost:*"))
+(allow network-inbound (local ip "localhost:*"))
+(allow network-outbound (remote ip "localhost:*"))
+(allow network-outbound (remote unix-socket))
+
+;; Writes: the build folder, evaluation results, temporary folders, devices.
+(deny file-write*)
+(allow file-write*
+  (subpath (param "TARGET"))
+  (subpath (param "RESULTS"))
+  (subpath (param "SCRATCH"))
+  (subpath "/private/tmp")
+  (subpath "/private/var/folders")
+  (regex #"^/dev/(null|zero|tty|ttys[0-9]+|ptmx|dtracehelper|fd/)")
+  (regex #"^/dev/pty"))
+;; Cargo takes a lock here even when nothing changes.
+(allow file-write* (regex (string-append "^" (param "CARGO") "/\\.(package-cache|global-cache)")))
+
+;; Reads: never secrets, whatever a test or tool tries.
+(deny file-read*
+  (subpath (string-append (param "REAL_HOME") "/.ssh"))
+  (subpath (string-append (param "REAL_HOME") "/.aws"))
+  (subpath (string-append (param "REAL_HOME") "/.gnupg"))
+  (subpath (string-append (param "REAL_HOME") "/.kube"))
+  (subpath (string-append (param "REAL_HOME") "/.azure"))
+  (subpath (string-append (param "REAL_HOME") "/.password-store"))
+  (subpath (string-append (param "REAL_HOME") "/.config/gh"))
+  (subpath (string-append (param "REAL_HOME") "/.config/gcloud"))
+  (subpath (string-append (param "REAL_HOME") "/Library/Keychains"))
+  (subpath (string-append (param "REAL_HOME") "/Library/Cookies"))
+  (literal (string-append (param "REAL_HOME") "/.netrc"))
+  (literal (string-append (param "REAL_HOME") "/.git-credentials"))
+  (literal (string-append (param "REAL_HOME") "/.npmrc"))
+  (literal (string-append (param "REAL_HOME") "/.zsh_history"))
+  (literal (string-append (param "REAL_HOME") "/.bash_history"))
+  (literal (string-append (param "REAL_HOME") "/.docker/config.json"))
+  (literal (param "ENV_FILE")))

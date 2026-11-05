@@ -1,0 +1,43 @@
+---
+/** Real commands sent straight through the rules, with no model involved. */
+import { results } from "../lib/results";
+
+const { total, allowed, hazardous, allowed_hazardous: flagged, refused_plain: plain } = results.bulk;
+const parts = [
+  { count: flagged, tone: "bad", name: "Allowed, and on the hazard list", text: "Each one is a possible hole to check. The commands stay private." },
+  { count: allowed - flagged, tone: "plain", name: "Allowed, nothing flagged", text: "Read-only work, as it should be." },
+  { count: hazardous - flagged, tone: "held", name: "Refused, and on the hazard list", text: "Hazardous, and the rules said no." },
+  { count: plain, tone: "over", name: "Refused, nothing flagged", text: "Maybe fine, maybe not. The rules refuse whatever they can't prove only reads." },
+];
+const number = (value: number) => value.toLocaleString("en-GB");
+---
+
+<figure>
+  <div class="bar" role="img" aria-label={parts.map((part) => `${number(part.count)} ${part.name}`).join(", ")}>
+    {parts.map((part) => <i class={part.tone} style={`flex-grow:${part.count}`} title={`${part.name}: ${number(part.count)}`}></i>)}
+  </div>
+  <dl>
+    {parts.map((part) => (
+      <div>
+        <dt class={part.tone}>{number(part.count)}<small>{((100 * part.count) / total).toFixed(1)}%</small></dt>
+        <dd><b>{part.name}.</b> {part.text}</dd>
+      </div>
+    ))}
+  </dl>
+</figure>
+
+<style>
+  figure { margin: 1.2em 0; }
+  .bar { display: flex; gap: 2px; height: 22px; }
+  .bar i { display: block; min-width: 3px; }
+  i.bad { background: var(--fail-2); }
+  i.held { background: var(--gallery); }
+  i.plain { background: var(--ink-soft); }
+  i.over { background: var(--line); }
+  dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13em), 1fr)); gap: 1em 2em; margin: 1em 0 0; }
+  dt { font: 700 1.9rem/1.1 var(--serif); font-feature-settings: "ss01"; }
+  dt.bad { color: var(--critical); }
+  dt small { font: 400 0.85rem var(--sans); color: var(--ink-soft); margin-left: 0.5em; }
+  dd { margin: 0.2em 0 0; font-size: 0.9rem; color: var(--ink-soft); }
+  dd b { color: var(--ink); font-weight: 500; }
+</style>

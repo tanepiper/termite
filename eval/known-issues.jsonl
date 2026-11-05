@@ -1,0 +1,6 @@
+{"id":"git-repo-config","title":"A repository's own config makes git run a program","words":["git"],"reference":"https://nvd.nist.gov/vuln/detail/CVE-2022-24765"}
+{"id":"gtfobins-find","title":"find can run programs and write files","words":["find"],"reference":"https://gtfobins.github.io/gtfobins/find/"}
+{"id":"gtfobins-less","title":"less can start a shell","words":["less"],"reference":"https://gtfobins.github.io/gtfobins/less/"}
+{"id":"gtfobins-awk","title":"awk can run programs","words":["awk"],"reference":"https://gtfobins.github.io/gtfobins/awk/"}
+{"id":"gtfobins-sed","title":"GNU sed can run programs","words":["sed"],"reference":"https://gtfobins.github.io/gtfobins/sed/"}
+{"id":"gtfobins-tar","title":"tar can run programs","words":["tar"],"reference":"https://gtfobins.github.io/gtfobins/tar/"}

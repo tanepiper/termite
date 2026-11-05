@@ -2,44 +2,76 @@
 //!
 //! ```text
 //! tmite [--json | --zle] '<? | ?? | ?x> request'
+//! tmite check [--json] [--all] [FILE...]
+//! tmite script [--json] 'request'
+//! tmite scripts list|show|install|remove
 //! tmite setup
+//! tmite shell [zsh|bash|fish]
 //! ```
 //!
-//! `tmite` only prints. Running a command is left to the shell: the zsh
-//! widget in `shell/tmite.zsh` puts it at the prompt, or runs it for `?x`
-//! when every safety check passed.
+//! `tmite` only prints, and termite never runs anything. The optional widgets
+//! in `shell/` put a command at the prompt, and pressing Enter is up to you.
+//! That is the last safety gate.
 
+mod check;
+mod library;
 mod output;
+mod progress;
+mod provenance;
+mod provenance_key;
+mod script_tools;
+mod scripts;
 mod setup;
+mod shell;
 
 use std::env;
-use std::io::{self, Write};
+use std::fs::File;
+use std::io::{self, IsTerminal, Write};
+use std::os::fd::AsFd;
+use std::os::unix::fs::FileTypeExt;
 use std::path::Path;
 use std::process::ExitCode;
 
 use termite::{
-    Config, Context, LlamaServer, Session, SystemOne, answer, decision_token,
-    parse_query,
+    Answer, Config, Context, Home, LlamaServer, Session, SystemOne, answer,
+    decision_token, parse_query, script_request,
 };
 
-use crate::output::{Format, exit_code, render, render_failure};
+use crate::output::{Format, exit_code, render, render_failure, view_of};
+use crate::shell::Shell;
 
 const USAGE: &str = "\
-Usage: tmite [--json | --zle] '<prefix> request'
+Usage: tmite [--json | --zle] '<prefix> request'   prefix: ? ?? ?x ?b
+       tmite check [--json] [--all] [FILE...]   rate a script or a pipe
+       tmite script [--json] 'request'          write a script as a draft
+       tmite scripts list|show|install|remove   manage your scripts
+       tmite provenance verify|PATH|accept PATH what termite installed
+       tmite alerts                             what its guards stopped
        tmite setup   find local models and write the config
+       tmite shell [zsh|bash|fish]   print the optional prompt widget
 
 Prefixes:
-  ?   one command, best first; you confirm it
-  ??  every distinct command, best first; you choose
-  ?x  one command; reported safe to run only if every safety check passes
+  ?   explains one command; say yes to put it at your prompt
+  ??  explains every command, best first; pick one, ask again or cancel
+  ?x  puts one command straight at your prompt, if every check passes
+
+Nothing is ever run for you. Enter at the prompt is yours to press.
 
 Options:
   --json  print one JSON object, for scripts
-  --zle   print the line format read by shell/tmite.zsh
+  --zle   print the line format read by shell/tmite.zsh, with progress
   -h, --help  show this help
 
 Config: ~/.config/termite/config.json. Token: TERMITE_DECISION_TOKEN.
 Exit status: 0 a command to use, 2 none or refused, 1 failed, 64 usage.
+
+tmite check reads files, or a pipe if there are none, and rates each command
+as it arrives. Piping into tmite with no request does the same. No model is used, and nothing is run. --all shows every command;
+--json prints one JSON object per command. Exit status: 0 nothing risky found,
+2 risky or no commands found, 1 failed, 64 usage.
+
+tmite script saves a draft, which isn't executable. tmite scripts install shows
+it, asks you, then installs it. termite never runs a script.
 ";
 
 fn main() -> ExitCode {
@@ -53,6 +85,38 @@ fn main() -> ExitCode {
             return ExitCode::from(64);
         }
         return setup::run();
+    }
+
+    if arguments.first().is_some_and(|first| first == "check") {
+        return check_input(&arguments[1..]);
+    }
+
+    // Piped into with no request: `curl … | tmite` means check this.
+    let no_request = arguments
+        .iter()
+        .all(|word| word == "--json" || word == "--all");
+    if no_request && piped_in() {
+        return check_input(&arguments);
+    }
+
+    if arguments.first().is_some_and(|first| first == "script") {
+        return scripts::write(&arguments[1..]);
+    }
+
+    if arguments.first().is_some_and(|first| first == "scripts") {
+        return scripts::manage(&arguments[1..]);
+    }
+
+    if arguments.first().is_some_and(|first| first == "provenance") {
+        return provenance::manage(&arguments[1..]);
+    }
+
+    if arguments.first().is_some_and(|first| first == "alerts") {
+        return provenance::alerts();
+    }
+
+    if arguments.first().is_some_and(|first| first == "shell") {
+        return print_widget(arguments.get(1).map(String::as_str));
     }
 
     let (format, input) = match read_arguments(&arguments) {
@@ -75,6 +139,64 @@ fn main() -> ExitCode {
     }
 
     ExitCode::from(code)
+}
+
+/// Is something being fed in? A pipe, a socket or a redirected file counts.
+/// A terminal doesn't, and neither does `/dev/null`, which is what a background
+/// job gets for nothing.
+fn piped_in() -> bool {
+    let stdin = io::stdin();
+    let Ok(handle) = stdin.as_fd().try_clone_to_owned() else {
+        return false;
+    };
+    File::from(handle).metadata().is_ok_and(|metadata| {
+        let kind = metadata.file_type();
+        kind.is_fifo() || kind.is_socket() || kind.is_file()
+    })
+}
+
+/// `tmite check`: everything that isn't an option is a file.
+fn check_input(arguments: &[String]) -> ExitCode {
+    let mut style = check::Style {
+        json: false,
+        colour: wants_colour(Format::Human),
+        all: false,
+    };
+    let mut files = Vec::new();
+    let mut options_done = false;
+    for word in arguments {
+        match word.as_str() {
+            _ if options_done => files.push(word.clone()),
+            "--" => options_done = true,
+            "--json" => style.json = true,
+            "--all" => style.all = true,
+            "-h" | "--help" => {
+                print!("{USAGE}");
+                return ExitCode::SUCCESS;
+            },
+            "-" => files.push(word.clone()),
+            option if option.starts_with('-') => {
+                eprint!("tmite: unknown option {option}\n\n{USAGE}");
+                return ExitCode::from(64);
+            },
+            _ => files.push(word.clone()),
+        }
+    }
+    ExitCode::from(check::run(&files, style))
+}
+
+/// Print the widget for `name`, or for the shell in use.
+fn print_widget(name: Option<&str>) -> ExitCode {
+    let shell = match name {
+        Some(name) => Shell::from_name(name),
+        None => Shell::detect(),
+    };
+    let Some(shell) = shell else {
+        eprint!("tmite: there's a widget for zsh, bash and fish\n\n{USAGE}");
+        return ExitCode::from(64);
+    };
+    print!("{}", shell.widget());
+    ExitCode::SUCCESS
 }
 
 /// Parse options, then join the remaining words into the query. Returns
@@ -110,10 +232,18 @@ fn read_arguments(
 }
 
 pub(crate) fn run(format: Format, input: &str) -> (String, u8) {
+    if let Some(request) = script_request(input) {
+        return scripts::answer(request, format);
+    }
+
     let Some(query) = parse_query(input) else {
-        let message = "start the request with ?, ?? or ?x";
+        let message = "start the request with ?, ??, ?x or ?b";
         return (render_failure(message, format), 1);
     };
+
+    if let Some(message) = config_problem() {
+        return (render_failure(&message, format), 1);
+    }
 
     let clients = Config::load().and_then(|config| {
         let source = LlamaServer::new(&config)?;
@@ -137,13 +267,38 @@ pub(crate) fn run(format: Format, input: &str) -> (String, u8) {
     };
 
     let context = context_from_environment();
-    let answer = runtime.block_on(answer(&query, &context, &source, &decider));
+    let answer = progress::watching(format, |progress| {
+        runtime.block_on(answer(&query, &context, &source, &decider, progress))
+    });
 
-    (render(&answer, format), exit_code(&answer))
+    if matches!(answer, Answer::Refused { .. }) {
+        // The command is already stopped. `tmite alerts` shows what this logs.
+        let _ = provenance::alert(input, Vec::new(), "refused", "tmite");
+    }
+
+    let view = view_of(Path::new(context.cwd()), wants_colour(format));
+    (render(&answer, format, &view), exit_code(&answer))
 }
 
-/// `tmite` runs in the user's own shell, so the session is local and the
-/// shell is waiting for this command to finish.
+/// Why the config can't be used, if the log says it has changed.
+pub(crate) fn config_problem() -> Option<String> {
+    provenance::config_problem(&Home::from_env().ok()?)
+}
+
+/// Colour goes to a terminal, or to the widget that prints for one. It is
+/// never sent to a pipe, and `NO_COLOR` and a dumb terminal turn it off.
+fn wants_colour(format: Format) -> bool {
+    let terminal = match format {
+        Format::Human => io::stdout().is_terminal(),
+        Format::Zle => true,
+        Format::Json => false,
+    };
+    let dumb = env::var("TERM").is_ok_and(|term| term == "dumb");
+    terminal && !dumb && env::var_os("NO_COLOR").is_none_or(|v| v.is_empty())
+}
+
+/// `tmite` runs in the user's own shell, which is waiting for it to finish.
+/// An SSH login is detected from the variables sshd sets.
 fn context_from_environment() -> Context {
     let shell = env::var("SHELL")
         .ok()
@@ -157,13 +312,48 @@ fn context_from_environment() -> Context {
         .map(|cwd| cwd.display().to_string())
         .unwrap_or_else(|_| ".".to_owned());
 
-    Context::new(env::consts::OS, shell, cwd, Session::Local, true)
+    Context::new(env::consts::OS, shell, cwd, session_from_environment())
+}
+
+/// [`Session::Ssh`] when sshd started this login (`SSH_CONNECTION`,
+/// `SSH_CLIENT` or `SSH_TTY` is set and not empty).
+fn session_from_environment() -> Session {
+    session_from(|name| env::var_os(name))
+}
+
+fn session_from(
+    variable: impl Fn(&str) -> Option<std::ffi::OsString>,
+) -> Session {
+    let over_ssh = ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"]
+        .iter()
+        .any(|name| variable(name).is_some_and(|value| !value.is_empty()));
+    if over_ssh {
+        Session::Ssh
+    } else {
+        Session::Local
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::read_arguments;
+    use std::ffi::OsString;
+
+    use termite::Session;
+
+    use super::{read_arguments, session_from};
     use crate::output::Format;
+
+    #[test]
+    fn given_ssh_variables_when_read_then_the_session_is_ssh() {
+        for name in ["SSH_CONNECTION", "SSH_CLIENT", "SSH_TTY"] {
+            let session = session_from(|asked| {
+                (asked == name).then(|| OsString::from("10.0.0.1 22"))
+            });
+            assert_eq!(session, Session::Ssh, "{name}");
+        }
+        assert_eq!(session_from(|_| None), Session::Local);
+        assert_eq!(session_from(|_| Some(OsString::new())), Session::Local);
+    }
 
     fn words(line: &str) -> Vec<String> {
         line.split(' ').map(str::to_owned).collect()

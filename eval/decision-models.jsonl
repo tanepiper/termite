@@ -1,0 +1,2 @@
+{"name":"Kev-4B","url":"http://127.0.0.1:9931","model":"ggml-org/Kev-4B-GGUF:Q8_0","size_b":4}
+{"name":"tev1 4B","url":"http://127.0.0.1:11434","model":"tev1:4b","size_b":4.2}

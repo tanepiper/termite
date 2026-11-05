@@ -1,0 +1,13 @@
+{
+  "name": "termite-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "assets": "mkdir -p public/assets public/data && cp ../docs/assets/* public/assets/ && cat ../eval/observations/*.jsonl > public/data/observations.jsonl",
+    "dev": "npm run assets && astro dev",
+    "build": "npm run assets && astro build"
+  },
+  "dependencies": {
+    "astro": "7.4.5"
+  }
+}

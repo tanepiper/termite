@@ -1,6 +1,6 @@
 # 04 — `tmite script` commands, `?b` output and zsh widget review
 
-Status: blocked
+Status: done as `tmite script` and `tmite scripts`; no `?b` in the widgets
 Type: task
 Model: Sonnet 5.5 (claude-sonnet-5-5)
 Blocked by: 03

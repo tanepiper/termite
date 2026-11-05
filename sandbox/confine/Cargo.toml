@@ -1,0 +1,11 @@
+[package]
+name = "confine"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+# Its own package: see src/main.rs for why it isn't in the eval tool.
+[workspace]
+
+[dependencies]
+libc = "0.2.191"

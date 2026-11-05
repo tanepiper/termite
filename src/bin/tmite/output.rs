@@ -1,12 +1,19 @@
 //! The three ways `tmite` prints an answer: for people, as JSON for
-//! scripts, and as plain lines for the zsh widget.
+//! scripts, and as lines for the zsh widget.
 //!
 //! Every piece of model-written text goes through `to_printable` first, so
 //! nothing the model writes can move the cursor, change colours or add a
-//! line to the line format.
+//! line to the line format. Colour is only ever added here, afterwards.
+//! Every colour comes with a word, so nothing depends on seeing it.
+
+use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
-use termite::{Answer, Ranked, to_printable};
+use termite::{Answer, Ranked, Rating, rate, to_printable, warnings};
+
+const RED: &str = "1;31";
+const YELLOW: &str = "33";
+const GREEN: &str = "32";
 
 /// How an answer is printed.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,12 +26,87 @@ pub(crate) enum Format {
     Zle,
 }
 
+/// Where the answer is being read: the folder a command would run in, and
+/// whether to use colour.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct View {
+    pub(crate) cwd: PathBuf,
+    pub(crate) home: Option<PathBuf>,
+    pub(crate) colour: bool,
+}
+
+impl View {
+    fn rating(&self, ranked: &Ranked) -> Rating {
+        rate(ranked.candidate(), &self.cwd, self.home.as_deref())
+    }
+
+    fn paint(&self, code: &str, text: &str) -> String {
+        if self.colour {
+            format!("\x1b[{code}m{text}\x1b[0m")
+        } else {
+            text.to_owned()
+        }
+    }
+
+    fn tag(&self, rating: Rating) -> String {
+        let (code, mark) = match rating {
+            Rating::ReadsOnly => (GREEN, "✓"),
+            Rating::Changes => (YELLOW, "⚠"),
+            Rating::Risky => (RED, "✗"),
+        };
+        self.paint(code, &format!("{mark} {}", rating.label()))
+    }
+
+    /// The explanation, then the command, then termite's own warning.
+    fn entry(&self, ranked: &Ranked, first: &str, rest: &str) -> String {
+        let rating = self.rating(ranked);
+        let description = to_printable(ranked.candidate().description());
+        let shown = command(ranked);
+        let mut text = format!("{first}{}  {description}\n", self.tag(rating));
+
+        if rating == Rating::Risky {
+            text.push_str(&format!("{rest}{}\n", self.paint(RED, &shown)));
+            let warned = warnings(ranked.candidate().command()).join(", ");
+            if !warned.is_empty() {
+                text.push_str(&format!("{rest}termite says: {warned}\n"));
+            }
+        } else {
+            text.push_str(&format!("{rest}{shown}\n"));
+        }
+        text
+    }
+
+    fn list(&self, ranked: &[Ranked]) -> String {
+        ranked
+            .iter()
+            .enumerate()
+            .map(|(index, ranked)| {
+                self.entry(ranked, &format!("{}. ", index + 1), "   ")
+            })
+            .collect()
+    }
+
+    fn refused(&self, ranked: &Ranked, reason: &str) -> String {
+        format!(
+            "{}  {}\n  {}\n",
+            self.paint(RED, "✗ refused"),
+            to_printable(reason),
+            self.paint(RED, &command(ranked))
+        )
+    }
+
+    fn with_note(&self, ranked: &Ranked, note: &str, reason: &str) -> String {
+        let reason = to_printable(reason);
+        format!("{}  {note}: {reason}\n", self.entry(ranked, "", "  "))
+    }
+}
+
 /// Render `answer` in `format`, ending with a new line.
-pub(crate) fn render(answer: &Answer, format: Format) -> String {
+pub(crate) fn render(answer: &Answer, format: Format, view: &View) -> String {
     match format {
-        Format::Human => human(answer),
-        Format::Json => format!("{}\n", json(answer)),
-        Format::Zle => zle(answer),
+        Format::Human => human(answer, view),
+        Format::Json => format!("{}\n", json(answer, view)),
+        Format::Zle => zle(answer, view),
     }
 }
 
@@ -38,7 +120,7 @@ pub(crate) fn render_failure(message: &str, format: Format) -> String {
         Format::Json => {
             format!("{}\n", json!({ "kind": "failed", "message": message }))
         },
-        Format::Zle => format!("failed\n\ntmite: {message}\n"),
+        Format::Zle => format!("failed\n\n\ntmite: {message}\n"),
     }
 }
 
@@ -52,39 +134,20 @@ pub(crate) fn exit_code(answer: &Answer) -> u8 {
     }
 }
 
-fn human(answer: &Answer) -> String {
+const ASKING: &str = "Asking first";
+const STRAIGHT: &str = "Straight to the prompt";
+
+fn human(answer: &Answer, view: &View) -> String {
     match answer {
-        Answer::Confirm(ranked) => {
-            format!("{}\n  {}\n", command(ranked), details(ranked))
+        Answer::Confirm(ranked) => view.entry(ranked, "", "  "),
+        Answer::Choose(ranked) => view.list(ranked),
+        Answer::StraightIn { ranked, reason } => {
+            view.with_note(ranked, STRAIGHT, reason)
         },
-        Answer::Choose(ranked) => ranked
-            .iter()
-            .enumerate()
-            .map(|(index, ranked)| {
-                let number = index + 1;
-                let best = if index == 0 { "   (best)" } else { "" };
-                format!(
-                    "{number}. {}{best}\n   {}\n",
-                    command(ranked),
-                    details(ranked)
-                )
-            })
-            .collect(),
-        Answer::RunNow { ranked, reason } => format!(
-            "{}\n  Safe to run without asking: {}\n",
-            command(ranked),
-            to_printable(reason)
-        ),
-        Answer::ConfirmWithReason { ranked, reason } => format!(
-            "{}\n  Not run automatically: {}\n",
-            command(ranked),
-            to_printable(reason)
-        ),
-        Answer::Refused { ranked, reason } => format!(
-            "Refused: {}\n  {}\n",
-            to_printable(reason),
-            command(ranked)
-        ),
+        Answer::ConfirmWithReason { ranked, reason } => {
+            view.with_note(ranked, ASKING, reason)
+        },
+        Answer::Refused { ranked, reason } => view.refused(ranked, reason),
         Answer::NoUsableCommand { rejected } => {
             let mut text = String::from("No usable command:\n");
             for (candidate, reason) in rejected {
@@ -101,28 +164,29 @@ fn human(answer: &Answer) -> String {
     }
 }
 
-fn json(answer: &Answer) -> Value {
+fn json(answer: &Answer, view: &View) -> Value {
+    let one = |ranked| ranked_json(ranked, view);
     match answer {
         Answer::Confirm(ranked) => {
-            json!({ "kind": "confirm", "command": ranked_json(ranked) })
+            json!({ "kind": "confirm", "command": one(ranked) })
         },
         Answer::Choose(ranked) => json!({
             "kind": "choose",
-            "commands": ranked.iter().map(ranked_json).collect::<Vec<_>>(),
+            "commands": ranked.iter().map(one).collect::<Vec<_>>(),
         }),
-        Answer::RunNow { ranked, reason } => json!({
-            "kind": "run",
-            "command": ranked_json(ranked),
+        Answer::StraightIn { ranked, reason } => json!({
+            "kind": "straight_in",
+            "command": one(ranked),
             "reason": reason,
         }),
         Answer::ConfirmWithReason { ranked, reason } => json!({
             "kind": "confirm_reason",
-            "command": ranked_json(ranked),
+            "command": one(ranked),
             "reason": reason,
         }),
         Answer::Refused { ranked, reason } => json!({
             "kind": "refused",
-            "command": ranked_json(ranked),
+            "command": one(ranked),
             "reason": reason,
         }),
         Answer::NoUsableCommand { rejected } => json!({
@@ -141,47 +205,45 @@ fn json(answer: &Answer) -> Value {
     }
 }
 
-/// Line 1 is the kind. For one command, line 2 is the command and line 3
-/// the message. For `choose`, line 2 is the count, then one
-/// `command<TAB>description` line per command, best first. For
-/// `no_command` and `failed`, line 2 is empty and line 3 the message.
-fn zle(answer: &Answer) -> String {
+/// Line 1 is the kind. For one command, line 2 is its rating and line 3 the
+/// command, which is empty when it must not reach the prompt. For `choose`,
+/// line 2 is the count, then one `rating<TAB>command` line per command, best
+/// first. Whatever follows is what to show the user, as it stands.
+fn zle(answer: &Answer, view: &View) -> String {
+    let one = |kind: &str, ranked: &Ranked, shown: String| {
+        let rating = view.rating(ranked).as_str();
+        format!("{kind}\n{rating}\n{}\n{shown}", command(ranked))
+    };
     match answer {
         Answer::Confirm(ranked) => {
-            format!("confirm\n{}\n{}\n", command(ranked), details(ranked))
+            one("confirm", ranked, view.entry(ranked, "", "  "))
         },
         Answer::Choose(ranked) => {
             let mut text = format!("choose\n{}\n", ranked.len());
             for ranked in ranked {
-                text.push_str(&format!(
-                    "{}\t{}\n",
-                    command(ranked),
-                    details(ranked)
-                ));
+                let rating = view.rating(ranked).as_str();
+                text.push_str(&format!("{rating}\t{}\n", command(ranked)));
             }
+            text.push_str(&view.list(ranked));
             text
         },
-        Answer::RunNow { ranked, reason } => format!(
-            "run\n{}\nRan without asking: {}\n",
-            command(ranked),
-            to_printable(reason)
+        Answer::StraightIn { ranked, reason } => one(
+            "straight_in",
+            ranked,
+            view.with_note(ranked, STRAIGHT, reason),
         ),
-        Answer::ConfirmWithReason { ranked, reason } => format!(
-            "confirm_reason\n{}\nNot run automatically: {}\n",
-            command(ranked),
-            to_printable(reason)
-        ),
-        Answer::Refused { ranked, reason } => format!(
-            "refused\n{}\nRefused: {}\n",
-            command(ranked),
-            to_printable(reason)
-        ),
+        Answer::ConfirmWithReason { ranked, reason } => {
+            one("confirm", ranked, view.with_note(ranked, ASKING, reason))
+        },
+        Answer::Refused { ranked, reason } => {
+            format!("refused\n\n\n{}", view.refused(ranked, reason))
+        },
         Answer::NoUsableCommand { rejected } => {
             let message = match rejected.first() {
                 Some((_, reason)) => format!("No usable command: {reason}"),
                 None => "No usable command".to_owned(),
             };
-            format!("no_command\n\n{message}\n")
+            format!("no_command\n\n\n{message}\n")
         },
         Answer::Failed(error) => {
             render_failure(&error.to_string(), Format::Zle)
@@ -195,32 +257,49 @@ fn command(ranked: &Ranked) -> String {
     to_printable(ranked.candidate().command())
 }
 
-fn details(ranked: &Ranked) -> String {
-    let description = to_printable(ranked.candidate().description());
-    let risk = ranked.candidate().risk().as_str();
-    let score = ranked.score();
-
-    format!("{description} ({risk}, score {score:.2})")
-}
-
-fn ranked_json(ranked: &Ranked) -> Value {
+fn ranked_json(ranked: &Ranked, view: &View) -> Value {
     json!({
         "command": ranked.candidate().command(),
         "description": ranked.candidate().description(),
         "risk": ranked.candidate().risk().as_str(),
+        "rating": view.rating(ranked).as_str(),
+        "warnings": warnings(ranked.candidate().command()),
         "score": ranked.score(),
         "score_reason": ranked.reason(),
     })
 }
 
+/// The folder for rating commands, when the caller has none of its own.
+pub(crate) fn view_of(cwd: &Path, colour: bool) -> View {
+    View {
+        cwd: cwd.to_owned(),
+        home: std::env::var_os("HOME").map(PathBuf::from),
+        colour,
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use serde_json::json;
     use termite::{
         Answer, AssistError, Candidate, CommandRejected, Ranked, Risk, Service,
     };
 
-    use super::{Format, exit_code, render};
+    use super::{Format, View, exit_code, render};
+
+    fn view(colour: bool) -> View {
+        View {
+            cwd: PathBuf::from("/tmp"),
+            home: None,
+            colour,
+        }
+    }
+
+    fn plain(answer: &Answer, format: Format) -> String {
+        render(answer, format, &view(false))
+    }
 
     fn ranked(command: &str, description: &str, score: f64) -> Ranked {
         Ranked::new(
@@ -234,20 +313,21 @@ mod tests {
         ranked("ls -la ~/code", "List the code folder", 0.82)
     }
 
+    fn risky() -> Ranked {
+        ranked("rm -rf ~", "Tidy up", 0.4)
+    }
+
     fn all_answers() -> Vec<Answer> {
         vec![
             Answer::Confirm(best()),
-            Answer::Choose(vec![
-                best(),
-                ranked("tree ~/code", "Show a tree", 0.4),
-            ]),
-            Answer::RunNow {
+            Answer::Choose(vec![best(), risky()]),
+            Answer::StraightIn {
                 ranked: best(),
                 reason: "It only lists files.".into(),
             },
             Answer::ConfirmWithReason {
                 ranked: best(),
-                reason: "it runs over SSH".into(),
+                reason: "the model labelled it `write`".into(),
             },
             Answer::Refused {
                 ranked: best(),
@@ -265,21 +345,36 @@ mod tests {
         ]
     }
 
+    const BEST: &str = "✓ reads only  List the code folder\n  ls -la ~/code\n";
+    const LIST: &str = "1. ✓ reads only  List the code folder\n   ls -la ~/code\n2. ✗ risky  Tidy up\n   rm -rf ~\n   termite says: wrecks the machine, deletes data\n";
+
     #[test]
     fn given_each_answer_when_rendered_for_zle_then_the_line_format_is_used() {
         let expected = [
-            "confirm\nls -la ~/code\nList the code folder (read, score 0.82)\n",
-            "choose\n2\nls -la ~/code\tList the code folder (read, score 0.82)\ntree ~/code\tShow a tree (read, score 0.40)\n",
-            "run\nls -la ~/code\nRan without asking: It only lists files.\n",
-            "confirm_reason\nls -la ~/code\nNot run automatically: it runs over SSH\n",
-            "refused\nls -la ~/code\nRefused: Do not touch this folder.\n",
-            "no_command\n\nNo usable command: the command spans more than one line\n",
-            "failed\n\ntmite: the local model did not answer in time\n",
+            format!("confirm\nreads\nls -la ~/code\n{BEST}"),
+            format!("choose\n2\nreads\tls -la ~/code\nrisky\trm -rf ~\n{LIST}"),
+            format!("straight_in\nreads\nls -la ~/code\n{BEST}  Straight to the prompt: It only lists files.\n"),
+            format!("confirm\nreads\nls -la ~/code\n{BEST}  Asking first: the model labelled it `write`\n"),
+            "refused\n\n\n✗ refused  Do not touch this folder.\n  ls -la ~/code\n".to_owned(),
+            "no_command\n\n\nNo usable command: the command spans more than one line\n".to_owned(),
+            "failed\n\n\ntmite: the local model did not answer in time\n".to_owned(),
         ];
 
         for (answer, expected) in all_answers().iter().zip(expected) {
-            assert_eq!(render(answer, Format::Zle), expected, "{answer:?}");
+            assert_eq!(plain(answer, Format::Zle), expected, "{answer:?}");
         }
+    }
+
+    #[test]
+    fn given_a_refusal_when_rendered_for_zle_then_there_is_no_command_to_insert()
+     {
+        let answer = Answer::Refused {
+            ranked: risky(),
+            reason: "No.".into(),
+        };
+
+        let text = plain(&answer, Format::Zle);
+        assert_eq!(text.lines().nth(2), Some(""), "{text}");
     }
 
     #[test]
@@ -288,9 +383,29 @@ mod tests {
             Answer::Choose(vec![ranked("ls", "List\nfiles\tnow\x1b[31m", 0.5)]);
 
         assert_eq!(
-            render(&answer, Format::Zle),
-            "choose\n1\nls\tList files now [31m (read, score 0.50)\n"
+            plain(&answer, Format::Zle),
+            "choose\n1\nreads\tls\n1. ✓ reads only  List files now [31m\n   ls\n"
         );
+    }
+
+    #[test]
+    fn given_colour_then_risky_is_red_and_model_text_adds_none() {
+        let text = render(
+            &Answer::Confirm(ranked("rm -rf ~", "Tidy\x1b[32m", 0.4)),
+            Format::Human,
+            &view(true),
+        );
+
+        assert!(text.contains("\x1b[1;31m✗ risky\x1b[0m"), "{text:?}");
+        assert!(text.contains("\x1b[1;31mrm -rf ~\x1b[0m"), "{text:?}");
+        assert!(!text.contains("\x1b[32m"), "{text:?}");
+    }
+
+    #[test]
+    fn given_no_colour_then_there_are_no_escapes() {
+        for answer in all_answers() {
+            assert!(!plain(&answer, Format::Human).contains('\x1b'));
+        }
     }
 
     #[test]
@@ -298,7 +413,7 @@ mod tests {
         let kinds = [
             "confirm",
             "choose",
-            "run",
+            "straight_in",
             "confirm_reason",
             "refused",
             "no_command",
@@ -307,7 +422,7 @@ mod tests {
 
         for (answer, kind) in all_answers().iter().zip(kinds) {
             let value: serde_json::Value =
-                serde_json::from_str(&render(answer, Format::Json))
+                serde_json::from_str(&plain(answer, Format::Json))
                     .expect("valid JSON");
             assert_eq!(value["kind"], kind, "{answer:?}");
         }
@@ -315,7 +430,7 @@ mod tests {
 
     #[test]
     fn given_a_confirm_answer_when_rendered_as_json_then_it_has_the_command() {
-        let value: serde_json::Value = serde_json::from_str(&render(
+        let value: serde_json::Value = serde_json::from_str(&plain(
             &Answer::Confirm(best()),
             Format::Json,
         ))
@@ -329,6 +444,8 @@ mod tests {
                     "command": "ls -la ~/code",
                     "description": "List the code folder",
                     "risk": "read",
+                    "rating": "reads",
+                    "warnings": [],
                     "score": 0.82,
                     "score_reason": "fits the request",
                 },
@@ -339,17 +456,17 @@ mod tests {
     #[test]
     fn given_each_answer_when_rendered_for_people_then_it_is_readable() {
         let expected = [
-            "ls -la ~/code\n  List the code folder (read, score 0.82)\n",
-            "1. ls -la ~/code   (best)\n   List the code folder (read, score 0.82)\n2. tree ~/code\n   Show a tree (read, score 0.40)\n",
-            "ls -la ~/code\n  Safe to run without asking: It only lists files.\n",
-            "ls -la ~/code\n  Not run automatically: it runs over SSH\n",
-            "Refused: Do not touch this folder.\n  ls -la ~/code\n",
-            "No usable command:\n  - \"ls\\nrm -rf ~\": the command spans more than one line\n",
-            "tmite: the local model did not answer in time\n",
+            BEST.to_owned(),
+            LIST.to_owned(),
+            format!("{BEST}  Straight to the prompt: It only lists files.\n"),
+            format!("{BEST}  Asking first: the model labelled it `write`\n"),
+            "✗ refused  Do not touch this folder.\n  ls -la ~/code\n".to_owned(),
+            "No usable command:\n  - \"ls\\nrm -rf ~\": the command spans more than one line\n".to_owned(),
+            "tmite: the local model did not answer in time\n".to_owned(),
         ];
 
         for (answer, expected) in all_answers().iter().zip(expected) {
-            assert_eq!(render(answer, Format::Human), expected, "{answer:?}");
+            assert_eq!(plain(answer, Format::Human), expected, "{answer:?}");
         }
     }
 

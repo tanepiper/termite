@@ -1,15 +1,21 @@
 # tmite.zsh: ask a local model for a command from the zsh prompt.
 #
-# Type one of these and press Enter:
+# A convenience only: `tmite` does the same job without it. Type one of these
+# and press Enter:
 #
-#   ? request    put the best command at the prompt; Enter runs it
-#   ?? request   list every command; press its number to put it at the prompt
-#   ?x request   run the command at once if every safety check passed,
-#                otherwise behave like ?
+#   ? request    explains one command; say yes to put it at the prompt
+#   ?? request   explains every command; pick one, ask again or cancel
+#   ?x request   puts the command straight at the prompt if every check
+#                passed, otherwise behaves like ?
+#   ?b request   writes a script as a draft, and puts the command that shows
+#                and installs it at the prompt
 #
-# Source it from ~/.zshrc, after any plugin that wraps accept-line:
+# termite never runs anything. A command only ever reaches the prompt, and
+# pressing Enter is up to you.
 #
-#   source /path/to/termite/shell/tmite.zsh
+# Load it from ~/.zshrc, after any plugin that wraps accept-line:
+#
+#   eval "$(tmite shell zsh)"
 #
 # Set TMITE_BIN if tmite is not on PATH.
 
@@ -21,27 +27,93 @@ if (( ! ${+widgets[_tmite_previous_accept_line]} )); then
   zle -A accept-line _tmite_previous_accept_line
 fi
 
-# Succeed if every program in the command (the first word, and the first
-# word after each |) is a plain command or builtin. The safety checks judged
-# the program by name; an alias or function of that name could run
-# anything. On failure, REPLY holds the program that is not plain.
-_tmite_plain_programs() {
-  local word kind expect_program=1
+# Ask tmite, drawing progress while it works. Sets `output`. Progress lines
+# come first; anything after the answer starts is the answer, never progress.
+_tmite_ask() {
+  local line fd
+  output=
+  zle -M "tmite: asking…"
+  zle -R
 
-  for word in ${(z)1}; do
-    if (( expect_program )); then
-      kind=$(whence -w -- "${(Q)word}" 2>/dev/null)
-      kind=${kind##*: }
-      if [[ $kind != command && $kind != builtin ]]; then
-        REPLY=${(Q)word}
-        return 1
+  exec {fd}< <(command "$TMITE_BIN" --zle -- "$1" 2>&1 </dev/null)
+  {
+    while IFS= read -r -u $fd line; do
+      if [[ -z $output && $line == progress$'\t'* ]]; then
+        zle -M -- "tmite: ${line#*$'\t'}"
+        zle -R
+      else
+        output+=$line$'\n'
       fi
-      expect_program=0
-    elif [[ $word == '|' ]]; then
-      expect_program=1
-    fi
-  done
+    done
+    # A last line with no line break, such as a usage error.
+    [[ -n $line ]] && output+=$line
+  } always {
+    exec {fd}<&-
+  }
+  output=${output%$'\n'}
+  # Clear the progress line from the screen now. Left for later, the prompt
+  # is redrawn in the wrong place and covers what `_tmite_show` prints.
+  zle -M ""
+  zle -R
+}
 
+# Print above the prompt. Colour comes from tmite, so this prints as it is.
+_tmite_show() {
+  zle -I
+  print -r -- "$1"
+}
+
+# Ask a question and read one key into `key`.
+_tmite_key() {
+  print -rn -- "$1 "
+  # `zle -I` put the terminal back in line mode, where a key waits for Enter.
+  stty -icanon min 1 time 0 </dev/tty 2>/dev/null
+  read -k 1 key
+  stty icanon </dev/tty 2>/dev/null
+  print
+}
+
+# Yes to a question. Enter means yes, unless the command is risky.
+_tmite_yes() {
+  local key
+  if [[ $1 == risky ]]; then
+    _tmite_key "Risky. Put it at your prompt anyway? [y/N]"
+    [[ $key == [yY] ]]
+  else
+    _tmite_key "Put it at your prompt? [Y/n]"
+    [[ $key == [yY$'\r\n'] ]]
+  fi
+}
+
+# Put a command at the prompt, in red if it is risky. It stays there until
+# you press Enter yourself.
+_tmite_insert() {
+  BUFFER=$2
+  CURSOR=$#BUFFER
+  if [[ $1 == risky && -z ${NO_COLOR-} ]]; then
+    region_highlight+=("0 $#BUFFER fg=red,bold")
+  fi
+}
+
+_tmite_choose() {
+  local count=$1 pick=
+  local -a options=("${(@)lines[3,count + 2]}")
+  local key
+
+  _tmite_show "${(F)lines[count + 3,-1]}"
+  _tmite_key "Press a number, a to ask again, any other key to cancel:"
+
+  if [[ $key == [aA] ]]; then
+    return 1
+  fi
+  if [[ $key == [1-9] ]] && (( key <= count )); then
+    pick=$options[key]
+    if [[ ${pick%%$'\t'*} != risky ]] || _tmite_yes risky; then
+      _tmite_insert "${pick%%$'\t'*}" "${pick#*$'\t'}"
+      return 0
+    fi
+  fi
+  BUFFER=
   return 0
 }
 
@@ -49,69 +121,53 @@ _tmite_accept_line() {
   # The request, without leading spaces.
   local query="${BUFFER#"${BUFFER%%[![:space:]]*}"}"
 
+  # Only the red this file added; another plugin's highlights stay.
+  region_highlight=("${(@)region_highlight:#0 * fg=red,bold}")
+
   if [[ $query != '?'* ]]; then
     zle _tmite_previous_accept_line
     return
   fi
 
-  zle -R "tmite: asking…"
-
   local output
-  output=$(command "$TMITE_BIN" --zle -- "$query" 2>&1 </dev/null)
-
   local -a lines
-  lines=("${(@f)output}")
-  local kind=$lines[1] command=$lines[2] message=$lines[3]
 
-  case $kind in
-    confirm|confirm_reason)
-      BUFFER=$command
-      CURSOR=$#BUFFER
-      zle -M -- "$message"
-      ;;
-    run)
-      BUFFER=$command
-      CURSOR=$#BUFFER
-      if _tmite_plain_programs "$command"; then
-        zle -I
-        print -r -- "tmite: $message"
-        zle _tmite_previous_accept_line
-      else
-        zle -M -- "Not run automatically: \`$REPLY\` is an alias or function here"
-      fi
-      ;;
-    refused)
-      BUFFER=
-      zle -M -- "$message"
-      ;;
-    choose)
-      # Line 2 is the count, then one "command<TAB>details" line each.
-      local count=$command i menu=
-      local -a options=("${(@)lines[3,count + 2]}")
+  while true; do
+    _tmite_ask "$query"
+    lines=("${(@f)output}")
+    local kind=$lines[1] rating=$lines[2] command=$lines[3]
 
-      for (( i = 1; i <= count && i <= 9; i++ )); do
-        menu+="$i. ${options[i]%%$'\t'*}"$'\n'"   ${options[i]#*$'\t'}"$'\n'
-      done
-      zle -M -- "${menu}Press a number, or any other key to cancel."
-      # Draw the menu now: read -k below blocks before the next redisplay.
-      zle -R
-
-      local key
-      read -k 1 key
-      zle -M ""
-      if [[ $key == [1-9] ]] && (( key <= count )); then
-        BUFFER=${options[key]%%$'\t'*}
-        CURSOR=$#BUFFER
-      fi
-      ;;
-    no_command|failed)
-      zle -M -- "$message"
-      ;;
-    *)
-      # Not the line format: tmite is missing, or printed a usage error.
-      zle -M -- "${output:-tmite printed nothing}"
-      ;;
-  esac
+    case $kind in
+      confirm)
+        _tmite_show "${(F)lines[4,-1]}"
+        if _tmite_yes "$rating"; then
+          _tmite_insert "$rating" "$command"
+        else
+          BUFFER=
+        fi
+        ;;
+      straight_in)
+        _tmite_show "${(F)lines[4,-1]}"
+        _tmite_insert "$rating" "$command"
+        ;;
+      refused)
+        _tmite_show "${(F)lines[4,-1]}"
+        BUFFER=
+        ;;
+      choose)
+        # Line 2 is the count here, not a rating.
+        _tmite_choose "$rating" || continue
+        ;;
+      no_command|failed)
+        zle -M -- "${(F)lines[4,-1]}"
+        ;;
+      *)
+        # Not the line format: tmite is missing, or printed a usage error.
+        zle -M -- "${output:-tmite printed nothing}"
+        ;;
+    esac
+    break
+  done
 }
 
 zle -N accept-line _tmite_accept_line

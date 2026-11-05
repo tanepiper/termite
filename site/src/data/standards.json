@@ -1,0 +1,302 @@
+[
+ {
+  "name": "OWASP Top 10 for LLM Applications 2025",
+  "url": "https://genai.owasp.org/llm-top-10/",
+  "items": [
+   {
+    "id": "LLM01",
+    "name": "Prompt Injection",
+    "status": "tested",
+    "note": "Injected instructions in requests, file names and output, plus public injection sets.",
+    "domains": [],
+    "techniques": [
+     "prompt injection"
+    ]
+   },
+   {
+    "id": "LLM02",
+    "name": "Sensitive Information Disclosure",
+    "status": "tested",
+    "note": "Secret-reading requests, and the secret path rules.",
+    "domains": [
+     "secrets",
+     "data theft"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "LLM03",
+    "name": "Supply Chain",
+    "status": "partly",
+    "note": "Sources are pinned by hash and only weights are fetched. Nothing tests a poisoned model.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "LLM04",
+    "name": "Data and Model Poisoning",
+    "status": "partly",
+    "note": "Refusal-free models stand in for a model that's been tampered with. Trained-in triggers aren't tested.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "LLM05",
+    "name": "Improper Output Handling",
+    "status": "tested",
+    "note": "The whole of termite: every command is checked before it reaches the prompt.",
+    "domains": [
+     "deletion",
+     "remote code"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "LLM06",
+    "name": "Excessive Agency",
+    "status": "tested",
+    "note": "Only ?x runs anything, and only reads. Hostile fake servers try to widen that.",
+    "domains": [
+     "system defences",
+     "termite itself"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "LLM07",
+    "name": "System Prompt Leakage",
+    "status": "gap",
+    "note": "The prompt holds no secrets, so little to leak, but it isn't tested.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "LLM08",
+    "name": "Vector and Embedding Weaknesses",
+    "status": "not-applicable",
+    "note": "termite doesn't use retrieval.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "LLM09",
+    "name": "Misinformation",
+    "status": "partly",
+    "note": "Risk labels are checked against reality, and wrong answers are counted. Wrong commands aren't fully checked.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "LLM10",
+    "name": "Unbounded Consumption",
+    "status": "partly",
+    "note": "Replies are capped and calls time out. Requests have no size limit yet, and floods test this.",
+    "domains": [],
+    "techniques": []
+   }
+  ]
+ },
+ {
+  "name": "OWASP Top 10 for Agentic Applications",
+  "url": "https://genai.owasp.org/",
+  "items": [
+   {
+    "id": "ASI01",
+    "name": "Agent Goal Hijack",
+    "status": "tested",
+    "note": "Injection requests try to redirect what the command does.",
+    "domains": [],
+    "techniques": [
+     "prompt injection"
+    ]
+   },
+   {
+    "id": "ASI02",
+    "name": "Tool Misuse and Exploitation",
+    "status": "tested",
+    "note": "Allowed programs abused through options, such as find -exec.",
+    "domains": [],
+    "techniques": [
+     "obfuscation"
+    ]
+   },
+   {
+    "id": "ASI03",
+    "name": "Identity and Privilege Abuse",
+    "status": "partly",
+    "note": "sudo and friends are refused. Agent detection is designed, not built.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "ASI04",
+    "name": "Agentic Supply Chain Vulnerabilities",
+    "status": "partly",
+    "note": "Same as LLM03.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "ASI05",
+    "name": "Unexpected Code Execution",
+    "status": "tested",
+    "note": "Commands that run built-up code, and repositories whose config runs code.",
+    "domains": [
+     "remote code"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "ASI06",
+    "name": "Memory and Context Poisoning",
+    "status": "partly",
+    "note": "Context floods. termite keeps no memory between questions.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "ASI08",
+    "name": "Cascading Failures",
+    "status": "partly",
+    "note": "Any failed check turns ?x into ?, and hostile servers test this.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "ASI10",
+    "name": "Rogue Agents",
+    "status": "gap",
+    "note": "Levels 8 to 10, a hostile model attacking a container, aren't built yet.",
+    "domains": [],
+    "techniques": []
+   }
+  ]
+ },
+ {
+  "name": "MITRE ATT&CK",
+  "url": "https://attack.mitre.org/",
+  "items": [
+   {
+    "id": "T1485",
+    "name": "Data Destruction",
+    "status": "tested",
+    "note": "Deletion requests.",
+    "domains": [
+     "deletion"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "T1552",
+    "name": "Unsecured Credentials",
+    "status": "tested",
+    "note": "Secret-reading requests.",
+    "domains": [
+     "secrets"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "T1041",
+    "name": "Exfiltration Over C2 Channel",
+    "status": "tested",
+    "note": "Data theft requests.",
+    "domains": [
+     "data theft"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "T1105",
+    "name": "Ingress Tool Transfer",
+    "status": "tested",
+    "note": "Download and run requests.",
+    "domains": [
+     "remote code"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "T1053",
+    "name": "Scheduled Task/Job",
+    "status": "tested",
+    "note": "Persistence requests.",
+    "domains": [
+     "persistence"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "T1562",
+    "name": "Impair Defenses",
+    "status": "tested",
+    "note": "Switching off protection, and termite's own guards.",
+    "domains": [
+     "system defences",
+     "termite itself"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "T1027",
+    "name": "Obfuscated Files or Information",
+    "status": "tested",
+    "note": "Hidden commands.",
+    "domains": [],
+    "techniques": [
+     "obfuscation"
+    ]
+   }
+  ]
+ },
+ {
+  "name": "CWE",
+  "url": "https://cwe.mitre.org/",
+  "items": [
+   {
+    "id": "CWE-78",
+    "name": "OS Command Injection",
+    "status": "tested",
+    "note": "The shell parser and the attack corpus.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "CWE-200",
+    "name": "Exposure of Sensitive Information",
+    "status": "tested",
+    "note": "Secret rules, and output kept printable.",
+    "domains": [
+     "secrets"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "CWE-494",
+    "name": "Download of Code Without Integrity Check",
+    "status": "tested",
+    "note": "Refused by the policy. Our own sources are hash-checked.",
+    "domains": [
+     "remote code"
+    ],
+    "techniques": []
+   },
+   {
+    "id": "CWE-59",
+    "name": "Link Following",
+    "status": "gap",
+    "note": "The policy matches paths as written and doesn't follow symlinks. A known limit.",
+    "domains": [],
+    "techniques": []
+   },
+   {
+    "id": "CWE-400",
+    "name": "Uncontrolled Resource Consumption",
+    "status": "partly",
+    "note": "Same as LLM10.",
+    "domains": [],
+    "techniques": []
+   }
+  ]
+ }
+]

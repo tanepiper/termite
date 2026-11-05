@@ -12,7 +12,7 @@ Spec: [../spec.md](../spec.md) (section 5)
 - `Context` gains the environment; it goes into the decision state and the card.
 - Fixed instructions per environment (ticket 03's module).
 - Container rules: the Docker/Podman socket paths, `/proc/1/root`, `/proc/*/ns`, `nsenter`, `mount`, `/sys/fs/cgroup/*/release_agent`, `insmod`/`modprobe`, `chroot` are an output flag in a container (withheld when combined with a write).
-- CI: `run` off, nothing inserted. Root: `run` off.
+- CI and agents (`CLAUDECODE`, `CLAUDE_CODE_ENTRYPOINT`, `CODEX_SANDBOX`, `CURSOR_TRACE_ID`, `AIDER_*`, `GEMINI_CLI`, `TERMITE_AGENT=1`, or no terminal): levels 1, 3, 4 and 5 fail (spec section 2). Root: `run` off.
 
 ## Tests first
 

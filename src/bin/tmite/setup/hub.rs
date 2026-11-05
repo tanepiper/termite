@@ -65,7 +65,10 @@ pub(crate) fn pick_files(tree: &str, quant: &str) -> Vec<HubFile> {
         .into_iter()
         .filter(|entry| {
             let name = entry.path.to_lowercase();
+            // A name starting with `-` would be read as an option by the
+            // download command; it comes from the Hub, so it is not trusted.
             name.ends_with(".gguf")
+                && !name.starts_with('-')
                 && !name.starts_with("mmproj")
                 && name.contains(&quant)
         })
@@ -221,6 +224,12 @@ mod tests {
     fn given_no_match_or_bad_json_then_no_files_are_picked() {
         assert!(pick_files(&tree(), "IQ2_XS").is_empty());
         assert!(pick_files("not json", "Q8_0").is_empty());
+    }
+
+    #[test]
+    fn given_a_file_named_like_an_option_then_it_is_left_out() {
+        let tree = r#"[{"path":"--local-dir=~-Q4_K_M.gguf","size":1}]"#;
+        assert_eq!(pick_files(tree, "Q4_K_M"), []);
     }
 
     #[test]

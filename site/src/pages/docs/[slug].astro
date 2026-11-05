@@ -1,0 +1,57 @@
+---
+import { getCollection } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import { page } from "../../lib/results";
+
+const titles: Record<string, string> = {
+  "plain-english": "In plain English",
+  "getting-started": "Getting started",
+  "using-termite": "Using termite",
+  "safety-ladder": "The safety ladder",
+  "red-team": "Red-teaming a model",
+  agents: "Agent tools",
+  evaluation: "How the testing works",
+  architecture: "How it's built",
+  "learning-to-train": "Learning to train a model",
+  "training-tiny-models": "Training tiny models: notes",
+};
+const order = Object.keys(titles);
+
+export async function getStaticPaths() {
+  const docs = await getCollection("docs");
+  return docs.map((doc) => ({ params: { slug: doc.id }, props: { doc } }));
+}
+
+const { doc } = Astro.props;
+// Links between files in `docs/` become links between pages.
+const html = (doc.rendered?.html ?? "").replace(/href="([\w-]+)\.md(#[^"]*)?"/g, 'href="../$1/$2"');
+const docs = (await getCollection("docs")).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+const title = titles[doc.id] ?? doc.id;
+---
+
+<Base title={title} description={`termite documentation: ${title}`} current="docs">
+  <div class="docs">
+    <nav aria-label="Documentation">
+      {docs.map((item) => (
+        <a href={page(`docs/${item.id}/`)} aria-current={item.id === doc.id ? "page" : undefined}>
+          {titles[item.id] ?? item.id}
+        </a>
+      ))}
+      <a href={page("standards/")}>Against the standards</a>
+    </nav>
+    <article set:html={html} />
+  </div>
+</Base>
+
+<style>
+  .docs { display: grid; grid-template-columns: 13em minmax(0, 1fr); gap: 2.4em; }
+  nav { display: flex; flex-direction: column; gap: 0.5em; font-size: 0.95rem; position: sticky; top: 1em; align-self: start; }
+  nav a { color: var(--ink-soft); text-decoration: none; }
+  nav a[aria-current] { color: var(--ink); font-weight: 700; }
+  article :global(h1) { font-size: 2.3rem; }
+  article :global(table) { display: block; overflow-x: auto; }
+  @media (max-width: 760px) {
+    .docs { grid-template-columns: minmax(0, 1fr); gap: 1.2em; }
+    nav { flex-direction: row; flex-wrap: wrap; position: static; }
+  }
+</style>

@@ -2,8 +2,7 @@
 //! (including the Llama app's router), Ollama, LM Studio, and any other
 //! OpenAI-compatible server already in the config.
 
-use std::env;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 
 use serde::Deserialize;
@@ -74,14 +73,6 @@ pub(crate) struct FoundServer {
 pub(crate) struct LlamaProcess {
     pub(crate) port: u16,
     pub(crate) models_max: Option<u32>,
-}
-
-/// A server program that is installed but not running.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct Installed {
-    pub(crate) kind: ServerKind,
-    pub(crate) path: PathBuf,
-    pub(crate) start: String,
 }
 
 /// Find the llama.cpp servers in `ps -axo pid,ppid,args` output. A router
@@ -241,87 +232,6 @@ pub(crate) async fn discover(configured: &[String]) -> Vec<FoundServer> {
     servers
 }
 
-/// Server programs that are installed, with the command that starts each.
-/// Only kinds with no running server are worth showing.
-pub(crate) fn installed(running: &[FoundServer]) -> Vec<Installed> {
-    let home = env::var_os("HOME").map(PathBuf::from).unwrap_or_default();
-    let is_running =
-        |kind: ServerKind| running.iter().any(|server| server.kind == kind);
-    let mut found = Vec::new();
-
-    if !is_running(ServerKind::LlamaCpp) {
-        if let Some(path) = find_on_path("llama-server") {
-            found.push(Installed {
-                kind: ServerKind::LlamaCpp,
-                path,
-                start: "tmite setup can start it for you".to_owned(),
-            });
-        }
-        let app = PathBuf::from("/Applications/Llama.app");
-        if app.exists() {
-            found.push(Installed {
-                kind: ServerKind::LlamaCpp,
-                path: app,
-                start: "open -a Llama".to_owned(),
-            });
-        }
-    }
-
-    if !is_running(ServerKind::Ollama) {
-        if let Some(path) = find_on_path("ollama") {
-            found.push(Installed {
-                kind: ServerKind::Ollama,
-                path,
-                start: "ollama serve".to_owned(),
-            });
-        }
-    }
-
-    if !is_running(ServerKind::LmStudio) {
-        let lms = [
-            home.join(".cache/lm-studio/bin/lms"),
-            home.join(".lmstudio/bin/lms"),
-        ]
-        .into_iter()
-        .find(|path| path.exists())
-        .or_else(|| find_on_path("lms"));
-        let app = PathBuf::from("/Applications/LM Studio.app");
-
-        match lms {
-            Some(path) => found.push(Installed {
-                kind: ServerKind::LmStudio,
-                start: format!("{} server start", path.display()),
-                path,
-            }),
-            None if app.exists() => found.push(Installed {
-                kind: ServerKind::LmStudio,
-                path: app,
-                start: "open LM Studio and turn on its local server".to_owned(),
-            }),
-            None => {},
-        }
-    }
-
-    found
-}
-
-/// Find an executable on `PATH`.
-pub(crate) fn find_on_path(program: &str) -> Option<PathBuf> {
-    let path = env::var_os("PATH")?;
-
-    env::split_paths(&path)
-        .map(|dir| dir.join(program))
-        .find(|candidate| is_executable(candidate))
-}
-
-fn is_executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt;
-
-    path.metadata().is_ok_and(|meta| {
-        meta.is_file() && meta.permissions().mode() & 0o111 != 0
-    })
-}
-
 fn is_llama_server(args: &[&str]) -> bool {
     let Some(program) = args.first() else {
         return false;
@@ -422,11 +332,15 @@ struct ModelStatus {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
     use serde_json::json;
 
     use super::{
-        FoundModel, LlamaProcess, ModelRole, candidate_urls, llama_processes,
-        parse_models, role_from_capabilities,
+        FoundModel, FoundServer, LlamaProcess, ModelRole, PROBE_TIMEOUT,
+        ServerKind, candidate_urls, llama_processes, parse_models, probe,
+        role_from_capabilities,
     };
 
     const PS: &str = "  PID  PPID ARGS
@@ -555,5 +469,73 @@ mod tests {
             Some(ModelRole::Chat)
         );
         assert_eq!(role_from_capabilities(r#"{"error":"not found"}"#), None);
+    }
+
+    /// Answer each path from `routes`, 404 otherwise. Returns the URL.
+    fn serve(routes: &'static [(&'static str, &'static str)]) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().expect("address").port();
+        std::thread::spawn(move || {
+            for mut socket in listener.incoming().flatten() {
+                let mut request = [0_u8; 2048];
+                let count = socket.read(&mut request).unwrap_or(0);
+                let request = String::from_utf8_lossy(&request[..count]);
+                let path = request.split(' ').nth(1).unwrap_or("");
+                let found = routes.iter().find(|(route, _)| *route == path);
+                let (status, body) = match found {
+                    Some((_, body)) => ("200 OK", *body),
+                    None => ("404 Not Found", ""),
+                };
+                let _ = write!(
+                    socket,
+                    "HTTP/1.1 {status}\r\ncontent-length: {}\r\n\
+                     connection: close\r\n\r\n{body}",
+                    body.len()
+                );
+            }
+        });
+        format!("http://127.0.0.1:{port}")
+    }
+
+    fn probed(url: &str) -> Option<FoundServer> {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let client = reqwest::Client::builder()
+            .timeout(PROBE_TIMEOUT)
+            .build()
+            .expect("client");
+        runtime.block_on(probe(&client, url, &[]))
+    }
+
+    const MODELS: &str = r#"{"data":[{"id":"m"}]}"#;
+
+    #[test]
+    fn given_each_kind_of_server_then_it_is_recognised() {
+        let plain = serve(&[("/v1/models", MODELS)]);
+        assert_eq!(
+            probed(&plain).map(|server| server.kind),
+            Some(ServerKind::OpenAiCompatible)
+        );
+
+        let ollama = serve(&[("/v1/models", MODELS), ("/api/version", "{}")]);
+        assert_eq!(
+            probed(&ollama).map(|server| server.kind),
+            Some(ServerKind::Ollama)
+        );
+
+        let studio = serve(&[("/v1/models", MODELS), ("/api/v0/models", "{}")]);
+        assert_eq!(
+            probed(&studio).map(|server| server.kind),
+            Some(ServerKind::LmStudio)
+        );
+    }
+
+    #[test]
+    fn given_something_else_on_the_port_then_it_is_not_a_server() {
+        assert!(probed(&serve(&[("/v1/models", "<html>")])).is_none());
+        assert!(probed(&serve(&[])).is_none());
+        assert!(probed("http://127.0.0.1:1").is_none());
     }
 }

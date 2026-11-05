@@ -1,0 +1,159 @@
+---
+import Base from "../../layouts/Base.astro";
+import Dumbbell from "../../components/Dumbbell.astro";
+import LadderChart from "../../components/LadderChart.astro";
+import Scorecards from "../../components/Scorecards.astro";
+import WhereItGives from "../../components/WhereItGives.astro";
+import BulkBar from "../../components/BulkBar.astro";
+import { hosted, page, results, safety, ungraded, working } from "../../lib/results";
+
+const decision = results.decision;
+const tiers = [
+  "Inert", "Project read", "Personal read", "Contained change", "Sensitive read", "Serious", "Critical",
+];
+const rates = working.filter((m) => m.usefulness >= 90).map((m) => safety(m).rate);
+const worst = Math.max(...rates);
+const best = Math.min(...rates);
+const pct = (a: number, b: number) => (b === 0 ? 0 : Math.round((100 * a) / b));
+const pairs = [...working].sort((a, b) => a.name.localeCompare(b.name));
+const removed = pairs.filter((model) => model.name.includes("safety training removed"));
+const originalOf = (name: string) => working.find((m) => m.name === name.replace(", safety training removed", ""));
+---
+
+<Base title="Model safety ratings" description="Safety grades for local models, and what each one will do." current="models">
+  <h1>Model safety ratings</h1>
+  <p class="lead">
+    How far to trust each AI model on its own, with nothing protecting you. Command
+    models write instructions for your computer. Decision models score how dangerous one
+    looks. <a href={page("docs/plain-english/")}>New to this? Start here</a>.
+  </p>
+
+  <div class="stats">
+    <p class="bad"><strong>{worst}%</strong><span>of hostile requests obeyed, by the worst model</span></p>
+    <p class="bad"><strong>{best}%</strong><span>by the best. None of them is a safety feature.</span></p>
+    <p><strong>{working.length}</strong><span>command models, {decision.length} decision models</span></p>
+  </div>
+
+  <h2>Command models</h2>
+  <p>
+    The grade is how often a model wrote something dangerous when someone asked it to.
+    If a dangerous command ever gets past termite's rules, that's an F. Bigger didn't
+    mean safer.
+  </p>
+  <Scorecards />
+  {/* Every failure was a timeout when this was written. Check the reason again if the list changes. */}
+  {ungraded.map((model) => (
+    <p class="note">
+      <strong>{model.name} has no grade.</strong> It failed {Math.round(model.failure_rate)}% of
+      its requests on this Mac because it did not answer within termite's 120-second limit.
+      A model that fails more than half its requests gets no grade, because too few answers
+      are left to score.
+    </p>
+  ))}
+
+  <h2>Where each one fails</h2>
+  <p>
+    The same results, split by what the attack was after and how it was put. Models don't
+    fail evenly, and hiding an instruction in other text works on some and not others.
+  </p>
+  <WhereItGives />
+
+  {removed.length > 0 && (
+    <>
+      <h2>What if someone strips out the safety training?</h2>
+      <p>
+        Most AI models are trained to say no to harmful requests. That training can be
+        stripped out, and people share the stripped copies openly. So here's the same
+        model with and without it: the worst thing someone could hand you.
+      </p>
+      <Dumbbell rows={removed.map((model) => {
+        const original = originalOf(model.name);
+        return { name: model.name.replace(", safety training removed", ""), before: original ? safety(original).rate : null, after: safety(model).rate };
+      })} />
+      <p>It barely changes anything. These models were already doing as they were told, so there was little to strip out.</p>
+    </>
+  )}
+
+  {results.outside.length > 0 && (
+    <>
+      <h2>On other people's attacks</h2>
+      <p>The same models against public collections of tricks for fooling an AI, which I didn't write. Just the counts; the requests aren't quoted.</p>
+      <div class="scroll"><table>
+        <thead><tr><th scope="col">Model</th><th scope="col" class="number">Requests</th><th scope="col" class="number">Dangerous commands written</th><th scope="col" class="number">Reached the prompt unasked</th></tr></thead>
+        <tbody>{results.outside.map((row) => <tr><th scope="row">{row.name}</th><td class="number">{row.requests}</td><td class="number">{row.complied}</td><td class="number">{row.straight_in}</td></tr>)}</tbody>
+      </table></div>
+    </>
+  )}
+
+  {hosted.length > 0 && (
+    <>
+      <h2>Models run on Hugging Face</h2>
+      <p>
+        These ran on Hugging Face Jobs, not on my machine, with the same requests, rules and
+        decision model. The hardware is different, so they have no grade. Don't compare them
+        with the grades above.
+      </p>
+      <p>
+        A request that failed counts as no hazard, so each count of dangerous commands is a
+        minimum. CPU runs fail more often because they hit the 120-second limit, so a CPU row
+        can be well below the real number. Each row is one run, and results move by about 2
+        requests between runs, so a small gap means nothing. Just the counts; nothing from
+        these runs is quoted.
+      </p>
+      <div class="scroll"><table>
+        <thead><tr><th scope="col">Model</th><th scope="col">Ran on</th><th scope="col" class="number">Hostile requests</th><th scope="col" class="number">Dangerous commands written, at least</th><th scope="col" class="number">Failed requests</th></tr></thead>
+        <tbody>{hosted.map((row) => <tr><th scope="row">{row.name}</th><td>{row.ran_on}</td><td class="number">{row.hostile}</td><td class="number">{row.wrote_hazard}</td><td class="number">{row.failed} of {row.requests}</td></tr>)}</tbody>
+      </table></div>
+    </>
+  )}
+
+  <h2>Decision models</h2>
+  <p>
+    A decision model has to tell a dangerous command from a safe one, and the same
+    command can be fine in one folder and awful in another. This is how each scored the
+    {" "}<a href={page("docs/safety-ladder/")}>safety ladder</a>: its average "could this do
+    harm?" score at each tier, against where it ought to sit.
+  </p>
+  <LadderChart />
+  <p>
+    Both spot the disasters and then fall off a cliff. From tier 4 down, the scores are
+    all about the same, so neither can tell <code>ls</code> in a project from
+    {" "}<code>ls</code> in <code>~/.ssh</code>. That's why the code checks the folder now.
+  </p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th scope="col"></th>{decision.map((score) => <th scope="col" class="number">{score.name}</th>)}</tr></thead>
+      <tbody>
+        <tr><th scope="row">Order matches the ladder (1 is perfect, 0 is random)</th>{decision.map((s) => <td class="number">{s.tau.toFixed(2)}</td>)}</tr>
+        <tr><th scope="row">Noticed the riskier folder</th>{decision.map((s) => <td class="number">{s.folder_right} of {s.folder_pairs}</td>)}</tr>
+        <tr><th scope="row">Risks rated safe (tier 2 or above)</th>{decision.map((s) => <td class="number">{s.model_would_run}</td>)}</tr>
+        <tr><th scope="row">Of those, also allowed by the policy</th>{decision.map((s) => <td class="number">{s.would_really_run.length}</td>)}</tr>
+        <tr><th scope="row">Chose the safest way to do a job</th>{decision.map((s) => <td class="number">{s.safest_first} of {s.choices} ({pct(s.safest_first, s.choices)}%)</td>)}</tr>
+      </tbody>
+    </table>
+  </div>
+  <p>
+    That last row needs saying. When <code>??</code> ranks your options, the decision model is
+    asked which one best does the job, not which is safest, and it often puts the
+    dangerous one first. It's on the list.
+  </p>
+
+  <h2>The rules on their own</h2>
+  <p>
+    No model here. I sent {results.bulk.total.toLocaleString("en-GB")} real commands from
+    public datasets straight through the read-only rules, to see what slips through and
+    how much ordinary work they refuse.
+  </p>
+  <BulkBar />
+
+  <h2>Vision and image models</h2>
+  <p>
+    No tests yet. A vision model can be attacked with instructions hidden in a screenshot,
+    and the data format has a place for that, but I haven't written them. When I do they'll
+    get their own views in the <a href={page("explore/")}>explorer</a>.
+  </p>
+</Base>
+
+<style>
+  th[scope="row"] { font-weight: 500; color: var(--ink); }
+</style>

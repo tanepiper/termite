@@ -1,0 +1,74 @@
+---
+/**
+ * Where each model fails: dangerous commands written out of the hostile
+ * requests it was sent, by what the attack was after and how it was put.
+ */
+import { bySafetyTraining, capitalise, modelInfo, results, working } from "../lib/results";
+import ModelChip from "./ModelChip.astro";
+
+const hostile = results.queries.filter((query) => query.kind === "hostile");
+const areas = [...new Set(hostile.map((query) => query.domain))].sort();
+const manners = [...new Set(hostile.map((query) => query.technique))].sort();
+const words: Record<string, string> = { "direct attack": "Asked outright", obfuscation: "Disguised", "prompt injection": "Hidden in other text" };
+
+function count(model: string, chosen: typeof hostile) {
+  const replies = chosen.flatMap((query) => (query.replies as Record<string, { wrote_hazard: boolean }>)[model] ?? []);
+  const wrote = replies.filter((reply) => reply.wrote_hazard).length;
+  return { wrote, sent: replies.length, share: replies.length ? Math.round((100 * wrote) / replies.length) : 0 };
+}
+const cell = (model: string, chosen: typeof hostile) => {
+  const { wrote, sent, share } = count(model, chosen);
+  return { wrote, sent, style: `background:color-mix(in oklab,var(--fail-2) ${share}%,var(--panel));${share >= 55 ? "color:var(--fail-hot-ink)" : ""}` };
+};
+const rows = [...working]
+  .sort((a, b) => count(b.name, hostile).share - count(a.name, hostile).share)
+  .map((model) => ({
+    name: model.name,
+    cells: [...areas.map((area) => hostile.filter((query) => query.domain === area)), ...manners.map((manner) => hostile.filter((query) => query.technique === manner))].map((chosen) => cell(model.name, chosen)),
+    all: cell(model.name, hostile),
+  }));
+---
+
+<div class="scroll">
+  <table>
+    <thead>
+      <tr>
+        <td></td>
+        <th scope="colgroup" colspan={areas.length}>What it was after</th>
+        <th scope="colgroup" colspan={manners.length} class="split">How it was asked</th>
+        <th scope="col" rowspan="2" class="split">All</th>
+      </tr>
+      <tr>
+        <td></td>
+        {areas.map((area) => <th scope="col">{capitalise(area)}</th>)}
+        {manners.map((manner, index) => <th scope="col" class:list={{ split: index === 0 }}>{words[manner] ?? capitalise(manner)}</th>)}
+      </tr>
+    </thead>
+    {bySafetyTraining(rows, (row) => row.name).map((group) => (
+      <tbody>
+        <tr><th scope="rowgroup" colspan={areas.length + manners.length + 2} class="group">{group.heading}</th></tr>
+        {group.items.map((row) => (
+          <tr>
+            <th scope="row"><ModelChip name={row.name} /></th>
+            {row.cells.map((item, index) => (
+              <td style={item.style} class:list={{ split: index === areas.length }} title={`${modelInfo(row.name).label}: ${item.wrote} of ${item.sent}`}>{item.wrote}<small>/{item.sent}</small></td>
+            ))}
+            <td style={row.all.style} class="split total">{row.all.wrote}<small>/{row.all.sent}</small></td>
+          </tr>
+        ))}
+      </tbody>
+    ))}
+  </table>
+</div>
+<p class="note">Each cell is dangerous commands written, out of hostile requests sent. Redder means it wrote more dangerous commands.</p>
+
+<style>
+  table { border-collapse: separate; border-spacing: 2px; font-size: 0.84rem; margin: 1em 0 0.4em; }
+  th, td { border: 0; padding: 0.4em 0.5em; text-align: center; font-variant-numeric: tabular-nums; font-weight: 500; }
+  thead th { font-weight: 400; color: var(--ink-soft); font-size: 0.78rem; line-height: 1.2; vertical-align: bottom; min-width: 4.6em; }
+  tbody th[scope="row"] { text-align: left; white-space: nowrap; }
+  .group { text-align: left; font-weight: 700; color: var(--ink); padding-top: 0.9em; }
+  .split { border-left: 6px solid var(--surface); }
+  .total { font-weight: 700; }
+  small { font-size: 0.85em; }
+</style>

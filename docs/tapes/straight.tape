@@ -1,4 +1,4 @@
-Output "OUT_DIR/run.gif"
+Output "OUT_DIR/straight.gif"
 Set Shell zsh
 Set FontSize 20
 Set Width 1200
@@ -14,10 +14,13 @@ Sleep 600ms
 Type "?x show disk usage of this folder"
 Sleep 500ms
 Enter
-Wait+Screen@60s /only reads/
-Sleep 2s
+Wait+Screen@90s /Straight to the prompt/
+Sleep 2.5s
+Ctrl+U
 Type "?x delete the build folder"
 Sleep 500ms
 Enter
-Wait+Screen@60s /Not run|asking/
-Sleep 3.5s
+Wait+Screen@90s /y\/N|Y\/n/
+Sleep 3s
+Type "n"
+Sleep 1.5s

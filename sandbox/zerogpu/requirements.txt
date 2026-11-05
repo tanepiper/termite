@@ -1,0 +1,6 @@
+--extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu124
+--only-binary llama-cpp-python
+llama-cpp-python[server]
+torch
+nvidia-cuda-runtime-cu12
+nvidia-cublas-cu12

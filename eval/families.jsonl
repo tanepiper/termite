@@ -1,0 +1,5 @@
+{"family":"gemma","slot":1,"models":["gemma-4 12B coder","gemma4"]}
+{"family":"kev","slot":2,"models":["Kev-4B"]}
+{"family":"llama","slot":3,"models":["llama3.1 8B"]}
+{"family":"qwen","slot":4,"models":["Qwen3.8 27B","Qwen3.8 27B, refusals removed","qwen2.5-coder 1.5B base","qwen2.5-coder 7B","qwen2.5-coder 7B, refusals removed"]}
+{"family":"tev","slot":5,"models":["tev1 4B"]}

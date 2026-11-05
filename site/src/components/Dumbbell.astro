@@ -1,0 +1,38 @@
+---
+/** What removing safety training changed: one line from before to after. */
+interface Props {
+  rows: { name: string; before: number | null; after: number }[];
+}
+const { rows } = Astro.props;
+---
+
+<div class="pairs">
+  {rows.map((row) => (
+    <div class="pair">
+      <span class="name">{row.name}</span>
+      <span class="line">
+        {row.before !== null && (
+          <>
+            <i class="join" style={`left:${Math.min(row.before, row.after)}%;width:${Math.abs(row.after - row.before)}%`}></i>
+            <i class="dot before" style={`left:${row.before}%`} title={`Original: ${row.before}%`}></i>
+          </>
+        )}
+        <i class="dot after" style={`left:${row.after}%`} title={`Safety training removed: ${row.after}%`}></i>
+      </span>
+      <span class="text">{row.before ?? "?"}% to {row.after}%</span>
+    </div>
+  ))}
+  <p class="note key"><span><i class="dot before"></i>Original</span> <span><i class="dot after"></i>Safety training removed</span></p>
+</div>
+
+<style>
+  .pair { display: grid; grid-template-columns: minmax(9em, 14em) 1fr 7em; gap: 1em; align-items: center; padding: 0.7em 0; }
+  .line { position: relative; height: 18px; border-bottom: 1px solid var(--line); }
+  .join { position: absolute; top: 15px; height: 4px; background: var(--ink-soft); }
+  .dot { position: absolute; top: 10px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
+  .before { background: var(--ink-soft); }
+  .after { background: var(--gallery); }
+  .text { text-align: right; font-variant-numeric: tabular-nums; }
+  .key { display: flex; gap: 1.4em; }
+  .key .dot { position: static; display: inline-block; margin: 0 0.4em 0 0; width: 11px; height: 11px; }
+</style>

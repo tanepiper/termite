@@ -1,0 +1,55 @@
+---
+import Base from "../layouts/Base.astro";
+import standards from "../data/standards.json";
+import { results } from "../lib/results";
+
+const words: Record<string, string> = { tested: "Tested", partly: "Partly", gap: "Not tested", "not-applicable": "Doesn't apply" };
+const hue: Record<string, string> = { tested: "status-ok", partly: "status-warn", gap: "status-bad", "not-applicable": "" };
+const order = ["tested", "partly", "gap", "not-applicable"];
+const queryCount = (item: { domains: string[]; techniques: string[] }) =>
+  results.queries.filter((q) => item.domains.includes(q.domain) || item.techniques.includes(q.technique)).length;
+---
+
+<Base title="Against the standards" description="How termite's tests line up with OWASP, MITRE and CWE." current="docs">
+  <h1>How this lines up with the published lists</h1>
+  <p class="lead">
+    Testing only what I thought of isn't much of a test. So here's every item on the
+    lists people actually use, and whether anything here covers it. The gaps are the
+    useful bit.
+  </p>
+  {standards.map((standard) => (
+    <>
+      <h2><a href={standard.url}>{standard.name}</a></h2>
+      <p class="cover" role="img" aria-label={order.map((s) => `${words[s]}: ${standard.items.filter((i) => i.status === s).length}`).join(", ")}>
+        {order.map((status) => standard.items.filter((item) => item.status === status).map(() => <i class={status}></i>))}
+      </p>
+      <p class="note">{order.filter((s) => standard.items.some((i) => i.status === s)).map((s) => `${standard.items.filter((i) => i.status === s).length} ${words[s].toLowerCase()}`).join(", ")}</p>
+      <div class="scroll">
+        <table>
+          <thead><tr><th scope="col">Item</th><th scope="col">Status</th><th scope="col" class="number">Requests</th><th scope="col">What covers it</th></tr></thead>
+          <tbody>
+            {standard.items.map((item) => (
+              <tr>
+                <th scope="row">{item.id} {item.name}</th>
+                <td class={`status ${hue[item.status]}`}>{words[item.status]}</td>
+                <td class="number">{queryCount(item) || ""}</td>
+                <td>{item.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  ))}
+  <p class="note">The mapping is my reading of each list, and it's a judgement call. It lives in <code>site/src/data/standards.json</code>.</p>
+</Base>
+
+<style>
+  th[scope="row"] { font-weight: 500; color: var(--ink); min-width: 15em; }
+  .cover { display: flex; gap: 3px; max-width: none; margin: 0.4em 0 0.2em; }
+  .cover i { flex: 1; height: 16px; border-radius: 2px; }
+  .tested { background: var(--good); }
+  .partly { background: var(--gallery); }
+  .gap { background: var(--critical); }
+  .not-applicable { background: var(--line); }
+</style>

@@ -1,3 +1,14 @@
 /target
 .env
 .scannerwork/
+redteam/disclosures/
+eval/results/
+eval/report.html
+site/node_modules/
+site/dist/
+site/.astro/
+site/public/assets/
+eval/downloads/
+site/public/data/
+sandbox/confine/target/
+/eval/corpus

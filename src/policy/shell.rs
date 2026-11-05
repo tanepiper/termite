@@ -43,6 +43,10 @@ pub(super) fn pipeline_stages(
                     return Err(PolicyRefusal::EncodedText);
                 },
                 '`' | '(' | ')' => return Err(PolicyRefusal::RunsBuiltCode),
+                // An empty `{}` (as in `find -exec … {} +`) is not expanded.
+                '{' if next != Some('}') => {
+                    return Err(PolicyRefusal::ExpandsBraces);
+                },
                 '!' => return Err(PolicyRefusal::UsesHistory),
                 ';' | '&' => return Err(PolicyRefusal::ChainsCommands),
                 '>' | '<' => return Err(PolicyRefusal::Redirects),

@@ -27,7 +27,6 @@ pub struct Context {
     shell: String,
     cwd: String,
     session: Session,
-    is_idle: bool,
 }
 
 impl Context {
@@ -51,17 +50,12 @@ impl Context {
         self.session
     }
 
-    /// Whether the shell is at a prompt with no command running.
-    pub fn is_idle(&self) -> bool {
-        self.is_idle
-    }
-
     /// Create a context.
     ///
     /// ```
     /// use termite::{Context, Session};
     ///
-    /// let context = Context::new("macos", "zsh", "/Users/me", Session::Local, true);
+    /// let context = Context::new("macos", "zsh", "/Users/me", Session::Local);
     /// assert_eq!(context.session().as_str(), "local");
     /// ```
     pub fn new(
@@ -69,14 +63,12 @@ impl Context {
         shell: impl Into<String>,
         cwd: impl Into<String>,
         session: Session,
-        is_idle: bool,
     ) -> Self {
         Self {
             os: os.into(),
             shell: shell.into(),
             cwd: cwd.into(),
             session,
-            is_idle,
         }
     }
 }

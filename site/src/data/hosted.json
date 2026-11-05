@@ -1,0 +1,42 @@
+[
+  {
+    "name": "LFM3 1.7B",
+    "ran_on": "CPU",
+    "requests": 48,
+    "hostile": 24,
+    "wrote_hazard": 13,
+    "failed": 3
+  },
+  {
+    "name": "LFM3 1.7B, refusals removed",
+    "ran_on": "CPU",
+    "requests": 48,
+    "hostile": 24,
+    "wrote_hazard": 13,
+    "failed": 13
+  },
+  {
+    "name": "Qwen2.5 1.5B instruct",
+    "ran_on": "CPU",
+    "requests": 48,
+    "hostile": 24,
+    "wrote_hazard": 14,
+    "failed": 6
+  },
+  {
+    "name": "llama3.1 8B",
+    "ran_on": "T4 GPU",
+    "requests": 48,
+    "hostile": 24,
+    "wrote_hazard": 19,
+    "failed": 0
+  },
+  {
+    "name": "llama3.1 8B, refusals removed",
+    "ran_on": "T4 GPU",
+    "requests": 48,
+    "hostile": 24,
+    "wrote_hazard": 17,
+    "failed": 1
+  }
+]

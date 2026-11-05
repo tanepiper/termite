@@ -5,11 +5,12 @@ use crate::context::{Context, Session};
 use crate::decide::{MockDecisionClient, Ranked, SafetyVerdict};
 use crate::error::{AssistError, Service};
 use crate::generate::MockCommandSource;
+use crate::progress::{NoProgress, Progress, Stage};
 use crate::query::parse_query;
 use crate::test_support::ready;
 
 fn local_idle() -> Context {
-    Context::new("macos", "zsh", "/Users/me/code", Session::Local, true)
+    Context::new("macos", "zsh", "/Users/me/code", Session::Local)
 }
 
 fn read(command: &str) -> Candidate {
@@ -19,7 +20,7 @@ fn read(command: &str) -> Candidate {
 /// A source that returns `candidates` once.
 fn source(candidates: Vec<Candidate>) -> MockCommandSource {
     let mut source = MockCommandSource::new();
-    source.expect_generate().times(1).returning(move |_, _| {
+    source.expect_generate().times(1).returning(move |_, _, _| {
         let candidates = candidates.clone();
         Box::pin(async move { Ok(candidates) })
     });
@@ -83,13 +84,13 @@ fn run(
     decider: &MockDecisionClient,
 ) -> Answer {
     let query = parse_query(input).expect("a query");
-    ready(answer(&query, context, source, decider))
+    ready(answer(&query, context, source, decider, &NoProgress))
 }
 
 fn reason(answer: &Answer) -> &str {
     match answer {
         Answer::ConfirmWithReason { reason, .. }
-        | Answer::RunNow { reason, .. }
+        | Answer::StraightIn { reason, .. }
         | Answer::Refused { reason, .. } => reason,
         other => panic!("no reason in {other:?}"),
     }
@@ -202,7 +203,7 @@ fn given_only_commands_failing_checks_then_no_usable_command_is_returned() {
 #[test]
 fn given_a_generation_or_ranking_error_then_failed_is_returned() {
     let mut failing_source = MockCommandSource::new();
-    failing_source.expect_generate().returning(|_, _| {
+    failing_source.expect_generate().returning(|_, _, _| {
         Box::pin(async {
             Err(AssistError::Timeout {
                 service: Service::Model,
@@ -246,7 +247,7 @@ fn given_a_generation_or_ranking_error_then_failed_is_returned() {
 }
 
 #[test]
-fn given_every_gate_check_passes_then_the_command_runs_now() {
+fn given_every_gate_check_passes_then_the_command_goes_straight_in() {
     let answer = run(
         "?x list my code",
         &local_idle(),
@@ -254,8 +255,8 @@ fn given_every_gate_check_passes_then_the_command_runs_now() {
         &with_safety(Ok(verdict(0.95, 0.85, 0.08))),
     );
 
-    let Answer::RunNow { ranked, reason } = answer else {
-        panic!("expected RunNow, got {answer:?}");
+    let Answer::StraightIn { ranked, reason } = answer else {
+        panic!("expected StraightIn, got {answer:?}");
     };
     assert_eq!(ranked.candidate().command(), "ls ~/code");
     assert_eq!(
@@ -266,8 +267,6 @@ fn given_every_gate_check_passes_then_the_command_runs_now() {
 
 #[test]
 fn given_a_local_gate_check_fails_then_it_falls_back_without_asking_safety() {
-    let ssh = Context::new("linux", "bash", "/srv", Session::Ssh, true);
-    let busy = Context::new("macos", "zsh", "/Users/me", Session::Local, false);
     let cases = [
         (
             local_idle(),
@@ -279,8 +278,6 @@ fn given_a_local_gate_check_fails_then_it_falls_back_without_asking_safety() {
             read("rm -rf build"),
             "`rm` is not on the read-only list",
         ),
-        (ssh, read("ls"), "it runs over SSH"),
-        (busy, read("ls"), "a command is still running"),
     ];
 
     for (context, candidate, expected) in cases {
@@ -374,6 +371,47 @@ fn given_real_clients_then_the_answer_future_can_be_sent_between_threads() {
     let query = parse_query("? x").expect("query");
     let context = local_idle();
 
-    let future = answer(&query, &context, &source, &decider);
+    let future = answer(&query, &context, &source, &decider, &NoProgress);
     assert_send(&future);
+}
+
+/// Collects stages for tests.
+#[derive(Default)]
+struct Stages(std::sync::Mutex<Vec<Stage>>);
+
+impl Progress for Stages {
+    fn stage(&self, stage: Stage) {
+        self.0.lock().expect("not poisoned").push(stage);
+    }
+}
+
+#[test]
+fn given_a_query_then_each_stage_is_reported_in_order() {
+    let cases = [
+        ("? x", vec![Stage::Asking, Stage::Ranking]),
+        ("?x x", vec![Stage::Asking, Stage::Ranking, Stage::Checking]),
+    ];
+
+    for (input, expected) in cases {
+        let mut source = MockCommandSource::new();
+        source.expect_generate().returning(|_, _, _| {
+            Box::pin(async {
+                Ok(vec![Candidate::new("ls", "List", Risk::Read)])
+            })
+        });
+        let mut decider = MockDecisionClient::new();
+        decider.expect_rank().returning(|_, _, candidates| {
+            let ranked = Ranked::new(candidates[0].clone(), 1.0, "best");
+            Box::pin(async move { Ok(vec![ranked]) })
+        });
+        decider.expect_safety().returning(|_, _, _| {
+            Box::pin(async { Err(AssistError::EmptyRanking) })
+        });
+        let query = parse_query(input).expect("query");
+        let stages = Stages::default();
+
+        ready(answer(&query, &local_idle(), &source, &decider, &stages));
+
+        assert_eq!(*stages.0.lock().expect("not poisoned"), expected);
+    }
 }

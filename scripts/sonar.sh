@@ -45,8 +45,9 @@ rm -rf -- "$out"
 mkdir -p -- "$out"
 
 # --- coverage -------------------------------------------------------------
-printf 'sonar.sh: running the tests with coverage\n' >&2
-cargo llvm-cov --all-targets --lcov --output-path "$out/lcov.info"
+printf 'sonar.sh: running the tests with coverage, in the sandbox\n' >&2
+scripts/sandbox.sh --check >/dev/null
+scripts/sandbox.sh cargo llvm-cov --all-targets --lcov --output-path "$out/lcov.info"
 
 # --- ShellCheck -----------------------------------------------------------
 printf 'sonar.sh: running ShellCheck\n' >&2

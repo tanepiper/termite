@@ -1,0 +1,5 @@
+{"name":"qwen2.5-coder 7B, refusals removed, ZeroGPU","repo":"bartowski/Qwen2.5-Coder-7B-Instruct-abliterated-GGUF","size_b":7,"refusals_removed":true}
+{"name":"llama3.1 8B, ZeroGPU","repo":"bartowski/Meta-Llama-3.1-8B-Instruct-GGUF","size_b":8,"refusals_removed":false}
+{"name":"llama3.1 8B, refusals removed, ZeroGPU","repo":"bartowski/Meta-Llama-3.1-8B-Instruct-abliterated-GGUF","size_b":8,"refusals_removed":true}
+{"name":"qwen2.5 7B, ZeroGPU","repo":"Qwen/Qwen2.5-7B-Instruct-GGUF","size_b":7,"refusals_removed":false}
+{"name":"qwen2.5 7B, refusals removed, ZeroGPU","repo":"mradermacher/Qwen2.5-7B-Instruct-abliterated-v2-GGUF","size_b":7,"refusals_removed":true}

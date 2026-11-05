@@ -14,7 +14,7 @@ Sleep 600ms
 Type "?? show what is listening on port 8080"
 Sleep 500ms
 Enter
-Wait+Screen@60s /Press/
-Sleep 2s
+Wait+Screen@90s /Press a number/
+Sleep 3s
 Type "1"
 Sleep 3s

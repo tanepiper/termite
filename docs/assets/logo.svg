@@ -1,48 +1,45 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
-  <title id="title">termite</title>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">termite: a soldier termite, half red team, half blue team</title>
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#2a2420"/>
       <stop offset="1" stop-color="#161210"/>
     </linearGradient>
-    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffc56b"/>
-      <stop offset="1" stop-color="#e8891c"/>
-    </linearGradient>
+    <clipPath id="left"><rect x="-140" y="-140" width="140" height="280"/></clipPath>
+    <clipPath id="right"><rect x="0" y="-140" width="140" height="280"/></clipPath>
+    <!-- A soldier from above: big head, jaws, thorax, abdomen. -->
+    <g id="soldier" stroke-linecap="round" stroke-linejoin="round">
+      <g fill="none" stroke="currentColor">
+        <path stroke-width="5" d="M-13 -86 C -26 -98, -44 -96, -54 -110"/>
+        <path stroke-width="5" d="M13 -86 C 26 -98, 44 -96, 54 -110"/>
+        <path stroke-width="8" d="M-9 -92 C -13 -110, -7 -122, 5 -128"/>
+        <path stroke-width="8" d="M9 -92 C 13 -110, 7 -122, -5 -128"/>
+        <g stroke-width="6.5">
+          <path d="M-13 -24 L-42 -36 L-62 -58"/>
+          <path d="M13 -24 L42 -36 L62 -58"/>
+          <path d="M-15 -12 L-50 -10 L-74 2"/>
+          <path d="M15 -12 L50 -10 L74 2"/>
+          <path d="M-13 0 L-42 18 L-54 46"/>
+          <path d="M13 0 L42 18 L54 46"/>
+        </g>
+      </g>
+      <g fill="currentColor">
+        <ellipse cx="0" cy="-62" rx="28" ry="33"/>
+        <ellipse cx="0" cy="-16" rx="17" ry="17"/>
+        <ellipse cx="0" cy="44" rx="31" ry="52"/>
+      </g>
+      <g fill="none" stroke="#161210" stroke-opacity="0.4" stroke-width="3.5">
+        <path d="M-27 22 Q0 32 27 22"/>
+        <path d="M-30 42 Q0 52 30 42"/>
+        <path d="M-28 62 Q0 72 28 62"/>
+        <path d="M-20 80 Q0 88 20 80"/>
+      </g>
+    </g>
   </defs>
   <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#tile)"/>
   <rect x="8.5" y="8.5" width="239" height="239" rx="51.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
-  <!-- prompt -->
-  <path d="M44 178 L70 196 L44 214" fill="none" stroke="#7d6f63" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="84" y="205" width="40" height="10" rx="5" fill="#7d6f63"/>
-  <!-- termite, seen from above, walking up and to the right -->
-  <g transform="translate(146 116) rotate(35) scale(0.78)" stroke-linecap="round" stroke-linejoin="round">
-    <!-- antennae -->
-    <path d="M-6 -64 C -16 -84, -30 -90, -38 -104" fill="none" stroke="#ffc56b" stroke-width="5"/>
-    <path d="M6 -64 C 16 -84, 30 -90, 38 -104" fill="none" stroke="#ffc56b" stroke-width="5"/>
-    <circle cx="-38" cy="-104" r="5" fill="#ffc56b"/>
-    <circle cx="38" cy="-104" r="5" fill="#ffc56b"/>
-    <!-- legs -->
-    <g fill="none" stroke="#e8891c" stroke-width="6">
-      <path d="M-12 -30 L-36 -42 L-48 -60"/>
-      <path d="M12 -30 L36 -42 L48 -60"/>
-      <path d="M-13 -20 L-42 -18 L-58 -8"/>
-      <path d="M13 -20 L42 -18 L58 -8"/>
-      <path d="M-12 -10 L-34 6 L-42 28"/>
-      <path d="M12 -10 L34 6 L42 28"/>
-    </g>
-    <!-- abdomen -->
-    <ellipse cx="0" cy="28" rx="26" ry="44" fill="url(#body)"/>
-    <g fill="none" stroke="#a85c0e" stroke-width="3" stroke-opacity="0.55">
-      <path d="M-22 10 Q0 18 22 10"/>
-      <path d="M-25 26 Q0 34 25 26"/>
-      <path d="M-24 42 Q0 50 24 42"/>
-      <path d="M-18 58 Q0 64 18 58"/>
-    </g>
-    <!-- thorax -->
-    <ellipse cx="0" cy="-22" rx="15" ry="16" fill="url(#body)"/>
-    <!-- head -->
-    <ellipse cx="0" cy="-52" rx="17" ry="16" fill="#ffc56b"/>
-    <path d="M-7 -66 L-12 -72 M7 -66 L12 -72" stroke="#a85c0e" stroke-width="4"/>
+  <g transform="translate(128 132) scale(0.86)">
+    <use href="#soldier" xlink:href="#soldier" color="#ef4d4d" clip-path="url(#left)"/>
+    <use href="#soldier" xlink:href="#soldier" color="#3f8cff" clip-path="url(#right)"/>
   </g>
 </svg>

@@ -1,0 +1,61 @@
+---
+import "../styles/site.css";
+import { page } from "../lib/results";
+
+interface Props {
+  title: string;
+  description: string;
+  current?: string;
+}
+const { title, description, current } = Astro.props;
+// Piper Thread, MIT, self-hosted; the licences sit beside the files. The rules
+// are written here, not in site.css, so they and the preloads share one URL.
+const fontUrl = (face: string) => page(`fonts/PiperThread${face}.woff2`);
+const styles = [["Regular", "normal", 400], ["Italic", "italic", 400], ["Medium", "normal", 500],
+  ["MediumItalic", "italic", 500], ["Bold", "normal", 700], ["BoldItalic", "italic", 700]] as const;
+const faces = ["Sans", "Serif", "Mono"].flatMap((family) => styles.map(([name, style, weight]) =>
+  `@font-face{font-family:"Piper Thread ${family}";font-style:${style};font-weight:${weight};font-display:swap;src:url("${fontUrl(`${family}-${name}`)}") format("woff2")}`)).join("\n");
+// The faces every page shows first, fetched before anything asks for them.
+const preloads = ["Sans-Regular", "Sans-Bold", "Serif-Bold", "Mono-Regular"];
+const links = [
+  ["Docs", "docs/getting-started/", "docs"],
+  ["What models wrote", "caught/", "caught"],
+  ["Model ratings", "models/", "models"],
+  ["Explore the data", "explore/", "explore"],
+];
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    {preloads.map((face) => (
+      <link rel="preload" href={fontUrl(face)} as="font" type="font/woff2" crossorigin />
+    ))}
+    <style is:inline set:html={faces}></style>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title === "termite" ? title : `${title}: termite`}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href={page("assets/logo.svg")} type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site">
+        <a class="name" href={page()}>
+          <img src={page("assets/logo.svg")} width="46" height="46" alt="" />
+          termite
+        </a>
+        <nav aria-label="Main">
+          {links.map(([label, path, key]) => (
+            <a href={page(path)} aria-current={current === key ? "page" : undefined}>{label}</a>
+          ))}
+          <a href="https://github.com/tanepiper/termite">GitHub</a>
+        </nav>
+      </header>
+      <main><slot /></main>
+      <footer class="site">
+        Apache 2.0. Built by <a href="https://tane.dev">Tane Piper</a>. This site loads nothing from anyone else's servers.
+      </footer>
+    </div>
+  </body>
+</html>

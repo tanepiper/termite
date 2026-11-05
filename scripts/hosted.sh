@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+# Run a test on Hugging Face Jobs, under the same gate as a local run. No token
+# goes into a test job. `confine` blocks the network and limits writes before
+# the servers or the eval tool start, and `eval run` refuses if the gate fails.
+# The model and the decision model each get a real llama-server, and reach the
+# eval tool over Unix sockets. Nothing is built on or loads this machine.
+#
+#   scripts/hosted.sh build        build the Linux tools, in a job
+#   scripts/hosted.sh gate         check the gate in a job, with no model
+#   scripts/hosted.sh run 'NAME'   test a model from eval/hosted-models.jsonl
+#   scripts/hosted.sh fetch        copy finished runs to ~/termite-private/runs
+#
+# Set HOSTED_GPU=1 to use a T4 for gate and run. CUDA needs /proc writable, and
+# a job is held to one hour. It stops if a job could cost more than the monthly
+# credit.
+set -euo pipefail
+
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+cd -- "$root"
+stage=target/hosted
+image=ghcr.io/ggml-org/llama.cpp:server
+flavor=cpu-upgrade
+usd_per_hour=0.03
+hours=3
+credit_usd=2
+writable='--write /tmp/work/eval --write /tmp/run --write /out --write /dev'
+layers=0
+suffix=hosted
+if [[ -n ${HOSTED_GPU:-} ]]; then
+  image=ghcr.io/ggml-org/llama.cpp:server-cuda
+  flavor=t4-small
+  usd_per_hour=0.40
+  hours=1
+  writable="$writable --write /proc"
+  layers=99
+  suffix=hosted-t4
+fi
+results=hf://buckets/tanepiper/jobs-artifacts/termite-results
+
+hf() { uvx --from huggingface_hub==2.4.0 hf "$@"; }
+
+awk -v a="$usd_per_hour" -v b="$hours" -v c="$credit_usd" 'BEGIN { exit !(a * b <= c) }' \
+  || { printf 'hosted.sh: could cost more than $%s\n' "$credit_usd" >&2; exit 1; }
+
+export HF_TOKEN
+HF_TOKEN=$(sed -n 's/^HUGGINGFACE_API=//p' .env)
+
+build() {
+  rm -rf "$stage/source" "$stage/built"
+  mkdir -p "$stage/source/sandbox" "$stage/built"
+  cp -R Cargo.toml Cargo.lock src examples shell bash prompts "$stage/source/"
+  cp -R sandbox/confine "$stage/source/sandbox/confine"
+  rm -rf "$stage/source/sandbox/confine/target"
+  output=$(hf jobs run --flavor "$flavor" --timeout 1h \
+    -v "$stage/source:/source" -v "$stage/built:/built:rw" rust:1-alpine -- /bin/sh -c '
+      set -eu
+      apk add --no-cache musl-dev >/dev/null
+      cp -R /source /tmp/build
+      cd /tmp/build
+      cargo build --quiet --example eval
+      cargo build --quiet --manifest-path sandbox/confine/Cargo.toml
+      cp target/debug/examples/eval sandbox/confine/target/debug/confine /built/' 2>&1 | tee /dev/stderr)
+  bucket=$(sed -n "s|^Sync plan: $stage/built -> \(hf://[^ ]*\)$|\1|p" <<<"$output" | head -1)
+  [[ -n $bucket ]] || { printf 'hosted.sh: no output folder found\n' >&2; exit 1; }
+  hf buckets sync "$bucket" "$stage/built"
+  [[ -s $stage/built/eval && -s $stage/built/confine ]] \
+    || { printf 'hosted.sh: the build left no tools\n' >&2; exit 1; }
+  printf 'hosted.sh: tools built\n' >&2
+}
+
+stage_bundle() {
+  [[ -s $stage/built/eval ]] || { printf 'hosted.sh: run build first\n' >&2; exit 1; }
+  rm -rf "$bundle"
+  mkdir -p "$bundle/eval"
+  cp "$stage/built/eval" "$bundle/eval-tool"
+  cp "$stage/built/confine" "$bundle/confine"
+  cp -RL eval/corpus "$bundle/eval/corpus"
+  cp eval/hosted-models.jsonl "$bundle/eval/models.jsonl"
+}
+
+# Set up inside the job. Everything after `confine` is held by it.
+setup='set -eu
+mkdir -p /tmp/work/src /tmp/work/eval /tmp/work/home /tmp/run
+cp -R /bundle/eval/. /tmp/work/eval/
+ln -s /out /tmp/work/eval/results
+cp /bundle/eval-tool /tmp/eval && cp /bundle/confine /tmp/confine && chmod 755 /tmp/eval /tmp/confine
+cd /tmp/work
+export TERMITE_HOME=/tmp/work/home LD_LIBRARY_PATH=/app:${LD_LIBRARY_PATH:-}'
+
+confined="/tmp/confine $writable --"
+
+in_job() {
+  hf jobs run --flavor "$flavor" --timeout "${hours}h" "$@"
+}
+
+case ${1:-} in
+  build)
+    build
+    ;;
+  gate)
+    bundle=$stage/bundle-gate
+    stage_bundle
+    in_job -v "$bundle:/bundle" -v "$results:/out" "$image" -- /bin/sh -c "$setup
+exec $confined /tmp/eval gate red"
+    ;;
+  run)
+    [[ $# -eq 2 ]] || { printf 'usage: hosted.sh run NAME\n' >&2; exit 64; }
+    row=$(jq -c --arg name "$2" 'select(.name == $name)' eval/hosted-models.jsonl)
+    [[ -n $row ]] || { printf 'hosted.sh: no model called %s\n' "$2" >&2; exit 1; }
+    repo=$(jq -r .repo <<<"$row")
+    alias=$(jq -r .model <<<"$row")
+    socket=$(jq -r .socket <<<"$row")
+    context=$(jq -r .context_tokens <<<"$row")
+    commit=$(git rev-parse --short HEAD)-$suffix
+    # One folder per model, so jobs can run side by side.
+    bundle=$stage/bundle-$(shasum <<<"$2" | cut -c1-8)
+    stage_bundle
+    cat >"$bundle/inner.sh" <<INNER
+serve() {
+  /app/llama-server --model "\$1" --alias "\$2" --host "\$3" --ctx-size $context --threads \$CPU_CORES --n-gpu-layers $layers >"\$3.log" 2>&1 &
+  server=\$!
+  tries=0
+  until grep -q 'listening on' "\$3.log" 2>/dev/null; do
+    tries=\$((tries + 1))
+    if [ \$tries -ge 900 ] || ! kill -0 \$server 2>/dev/null; then tail -5 "\$3.log"; exit 1; fi
+    sleep 1
+  done
+}
+serve /decision/Kev-4B-Q8_0.gguf ggml-org/Kev-4B-GGUF:Q8_0 /tmp/run/decision.sock
+serve "\$(ls /model/*.gguf | grep -iv mmproj | grep -i q4_k_m | head -1)" $alias $socket
+grep -h "offloaded" /tmp/run/*.log || true
+/tmp/eval run --only "\$NAME" --commit $commit
+INNER
+    config='{"model_url":"http://127.0.0.1:8080","model":"'"$alias"'","decision_url":"http://127.0.0.1:9931","decision_model":"ggml-org/Kev-4B-GGUF:Q8_0","model_socket":"'"$socket"'","decision_socket":"/tmp/run/decision.sock"}'
+    printf '%s\n' "$config" >"$bundle/config.json"
+    in_job -e "NAME=$2" -v "hf://$repo:/model" -v "hf://ggml-org/Kev-4B-GGUF:/decision" \
+      -v "$bundle:/bundle" -v "$results:/out" "$image" -- /bin/sh -c "$setup
+cp /bundle/config.json /tmp/work/home/config.json
+cp /bundle/inner.sh /tmp/run/inner.sh
+exec $confined /bin/sh /tmp/run/inner.sh"
+    ;;
+  fetch)
+    mkdir -p -m 700 "$HOME/termite-private/runs"
+    hf buckets sync "$results" "$HOME/termite-private/runs"
+    chmod 600 "$HOME"/termite-private/runs/*.json
+    ;;
+  *)
+    sed -n '8,11p' "$0" | cut -c3- >&2
+    exit 64
+    ;;
+esac

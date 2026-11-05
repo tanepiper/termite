@@ -1,6 +1,6 @@
 # 03 — `?b` generation: mode, style guide, schema, checks, decision notes, drafts
 
-Status: blocked
+Status: done, except AC10 (needs a real model)
 Type: task
 Model: Opus 5.5 (claude-opus-5-5)
 Blocked by: 01, 02

@@ -1,0 +1,68 @@
+---
+import { bySafetyTraining, grades, modelInfo, safety, working } from "../lib/results";
+
+const rows = working
+  .map((model) => ({ model, score: safety(model) }))
+  .sort((a, b) => a.score.rate - b.score.rate);
+const hue = (grade: string) => (["A", "B"].includes(grade) ? "good" : grade === "C" || grade === "D" ? "warn" : "bad");
+---
+
+<div class="cards">
+  <div class="head" aria-hidden="true">
+    <span></span><span>Model</span><span>Hostile requests obeyed</span><span>Everyday requests answered</span><span>Speed</span>
+  </div>
+  {bySafetyTraining(rows, ({ model }) => model.name).map((group) => (<>
+  <h3 class="group">{group.heading}</h3>
+  {group.items.map(({ model, score }) => (
+    <article>
+      <b class={`grade ${hue(score.grade)}`} aria-label={`Grade ${score.grade}`}>{score.grade}</b>
+      <h4>{modelInfo(model.name).label}</h4>
+      <div class="meter" data-label="Hostile requests obeyed">
+        <span class="track"><i class="danger" style={`width:${score.rate}%`}></i></span>
+        <span class="value">{score.rate}%<small>{score.wrote} of {score.hostile}</small></span>
+      </div>
+      <div class="meter" data-label="Everyday requests answered">
+        <span class="track"><i style={`width:${model.usefulness}%`}></i></span>
+        <span class="value">{model.usefulness.toFixed(0)}%</span>
+      </div>
+      <span class="speed" data-label="Speed">{model.seconds_per_request.toFixed(1)}s</span>
+    </article>
+  ))}
+  </>))}
+</div>
+<p class="note scale">
+  {grades.map(([grade, limit], index) => (
+    <span><b>{grade}</b> {index === grades.length - 1 ? `${grades[index - 1][1]}% or more` : `under ${limit}%`}</span>
+  ))}
+  <span><b>F</b> a hazard got past the policy</span>
+</p>
+
+<style>
+  .cards article, .head {
+    display: grid; align-items: center; gap: 0 1.6em;
+    grid-template-columns: 3.4rem minmax(13em, 1.1fr) 1.5fr 1fr 4em;
+  }
+  .head { font-size: 0.85rem; color: var(--ink-soft); padding-bottom: 0.4em; }
+  .cards article { padding: 0.9em 0; border-top: 1px solid var(--line); }
+  h3 { margin: 1.6em 0 0.5em; font-size: 1.2rem; }
+  h4 { margin: 0; font: 600 1.08rem/1.25 var(--sans); }
+  .grade { display: grid; place-items: center; width: 3.2rem; height: 3.2rem; border-radius: 6px; font: 600 1.9rem var(--serif); color: #fff; }
+  .grade.bad { background: #b3261e; }
+  .grade.warn { background: #8a5a00; }
+  .grade.good { background: #1f6f3f; }
+  .meter { display: grid; grid-template-columns: 1fr 4.6em; gap: 0.6em; align-items: center; }
+  .value small { display: block; font-size: 0.74rem; color: var(--ink-soft); white-space: nowrap; }
+  .track { display: block; height: 14px; background: var(--panel); border-radius: 0 4px 4px 0; }
+  .track i { display: block; height: 100%; background: var(--ink-soft); border-radius: 0 4px 4px 0; }
+  .track i.danger { background: var(--gallery); }
+  .value, .speed { text-align: right; font-variant-numeric: tabular-nums; }
+  .scale { display: flex; flex-wrap: wrap; gap: 0.2em 1.4em; max-width: none; margin-top: 1em; }
+  @media (max-width: 760px) {
+    .head { display: none; }
+    .cards article { grid-template-columns: 3.4rem 1fr; gap: 0.4em 1em; }
+    .meter { grid-column: 2; }
+    .meter::before { content: attr(data-label); grid-column: 1 / -1; font-size: 0.8rem; color: var(--ink-soft); margin-bottom: -0.4em; }
+    .speed { grid-column: 2; text-align: left; color: var(--ink-soft); }
+    .speed::before { content: attr(data-label) ": "; font-size: 0.8rem; }
+  }
+</style>

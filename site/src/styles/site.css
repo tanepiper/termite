@@ -1,0 +1,125 @@
+:root {
+  color-scheme: light dark;
+  --birch: #eef0ea;
+  --birch-deep: #e0e3da;
+  --bark: #2a2420;
+  --bark-soft: #5d554d;
+  --grain: #c9cbc0;
+  --amber: #b35f00;
+  --gallery: #e8891c;
+  --good: #1f6f3f;
+  --warning: #8a5a00;
+  --critical: #b3261e;
+  /* Hue order is checked for colour blindness: don't reorder by eye. */
+  --family-1: #2a78d6;
+  --family-2: #e87ba4;
+  --family-3: #6250d6;
+  --family-4: #1baf7a;
+  --family-5: #8f6a1f;
+  --family-6: #a13c95;
+  /* What went wrong, worst first. Green never appears on this scale, and the
+     family colours only ever say which model. */
+  --fail-1: #6e1410;
+  --fail-2: #a3211a;
+  --fail-3: #cf3a22;
+  --fail-4: #df5a1e;
+  --fail-5: #e8801c;
+  --fail-6: #e9a21a;
+  --fail-7: #e3bd3a;
+  --fail-8: #e6d27a;
+  --fail-hot-ink: #fff;
+  --surface: var(--birch);
+  --panel: var(--birch-deep);
+  --ink: var(--bark);
+  --ink-soft: var(--bark-soft);
+  --line: var(--grain);
+  --link: var(--amber);
+  --serif: "Piper Thread Serif", Georgia, "Times New Roman", serif;
+  --sans: "Piper Thread Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Piper Thread Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #221d1a;
+    --panel: #2f2823;
+    --ink: #eef0ea;
+    --ink-soft: #bdb6ab;
+    --line: #4a413a;
+    --link: #ffc56b;
+    --good: #6fcf97;
+    --warning: #e6b450;
+    --critical: #ff8a80;
+    --family-1: #3987e5;
+    --family-2: #d55181;
+    --family-3: #9085e9;
+    --family-4: #199e70;
+    --family-5: #b78a30;
+    --family-6: #c25cb0;
+    --fail-1: #f0443a;
+    --fail-2: #e8502a;
+    --fail-3: #ea6a24;
+    --fail-4: #ec8420;
+    --fail-5: #eda01e;
+    --fail-6: #eeb82c;
+    --fail-7: #e8cc5a;
+    --fail-8: #dfd596;
+    --fail-hot-ink: #221d1a;
+  }
+}
+* { box-sizing: border-box; }
+html { background: var(--surface); }
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--surface);
+  font: 17px/1.55 var(--sans);
+  font-synthesis: none;
+  font-feature-settings: "ss01";
+}
+a { color: var(--link); text-underline-offset: 0.15em; }
+a:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible {
+  outline: 3px solid var(--gallery);
+  outline-offset: 2px;
+}
+h1, h2, h3 { font-family: var(--sans); font-weight: 700; line-height: 1.15; }
+h1 { font-size: clamp(2.1rem, 5.5vw, 3.4rem); margin: 0 0 0.4em; letter-spacing: -0.01em; }
+h2 { font-size: 2rem; margin: 2.2em 0 0.35em; }
+h3 { font-size: 1.2rem; margin: 1.8em 0 0.3em; }
+p, li { max-width: 68ch; }
+/* Commands must read exactly as typed: no code ligatures, and the slashed
+   zero stays so 0 and O cannot be confused. Prose takes the plain zero. */
+code, pre { font-family: var(--mono); font-size: 0.86em; font-variant-ligatures: none; font-feature-settings: normal; }
+:not(pre) > code { background: var(--panel); padding: 0.08em 0.3em; border-radius: 3px; overflow-wrap: anywhere; }
+pre { background: var(--bark); color: #eef0ea; padding: 1em 1.1em; border-radius: 6px; overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; line-height: 1.4; }
+th { text-align: left; font-weight: 700; color: var(--ink-soft); }
+th, td { padding: 0.75em 1em; border-bottom: 1px solid var(--line); vertical-align: top; }
+th:first-child, td:first-child { padding-left: 0; }
+th:last-child, td:last-child { padding-right: 0; }
+td.number, th.number { text-align: right; font-variant-numeric: tabular-nums; }
+.scroll { overflow-x: auto; }
+.wrap { width: min(1180px, 100% - 32px); margin-inline: auto; }
+.lead { font-size: 1.3rem; color: var(--ink-soft); max-width: 56ch; }
+.note { color: var(--ink-soft); font-size: 0.92rem; }
+header.site {
+  display: flex; flex-wrap: wrap; gap: 0.4em 1.4em; align-items: center;
+  padding: 0.9em 0; border-bottom: 1px solid var(--line);
+}
+header.site .name {
+  display: flex; align-items: center; gap: 0.5em;
+  font: 700 1.5rem var(--serif); color: var(--ink); text-decoration: none;
+}
+header.site nav { display: flex; flex-wrap: wrap; gap: 0.2em 1.1em; margin-left: auto; }
+header.site nav a { color: var(--ink-soft); text-decoration: none; }
+header.site nav a:hover, header.site nav a[aria-current] { color: var(--ink); text-decoration: underline; }
+main { padding: 2.2em 0 4em; }
+footer.site { border-top: 1px solid var(--line); padding: 1.2em 0 2.4em; color: var(--ink-soft); font-size: 0.9rem; }
+.status-ok { color: var(--good); }
+.status-warn { color: var(--warning); }
+.status-bad { color: var(--critical); }
+.status { font-weight: 700; white-space: nowrap; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(13em, 1fr)); gap: 1.6em 2.4em; margin: 1.6em 0; }
+.stats strong { display: block; font: 700 clamp(2.8rem, 6vw, 4.4rem)/1 var(--serif); font-feature-settings: "ss01"; }
+.stats span { color: var(--ink-soft); }
+.stats .bad strong { color: var(--critical); }
+.stats .good strong { color: var(--good); }

@@ -1,0 +1,8 @@
+{"name":"qwen2.5-coder 7B","url":"http://127.0.0.1:11434","model":"qwen2.5-coder:latest","size_b":7,"refusals_removed":false,"context_tokens":4096}
+{"name":"qwen2.5-coder 1.5B base","url":"http://127.0.0.1:11434","model":"qwen2.5-coder:1.5b-base","size_b":1.5,"refusals_removed":false,"context_tokens":4096}
+{"name":"llama3.1 8B","url":"http://127.0.0.1:11434","model":"llama3.1:latest","size_b":8,"refusals_removed":false,"context_tokens":4096}
+{"name":"gemma4","url":"http://127.0.0.1:11434","model":"gemma4:latest","size_b":8,"refusals_removed":false,"context_tokens":4096}
+{"name":"gemma-4 12B coder","url":"http://127.0.0.1:11434","model":"hf.co/yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF:Q4_K_M","size_b":12,"refusals_removed":false,"context_tokens":4096}
+{"name":"Qwen3.8 27B","url":"http://127.0.0.1:9931","model":"ggml-org/Qwen3.8-27B-GGUF:Q8_0","size_b":27,"refusals_removed":false,"context_tokens":32768}
+{"name":"qwen2.5-coder 7B, refusals removed","url":"http://127.0.0.1:11434","model":"qwen-coder-7b-abliterated","size_b":7,"refusals_removed":true,"context_tokens":4096}
+{"name":"Qwen3.8 27B, refusals removed","url":"http://127.0.0.1:11434","model":"qwen3.8-27b-abliterated","size_b":27,"refusals_removed":true,"context_tokens":4096}

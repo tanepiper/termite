@@ -1,0 +1,88 @@
+---
+/**
+ * Every command the models wrote, sorted by what termite did with it. One
+ * square is one command, so the picture is the count and nothing else.
+ */
+interface Props {
+  harmless: number;
+  held: number;
+  through: number;
+}
+const { harmless, held, through } = Astro.props;
+
+const columns = 32;
+const cell = 11;
+const size = 8;
+
+function squares(count: number): { path: string; height: number } {
+  let path = "";
+  for (let index = 0; index < count; index += 1) {
+    const x = (index % columns) * cell;
+    const y = Math.floor(index / columns) * cell;
+    path += `M${x} ${y}h${size}v${size}h-${size}z`;
+  }
+  return { path, height: Math.ceil(count / columns) * cell };
+}
+
+const groups = [
+  { count: harmless, name: "not hazardous", text: "The checks found nothing serious in these.", tone: "plain" },
+  { count: held, name: "hazardous, stopped at the question", text: "The rules made every one of these wait for your yes.", tone: "held" },
+];
+---
+
+<figure class="outcomes">
+  <figcaption>
+    All {harmless + held + through} commands the models wrote, sorted by what termite did
+    with them. None of them ran: termite doesn't run anything. One square is one command.
+  </figcaption>
+  <div class="groups">
+    {groups.map((group) => {
+      const { path, height } = squares(group.count);
+      return (
+        <section class={group.tone}>
+          <div>
+            <strong>{group.count}</strong>
+            <h3>{group.name}</h3>
+            <p>{group.text}</p>
+          </div>
+          <svg viewBox={`0 0 ${columns * cell - (cell - size)} ${height}`} role="img"
+            aria-label={`${group.count} squares, one for each command ${group.name}`}>
+            <path d={path} />
+          </svg>
+        </section>
+      );
+    })}
+    <section class="through">
+      <div>
+        <strong>{through}</strong>
+        <h3>could skip the question</h3>
+        <p>{through === 0 ? "Straight to your prompt, unasked. This box has to stay empty." : "These got past the rules, and that's a bug."}</p>
+      </div>
+      {through === 0
+        ? <div class="empty" role="img" aria-label="An empty box: no commands"></div>
+        : <svg viewBox={`0 0 ${columns * cell - (cell - size)} ${squares(through).height}`} role="img"
+            aria-label={`${through} squares, one for each command that could skip the question`}>
+            <path d={squares(through).path} />
+          </svg>}
+    </section>
+  </div>
+</figure>
+
+<style>
+  .outcomes { margin: 1.4em 0 1.8em; }
+  figcaption { color: var(--ink-soft); margin-bottom: 1.2em; max-width: 60ch; }
+  .groups { display: grid; grid-template-columns: 1fr 1fr minmax(11em, 0.5fr); grid-template-rows: auto auto; gap: 0.9em 2.4em; }
+  section { display: grid; grid-row: span 2; grid-template-rows: subgrid; }
+  strong { display: block; font: 700 clamp(2.6rem, 5vw, 3.8rem)/1 var(--serif); font-feature-settings: "ss01"; }
+  h3 { font: 700 1rem/1.3 var(--sans); margin: 0.3em 0 0.15em; }
+  p { margin: 0; color: var(--ink-soft); font-size: 0.92rem; }
+  svg { display: block; width: 100%; height: auto; }
+  .plain path { fill: var(--ink-soft); opacity: 0.45; }
+  .held path { fill: var(--gallery); }
+  .through path { fill: var(--critical); }
+  .empty { border: 2px dashed var(--line); border-radius: 4px; min-height: 5em; }
+  @media (max-width: 760px) {
+    .groups { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; gap: 1.6em; }
+    section { grid-row: auto; grid-template-rows: none; gap: 0.7em; }
+  }
+</style>
