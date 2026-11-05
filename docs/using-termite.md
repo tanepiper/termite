@@ -95,7 +95,7 @@ Piped output has no colour, and neither does output with `NO_COLOR` set. The wor
 tmite --json '? list big files'
 ```
 
-The exit status is 0 if there is a command to use, 2 if there is none or it was blocked or declined, 1 if something failed, and 64 if you called it incorrectly.
+The exit status is 0 if there is a command to use, 1 if the command is risky or something failed, 2 if there is no command or it was blocked or declined, and 64 if you called it incorrectly. If termite offers several commands and one is risky, the status is 1.
 
 ## Check a script or a pipe
 

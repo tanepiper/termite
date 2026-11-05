@@ -199,5 +199,22 @@ pub fn read_only_in(
     Ok(())
 }
 
+/// Whether `command`, run in `cwd`, may read a file that holds secrets. The
+/// folder counts as well as the text: `cat *` names no secret, but in
+/// `~/.ssh` it prints every private key.
+///
+/// ```
+/// use std::path::Path;
+/// use termite::may_read_secrets;
+///
+/// assert!(may_read_secrets("cat *", Path::new("/Users/me/.ssh")));
+/// assert!(may_read_secrets("cat .netrc", Path::new("/Users/me")));
+/// assert!(!may_read_secrets("cat *", Path::new("/Users/me/code")));
+/// ```
+pub fn may_read_secrets(command: &str, cwd: &Path) -> bool {
+    secrets::is_secret_path(&cwd.to_string_lossy())
+        || matches!(read_only(command), Err(PolicyRefusal::ReadsSecret { .. }))
+}
+
 #[cfg(test)]
 mod tests;

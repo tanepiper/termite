@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
-use termite::{Answer, Ranked, Rating, rate, to_printable, warnings};
+use termite::{Answer, Ranked, Rating, rate, to_printable, warnings_in};
 
 const RED: &str = "1;31";
 const YELLOW: &str = "33";
@@ -40,6 +40,10 @@ impl View {
         rate(ranked.candidate(), &self.cwd, self.home.as_deref())
     }
 
+    fn warnings(&self, ranked: &Ranked) -> Vec<&'static str> {
+        warnings_in(ranked.candidate().command(), &self.cwd)
+    }
+
     fn paint(&self, code: &str, text: &str) -> String {
         if self.colour {
             format!("\x1b[{code}m{text}\x1b[0m")
@@ -66,7 +70,7 @@ impl View {
 
         if rating == Rating::Risky {
             text.push_str(&format!("{rest}{}\n", self.paint(RED, &shown)));
-            let warned = warnings(ranked.candidate().command()).join(", ");
+            let warned = self.warnings(ranked).join(", ");
             if !warned.is_empty() {
                 text.push_str(&format!("{rest}termite says: {warned}\n"));
             }
@@ -126,14 +130,22 @@ pub(crate) fn render_failure(message: &str, format: Format) -> String {
 
 /// The exit status for an answer: 0 when there is a command to use, 2 when
 /// there is none or it was refused, 1 when something failed.
-pub(crate) fn exit_code(answer: &Answer) -> u8 {
-    match answer {
-        Answer::Failed(_) => 1,
+pub(crate) fn exit_code(answer: &Answer, view: &View) -> u8 {
+    let offered = match answer {
+        Answer::Failed(_) => return 1,
         Answer::NoUsableCommand { .. }
         | Answer::Refused { .. }
-        | Answer::Declined { .. } => 2,
-        _ => 0,
-    }
+        | Answer::Declined { .. } => return 2,
+        Answer::Confirm(ranked)
+        | Answer::StraightIn { ranked, .. }
+        | Answer::ConfirmWithReason { ranked, .. } => {
+            std::slice::from_ref(ranked)
+        },
+        Answer::Choose(ranked) => ranked.as_slice(),
+    };
+
+    // A script must not treat a risky command as a good answer.
+    u8::from(offered.iter().any(|one| view.rating(one) == Rating::Risky))
 }
 
 const ASKING: &str = "Needs approval";
@@ -278,7 +290,7 @@ fn ranked_json(ranked: &Ranked, view: &View) -> Value {
         "description": ranked.candidate().description(),
         "risk": ranked.candidate().risk().as_str(),
         "rating": view.rating(ranked).as_str(),
-        "warnings": warnings(ranked.candidate().command()),
+        "warnings": view.warnings(ranked),
         "score": ranked.score(),
         "score_reason": ranked.reason(),
     })
@@ -493,8 +505,27 @@ mod tests {
 
     #[test]
     fn given_each_answer_then_the_exit_code_matches() {
-        let codes: Vec<u8> = all_answers().iter().map(exit_code).collect();
+        let view = view(false);
+        let codes: Vec<u8> = all_answers()
+            .iter()
+            .map(|answer| exit_code(answer, &view))
+            .collect();
 
-        assert_eq!(codes, [0, 0, 0, 0, 2, 2, 2, 1]);
+        assert_eq!(codes, [0, 1, 0, 0, 2, 2, 2, 1]);
+    }
+
+    #[test]
+    fn given_a_risky_command_then_the_exit_code_is_1() {
+        assert_eq!(exit_code(&Answer::Confirm(risky()), &view(false)), 1);
+    }
+
+    #[test]
+    fn given_a_secret_folder_then_the_exit_code_is_1() {
+        let view = View {
+            cwd: PathBuf::from("/Users/me/.ssh"),
+            ..view(false)
+        };
+
+        assert_eq!(exit_code(&Answer::Confirm(best()), &view), 1);
     }
 }

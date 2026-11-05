@@ -277,7 +277,7 @@ pub(crate) fn run(format: Format, input: &str) -> (String, u8) {
     }
 
     let view = view_of(Path::new(context.cwd()), wants_colour(format));
-    (render(&answer, format, &view), exit_code(&answer))
+    (render(&answer, format, &view), exit_code(&answer, &view))
 }
 
 /// Why the config can't be used, if the log says it has changed.

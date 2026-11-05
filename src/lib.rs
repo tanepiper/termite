@@ -58,12 +58,12 @@ pub use home::{
 };
 pub use merge::merge_candidates;
 pub use place::{Isolation, isolation, isolation_under};
-pub use policy::{PolicyRefusal, read_only, read_only_in};
+pub use policy::{PolicyRefusal, may_read_secrets, read_only, read_only_in};
 pub use progress::{NoProgress, Progress, Stage};
 pub use provenance::{
     Entry, Event, FileStatus, Log, PROVENANCE_FILE, ProvenanceError, Record,
     sha256_hex,
 };
 pub use query::{Mode, Query, parse_query, script_request};
-pub use rating::{Rating, rate, warnings};
+pub use rating::{Rating, rate, warnings, warnings_in};
 pub use script::{Finding, MAX_COMMAND_BYTES, Splitter, Statement, assess};

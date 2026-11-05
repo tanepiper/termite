@@ -6,7 +6,7 @@ use std::path::Path;
 
 use crate::candidate::{Candidate, Risk};
 use crate::hazard::{Severity, hazards};
-use crate::policy::read_only_in;
+use crate::policy::{may_read_secrets, read_only_in};
 
 /// What to tell the user about a command before it reaches the prompt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,7 +44,10 @@ pub fn rate(candidate: &Candidate, cwd: &Path, home: Option<&Path>) -> Rating {
     let serious = hazards(candidate.command())
         .iter()
         .any(|hazard| hazard.severity >= Severity::Medium);
-    if serious || candidate.risk() == Risk::Destructive {
+    if serious
+        || candidate.risk() == Risk::Destructive
+        || may_read_secrets(candidate.command(), cwd)
+    {
         return Rating::Risky;
     }
 
@@ -68,6 +71,16 @@ pub fn warnings(command: &str) -> Vec<&'static str> {
         .collect()
 }
 
+/// [`warnings`], plus the warning that needs to know where the command runs.
+pub fn warnings_in(command: &str, cwd: &Path) -> Vec<&'static str> {
+    let secret = warning("secret_read");
+    let mut found = warnings(command);
+    if may_read_secrets(command, cwd) && !found.contains(&secret) {
+        found.push(secret);
+    }
+    found
+}
+
 fn warning(category: &str) -> &'static str {
     match category {
         "system_destroy" => "destroys the system",
@@ -89,7 +102,7 @@ fn warning(category: &str) -> &'static str {
 mod tests {
     use std::path::Path;
 
-    use super::{Rating, rate, warnings};
+    use super::{Rating, rate, warnings, warnings_in};
     use crate::candidate::{Candidate, Risk};
 
     fn rated(command: &str, risk: Risk) -> Rating {
@@ -109,6 +122,30 @@ mod tests {
     fn given_a_model_that_lies_when_rated_then_the_command_is_still_risky() {
         assert_eq!(rated("rm -rf ~", Risk::Read), Rating::Risky);
         assert_eq!(rated("cat ~/.ssh/id_rsa", Risk::Read), Rating::Risky);
+    }
+
+    #[test]
+    fn given_a_secret_folder_when_rated_then_a_plain_glob_is_risky() {
+        let keys = Path::new("/Users/me/.ssh");
+        let candidate = Candidate::new("cat *", "Show the files", Risk::Read);
+
+        assert_eq!(rate(&candidate, keys, None), Rating::Risky);
+        assert_eq!(warnings_in("cat *", keys), ["reads your secrets"]);
+    }
+
+    #[test]
+    fn given_a_secret_name_with_no_hazard_when_rated_then_it_is_risky() {
+        assert_eq!(rated("cat .netrc", Risk::Read), Rating::Risky);
+        assert_eq!(
+            warnings_in("cat .netrc", Path::new("/tmp")),
+            ["reads your secrets"]
+        );
+    }
+
+    #[test]
+    fn given_an_ordinary_folder_when_rated_then_a_plain_glob_only_reads() {
+        assert_eq!(rated("cat *", Risk::Read), Rating::ReadsOnly);
+        assert!(warnings_in("cat *", Path::new("/tmp")).is_empty());
     }
 
     #[test]
