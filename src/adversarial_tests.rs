@@ -48,6 +48,8 @@ const DISGUISES: &[&str] = &[
     "% &",
     "% > /dev/null",
     "% 2>&1",
+    "% 2>/dev/null",
+    "2>/dev/null %",
     "FOO=1 %",
     "env %",
     "command %",

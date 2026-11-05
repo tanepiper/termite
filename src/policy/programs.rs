@@ -41,6 +41,7 @@ pub(super) fn check_stage(words: &[String]) -> Result<(), PolicyRefusal> {
         "ls" | "pwd" | "stat" | "du" | "df" | "wc" | "which" | "whoami"
         | "uname" | "id" | "uptime" => Ok(()),
         "cat" | "head" => refuse_devices(arguments),
+        "sort" => check_sort(program, arguments),
         "grep" => check_grep(program, arguments),
         "tree" => refuse_options(program, arguments, &['o'], &[]),
         "file" => refuse_options(program, arguments, &['C'], &["--compile"]),
@@ -213,6 +214,27 @@ fn check_find(
 }
 
 /// `NAME=value` as the first word sets a variable for the command.
+/// `-o` writes a file, `-T` writes temporary files, one option runs a program,
+/// and two read a file that no other check sees.
+fn check_sort(
+    program: &str,
+    arguments: &[String],
+) -> Result<(), PolicyRefusal> {
+    refuse_options(
+        program,
+        arguments,
+        &['o', 'T'],
+        &[
+            "--output",
+            "--temporary-directory",
+            "--compress-program",
+            "--files0-from",
+            "--random-source",
+        ],
+    )?;
+    refuse_devices(arguments)
+}
+
 fn is_assignment(word: &str) -> bool {
     let Some((name, _)) = word.split_once('=') else {
         return false;

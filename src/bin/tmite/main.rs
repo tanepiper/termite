@@ -54,6 +54,7 @@ Prefixes:
   ?   explains one command; approve it to put it at your prompt
   ??  explains every command, best first; choose one, ask again or cancel
   ?x  injects one command at your prompt, if every check passes
+  ?b  writes a script as a draft; its install command goes at your prompt
 
 termite never runs a command. Only you can press Enter at the prompt.
 

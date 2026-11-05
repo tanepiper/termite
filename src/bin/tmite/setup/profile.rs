@@ -97,6 +97,19 @@ fn prepare_folders(prompt: &Prompt) -> Result<(), String> {
 }
 
 /// What to add to which file for `shell`.
+/// The startup file that already has termite's block, if one does.
+pub(crate) fn file_with_block(
+    shell: Shell,
+    user_home: &Path,
+) -> Option<PathBuf> {
+    blocks(shell, user_home)
+        .into_iter()
+        .map(|(file, _)| file)
+        .find(|file| {
+            fs::read_to_string(file).is_ok_and(|text| text.contains(START))
+        })
+}
+
 fn blocks(shell: Shell, user_home: &Path) -> Vec<(PathBuf, &'static str)> {
     let file = shell.startup_file(user_home);
     match shell {

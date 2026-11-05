@@ -4,12 +4,16 @@
 //! means no known hazard was found. It doesn't prove the script is safe,
 //! because a script can build what it does while it runs.
 
+mod starts;
+
 use std::path::Path;
 
 use crate::command::is_hidden;
 use crate::hazard::{Severity, hazards};
 use crate::policy::read_only_in;
 use crate::rating::{Rating, warnings};
+
+pub(crate) use starts::command_starts;
 
 /// The most text one command may hold. Anything longer is risky, because it
 /// can't be checked whole.
@@ -267,80 +271,52 @@ fn hidden(c: char) -> bool {
     c != '\t' && (is_hidden(c) || c == char::REPLACEMENT_CHARACTER)
 }
 
-/// Words that run the word after them.
-const RUNS_NEXT: [&str; 14] = [
-    "if", "elif", "while", "until", "then", "do", "else", "!", "time", "exec",
-    "command", "builtin", "sudo", "nohup",
-];
-
-/// One simple command inside a line.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct CommandStart<'a>(&'a str);
-
-impl<'a> CommandStart<'a> {
-    pub(crate) fn text(self) -> &'a str {
-        self.0
-    }
-
-    pub(crate) fn first_word(self) -> &'a str {
-        self.0.split_whitespace().next().unwrap_or("")
-    }
-}
-
-/// The simple commands in a line, split where the shell would split them:
-/// not inside quotes, `[[ ]]` or `(( ))`.
-pub(crate) fn command_starts(text: &str) -> Vec<CommandStart<'_>> {
-    let mut starts = Vec::new();
+/// Does `$'…'` spell characters by number, as `$'\x72\x6d'` spells `rm`? Tabs
+/// and newlines hide nothing, so `$'\t'` is fine, and `'a$'` isn't one at all.
+/// A statement's quotes are closed, so they can be followed here.
+fn spells_by_number(text: &str) -> bool {
     let mut quote = None;
-    let mut test_depth = 0_usize;
-    let mut from = 0;
-    let mut chars = text.char_indices().peekable();
-    while let Some((index, c)) = chars.next() {
-        let next = chars.peek().map(|(_, c)| *c);
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
         match (quote, c) {
             (Some(open), _) if c == open => quote = None,
-            (Some('"'), '\\') | (None, '\\') => {
+            (Some('"') | None, '\\') => {
                 chars.next();
             },
             (Some(_), _) => {},
             (None, '\'' | '"') => quote = Some(c),
-            (None, '[') if next == Some('[') => test_depth += 1,
-            (None, ']') if next == Some(']') => {
-                test_depth = test_depth.saturating_sub(1);
-            },
-            (None, '(') if next == Some('(') => test_depth += 1,
-            (None, ')') if next == Some(')') => {
-                test_depth = test_depth.saturating_sub(1);
-            },
-            (None, ';' | '|' | '&' | '{' | '(') if test_depth == 0 => {
-                push_start(&mut starts, &text[from..index]);
-                from = index + c.len_utf8();
+            (None, '$') if chars.peek() == Some(&'\'') => {
+                chars.next();
+                if dollar_quote_hides(&mut chars) {
+                    return true;
+                }
             },
             _ => {},
         }
     }
-    push_start(&mut starts, &text[from..]);
-    starts
+    false
 }
 
-fn push_start<'a>(starts: &mut Vec<CommandStart<'a>>, part: &'a str) {
-    let mut part = part.trim_start();
-    loop {
-        let word = part.split_whitespace().next().unwrap_or("");
-        if !RUNS_NEXT.contains(&word) {
-            break;
+/// Read to the end of a `$'…'`. One never closed counts as hiding.
+fn dollar_quote_hides(chars: &mut impl Iterator<Item = char>) -> bool {
+    while let Some(c) = chars.next() {
+        match c {
+            '\'' => return false,
+            '\\' if !chars.next().is_some_and(is_plain_escape) => return true,
+            _ => {},
         }
-        part = part[word.len()..].trim_start();
     }
-    if !part.is_empty() {
-        starts.push(CommandStart(part));
-    }
+    true
+}
+
+fn is_plain_escape(c: char) -> bool {
+    "abeEfnrtv\\'\"?".contains(c)
 }
 
 /// Is the program itself worked out while the script runs? `x=$(date)` is
 /// fine, but `$x -rf ~` or `eval "$y"` can be anything.
 fn builds_what_it_runs(text: &str) -> bool {
-    text.contains("$'")
+    spells_by_number(text)
         || command_starts(text).iter().any(|start| {
             let program = start.first_word().trim_start_matches(['"', '\'']);
             program.starts_with('$')
@@ -474,8 +450,59 @@ mod tests {
             "/usr/bin/python3 -c 'print(1)'",
             "$(get-command) --go",
             "echo $'\\x72\\x6d'",
+            "echo $'\\162\\155'",
+            "echo $'\\u0072m'",
+            "echo $'\\cA'",
+            "echo $'\\t\\x72'",
+            "echo $'never closed",
+            "$'rm' -rf ~",
+            "echo 'a' $'\\x72'",
+            "echo $'\\'' $'\\x72'",
+            "echo 'one\ntwo' $'\\x72\\x6d'",
         ] {
             assert_eq!(worst(script), Rating::Risky, "{script}");
+        }
+    }
+
+    #[test]
+    fn given_an_array_then_it_is_not_taken_for_a_subshell() {
+        for script in [
+            "items+=(\"$item\")",
+            "items=(\"$a\" \"$b\")",
+            "local items=(\"$a\")",
+            "declare -a items=(\"$a\")",
+            "if true; then items=(\"$a\"); fi",
+            "for x in a; do items+=(\"$x\"); done",
+        ] {
+            assert_ne!(worst(script), Rating::Risky, "{script}");
+        }
+    }
+
+    #[test]
+    fn given_code_near_an_array_then_it_still_counts() {
+        for script in [
+            "items=($(\"$tool\" go))",
+            "items=(\"$a\"); \"$tool\" go",
+            "items=(a); \"${items[@]}\"",
+            "echo items=(\"$tool\" go)",
+            "1x=(\"$tool\" go)",
+            "=(\"$tool\" go)",
+            "eval items=(\"$a\")",
+        ] {
+            assert_eq!(worst(script), Rating::Risky, "{script}");
+        }
+    }
+
+    #[test]
+    fn given_plain_escapes_in_dollar_quotes_then_they_are_not_risky() {
+        for script in [
+            "grep 'a$' notes.txt",
+            "echo \"$'\\x72'\"",
+            "IFS=$'\\n\\t'",
+            "printf '%s' $'\\e[1m'",
+            "sep=$'\\\\x'",
+        ] {
+            assert_ne!(worst(script), Rating::Risky, "{script}");
         }
     }
 

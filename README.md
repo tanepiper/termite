@@ -178,7 +178,7 @@ options, and refuses everything else. Examples from its test table:
 | Refused | Because |
 |---|---|
 | `ls ; rm -rf ~` · `ls && rm x` · `ls & rm x` · `ls \|& wc` | chains commands |
-| `ls > out.txt` · `ls 2>/dev/null` · `cat < ~/.ssh/id_rsa` · `cat <(ls)` | redirects |
+| `ls > out.txt` · `ls 2>out.txt` · `cat < ~/.ssh/id_rsa` · `cat <(ls)` | redirects |
 | `ls $(pwd)` · ``ls `pwd` `` · `eval ls` · `source ~/.zshrc` · `ls \| xargs rm` · `ls *(e:'rm x':)` | runs built-up code |
 | `ls !!` · `ls "!rm"` | uses history |
 | `ls $'\x2essh'` | hides text in escapes |

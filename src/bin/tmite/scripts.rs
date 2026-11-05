@@ -2,16 +2,18 @@
 //! a script is only made executable after you have seen it and typed `y`, and
 //! every check is repeated at install.
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use serde_json::json;
 use termite::{
     Config, Draft, DraftPlace, Drafted, Event, Home, LlamaServer, Rating,
-    SystemOne, decision_token, flags, to_printable, write_draft,
+    ScriptName, SystemOne, decision_token, flags, to_printable, write_draft,
 };
 
 use crate::output::render_failure;
+use crate::setup::prompt::Prompt;
 use crate::{
     Format, context_from_environment, progress, provenance, script_tools,
 };
@@ -34,9 +36,59 @@ pub(crate) fn write(arguments: &[String]) -> ExitCode {
         eprint!("{USAGE}");
         return ExitCode::from(64);
     }
-    let (text, code) = answer(&words.join(" "), format);
+    let request = words.join(" ");
+    if let Ok(home) = Home::from_env()
+        && let Err(message) =
+            meant_as_a_request(&home, &request, format, &Prompt::new())
+    {
+        print!("{}", render_failure(&message, format));
+        return ExitCode::from(2);
+    }
+    let (text, code) = answer(&request, format);
     print!("{text}");
     ExitCode::from(code)
+}
+
+/// One word that names a script is more likely a slip for `tmite scripts`
+/// than a request, and a model would write something from it. So ask.
+fn meant_as_a_request(
+    home: &Home,
+    request: &str,
+    format: Format,
+    prompt: &Prompt,
+) -> Result<(), String> {
+    let Some(found) = script_called(home, request) else {
+        return Ok(());
+    };
+    if !matches!(format, Format::Human) || !prompt.is_interactive() {
+        return Err(found);
+    }
+    println!("{found}");
+    let question = format!("Write a new script from the words `{request}`?");
+    if prompt.confirm(&question, false) {
+        Ok(())
+    } else {
+        Err("nothing was written".to_owned())
+    }
+}
+
+/// What is already called `request`, and how to use it.
+fn script_called(home: &Home, request: &str) -> Option<String> {
+    let name = ScriptName::parse(request).ok()?;
+    let has = |folder: PathBuf| {
+        fs::symlink_metadata(folder.join(name.as_str())).is_ok()
+    };
+    if has(home.drafts()) {
+        Some(format!(
+            "{name} is already a draft. To read it: tmite scripts show {name}. To install it: tmite scripts install {name}."
+        ))
+    } else if has(home.bin()) {
+        Some(format!(
+            "{name} is already installed. To run it: {name}. To read it: tmite scripts show {name}."
+        ))
+    } else {
+        None
+    }
 }
 
 /// Write a draft for `request` and say how it went.

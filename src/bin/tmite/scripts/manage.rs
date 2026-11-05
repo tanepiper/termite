@@ -13,7 +13,9 @@ use termite::{
 };
 
 use super::{USAGE, flag_lines, ready_home, user_home, warnings_of};
+use crate::setup::profile;
 use crate::setup::prompt::Prompt;
+use crate::shell::Shell;
 use crate::{library, provenance, script_tools};
 
 const EXECUTABLE: u32 = 0o700;
@@ -145,6 +147,14 @@ fn install(
     name.check_free(&home.bin())
         .map_err(|error| error.to_string())?;
     let draft = home.drafts().join(name.as_str());
+    let installed = home.bin().join(name.as_str());
+    let is_there = |path: &Path| fs::symlink_metadata(path).is_ok();
+    if !is_there(&draft) && is_there(&installed) {
+        return Ok(format!(
+            "{name} is already installed, and there's no new draft of it.\n{}",
+            how_to_run(&name, &home.bin())
+        ));
+    }
     let script = read_script(&draft)
         .map_err(|_| format!("there's no draft called {name}"))?;
 
@@ -177,8 +187,7 @@ fn install(
         return Ok("Nothing was installed.\n".to_owned());
     }
 
-    let installed = home.bin().join(name.as_str());
-    if fs::symlink_metadata(&installed).is_ok() {
+    if is_there(&installed) {
         if !prompt.confirm(
             &format!("{name} is already installed. Replace it?"),
             false,
@@ -214,15 +223,40 @@ fn install(
     )?;
     fs::remove_file(&draft).map_err(|error| error.to_string())?;
 
-    let mut text =
-        format!("Installed {name}. Nothing was run.\nTry: {name} --help\n");
-    if !on_path(&home.bin()) {
-        text.push_str(&format!(
-            "{} isn't on your PATH. Run tmite setup to add it.\n",
-            home.bin().display()
-        ));
+    Ok(format!(
+        "Installed {name}. Nothing was run.\n{}",
+        how_to_run(&name, &home.bin())
+    ))
+}
+
+fn how_to_run(name: &ScriptName, bin: &Path) -> String {
+    let startup = Shell::detect()
+        .zip(user_home())
+        .and_then(|(shell, home)| profile::file_with_block(shell, &home));
+    run_advice(name.as_str(), bin, on_path(bin), startup.as_deref())
+}
+
+/// `startup` is the file that already adds `bin` to the PATH, if there is one.
+/// A shell opened before that file changed still doesn't have it.
+fn run_advice(
+    name: &str,
+    bin: &Path,
+    on_path: bool,
+    startup: Option<&Path>,
+) -> String {
+    if on_path {
+        return format!("Try: {name} --help\n");
     }
-    Ok(text)
+    let fix = match startup {
+        Some(file) => {
+            format!("Open a new shell, or run: source {}", file.display())
+        },
+        None => "Run tmite setup to add it.".to_owned(),
+    };
+    format!(
+        "{} isn't on this shell's PATH, so {name} won't run here yet.\n{fix}\nThen try: {name} --help\n",
+        bin.display()
+    )
 }
 
 fn on_path(folder: &Path) -> bool {

@@ -129,7 +129,15 @@ fn given_a_shell_feature_when_checked_then_it_is_refused() {
         ("ls >| out.txt", PolicyRefusal::Redirects),
         ("cat < ~/.ssh/id_rsa", PolicyRefusal::Redirects),
         ("cat << EOF", PolicyRefusal::Redirects),
-        ("ls 2>/dev/null", PolicyRefusal::Redirects),
+        ("ls 2>out.txt", PolicyRefusal::Redirects),
+        ("ls 2>>/dev/null", PolicyRefusal::Redirects),
+        ("ls 2>/dev/nullx", PolicyRefusal::Redirects),
+        ("ls 2>/dev/null>out.txt", PolicyRefusal::Redirects),
+        ("ls 2> /dev/null", PolicyRefusal::Redirects),
+        ("ls 1>/dev/null", PolicyRefusal::Redirects),
+        ("ls x2>/dev/null", PolicyRefusal::Redirects),
+        ("ls 2>/dev/null;rm x", PolicyRefusal::Redirects),
+        ("ls 2>&1", PolicyRefusal::Redirects),
         ("ls $(pwd)", PolicyRefusal::RunsBuiltCode),
         ("ls \"$(pwd)\"", PolicyRefusal::RunsBuiltCode),
         ("ls `pwd`", PolicyRefusal::RunsBuiltCode),
@@ -540,5 +548,95 @@ fn given_the_system_password_files_then_they_are_secrets() {
             ),
             "{command}"
         );
+    }
+}
+
+#[test]
+fn given_errors_sent_to_null_then_the_command_still_only_reads() {
+    for fine in [
+        "ls 2>/dev/null",
+        "du -sh . 2>/dev/null | sort -rh | head -5",
+        "ls 2>/dev/null|wc -l",
+        "2>/dev/null ls",
+        "grep '2>/dev/null' notes.txt",
+    ] {
+        assert_eq!(read_only(fine), Ok(()), "{fine}");
+    }
+    for refused in [
+        "rm -rf x 2>/dev/null",
+        "cat .env 2>/dev/null",
+        "2>/dev/null",
+        "ls | 2>/dev/null",
+    ] {
+        assert!(read_only(refused).is_err(), "{refused}");
+    }
+}
+
+#[test]
+fn given_time_then_the_program_after_it_is_what_counts() {
+    assert_eq!(read_only("time du -sh ."), Ok(()));
+    assert_eq!(read_only("time ls | wc -l"), Ok(()));
+    for refused in [
+        "time",
+        "time rm -rf x",
+        "time time ls",
+        "time -o out.txt ls",
+        "time cat .env",
+        "time sudo ls",
+        "ls | time rm x",
+    ] {
+        assert!(read_only(refused).is_err(), "{refused}");
+    }
+}
+
+#[test]
+fn given_time_then_checks_that_depend_on_the_folder_still_run() {
+    let home = Path::new("/Users/me");
+    assert_eq!(
+        read_only_in("time rg todo", home, Some(home)),
+        Err(PolicyRefusal::SearchesTooWidely {
+            path: "/Users/me".into()
+        })
+    );
+    assert_eq!(
+        read_only_in("rg todo 2>/dev/null", home, Some(home)),
+        Err(PolicyRefusal::SearchesTooWidely {
+            path: "/Users/me".into()
+        })
+    );
+}
+
+#[test]
+fn given_sort_then_it_may_read_but_not_write_or_run() {
+    for fine in [
+        "sort notes.txt",
+        "sort -rh notes.txt",
+        "sort -t: -k2,2n notes.txt",
+        "sort --reverse --unique notes.txt",
+        "sort --random-sort notes.txt",
+        "ls | sort",
+        "sort -- -o",
+    ] {
+        assert_eq!(read_only(fine), Ok(()), "{fine}");
+    }
+    for refused in [
+        "sort -o out.txt notes.txt",
+        "sort -oout.txt notes.txt",
+        "sort -ro out.txt notes.txt",
+        "sort notes.txt -o out.txt",
+        "sort --output=out.txt notes.txt",
+        "sort --out=out.txt notes.txt",
+        "sort --output out.txt notes.txt",
+        "sort -T /tmp notes.txt",
+        "sort --temporary-directory=/tmp notes.txt",
+        "sort --compress-program=./evil notes.txt",
+        "sort --compress=./evil notes.txt",
+        "sort --files0-from=list notes.txt",
+        "sort --random-source=.env notes.txt",
+        "sort .env",
+        "sort ~/.ssh/id_rsa",
+        "sort /dev/zero",
+    ] {
+        assert!(read_only(refused).is_err(), "{refused}");
     }
 }

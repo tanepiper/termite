@@ -205,6 +205,8 @@ your chat model. For a stronger one, set `script_model` in the config, and set
 
 termite checks the script, then saves it as a draft. A draft is not executable and is not on your `PATH`.
 
+If the whole request is one word that names a draft or script you already have, such as `tmite script notes-backup`, termite asks before it writes anything. The answer is no unless you type `y`, and without a terminal nothing is written.
+
 | Check | Turned down when |
 |---|---|
 | Name | it is badly formed, or it uses the name of something you can already run |

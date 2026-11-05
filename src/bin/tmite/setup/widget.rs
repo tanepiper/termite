@@ -49,8 +49,19 @@ pub(super) fn offer(
     }
 }
 
+/// The offered line, even commented out, or any other line that loads a
+/// widget, such as one sourcing the file from a checkout.
 fn already_there(file: &Path, line: &str) -> bool {
-    fs::read_to_string(file).is_ok_and(|text| text.contains(line))
+    fs::read_to_string(file)
+        .is_ok_and(|text| text.contains(line) || text.lines().any(loads_widget))
+}
+
+fn loads_widget(line: &str) -> bool {
+    let line = line.trim_start();
+    !line.starts_with('#')
+        && ["tmite shell ", "tmite.zsh", "tmite.bash", "tmite.fish"]
+            .iter()
+            .any(|sign| line.contains(sign))
 }
 
 fn append(file: &Path, line: &str) -> io::Result<()> {
@@ -93,6 +104,34 @@ mod tests {
         let text = fs::read_to_string(home.join(".zshrc")).expect("zshrc");
         assert!(text.starts_with("alias ll='ls -l'\n"), "{text}");
         assert_eq!(text.matches("tmite shell zsh").count(), 1, "{text}");
+        fs::remove_dir_all(home).expect("clean up");
+    }
+
+    #[test]
+    fn given_the_widget_loaded_another_way_then_it_isnt_offered_again() {
+        let home = folder("source");
+        let before = "source ~/code/termite/shell/tmite.zsh\n";
+        // nosemgrep: termite-files-are-written-privately
+        fs::write(home.join(".zshrc"), before).expect("zshrc");
+
+        offer(&Prompt::answering("y\n"), Some(Shell::Zsh), Some(&home));
+
+        let text = fs::read_to_string(home.join(".zshrc")).expect("zshrc");
+        assert_eq!(text, before);
+        fs::remove_dir_all(home).expect("clean up");
+    }
+
+    #[test]
+    fn given_a_commented_out_source_line_then_it_is_still_offered() {
+        let home = folder("comment");
+        // nosemgrep: termite-files-are-written-privately
+        fs::write(home.join(".zshrc"), "# source ~/x/tmite.zsh\n")
+            .expect("zshrc");
+
+        offer(&Prompt::answering("y\n"), Some(Shell::Zsh), Some(&home));
+
+        let text = fs::read_to_string(home.join(".zshrc")).expect("zshrc");
+        assert!(text.contains("tmite shell zsh"), "{text}");
         fs::remove_dir_all(home).expect("clean up");
     }
 

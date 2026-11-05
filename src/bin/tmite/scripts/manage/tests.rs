@@ -4,7 +4,8 @@ use std::os::unix::fs::PermissionsExt;
 use termite::Drafted;
 
 use super::*;
-use crate::scripts::describe;
+use crate::Format;
+use crate::scripts::{describe, meant_as_a_request};
 
 const PREAMBLE: &str = include_str!("../../../../../bash/preamble.sh");
 
@@ -235,4 +236,92 @@ fn given_withheld_output_then_no_script_text_is_printed() {
 
     assert_eq!(code, 2);
     assert!(text.contains("nothing was saved"), "{text}");
+}
+
+#[test]
+fn given_an_installed_script_and_no_draft_then_install_says_so() {
+    let temp = Temp::new("again");
+    temp.draft("hello", &script("printf 'hi\\n'"));
+    install_with(&temp, "hello", &Prompt::answering("y\n")).expect("install");
+
+    let said = install_with(&temp, "hello", &Prompt::without_terminal())
+        .expect("no failure");
+
+    assert!(said.contains("hello is already installed"), "{said}");
+    assert!(!said.contains("no draft called"), "{said}");
+}
+
+#[test]
+fn given_neither_a_draft_nor_a_script_then_install_says_no_draft() {
+    let temp = Temp::new("neither");
+
+    let said = install_with(&temp, "hello", &Prompt::without_terminal());
+
+    assert_eq!(said, Err("there's no draft called hello".to_owned()));
+}
+
+#[test]
+fn given_the_folder_on_the_path_then_the_advice_is_only_what_to_try() {
+    let said = run_advice("hello", Path::new("/t/bin"), true, None);
+
+    assert_eq!(said, "Try: hello --help\n");
+}
+
+#[test]
+fn given_the_folder_not_on_the_path_then_the_advice_never_says_try_first() {
+    let bin = Path::new("/t/bin");
+
+    let unset = run_advice("hello", bin, false, None);
+    let startup = Path::new("/h/.zshrc");
+    let waiting = run_advice("hello", bin, false, Some(startup));
+
+    assert!(unset.contains("Run tmite setup"), "{unset}");
+    assert!(waiting.contains("source /h/.zshrc"), "{waiting}");
+    assert!(!waiting.contains("tmite setup"), "{waiting}");
+    for said in [unset, waiting] {
+        assert!(said.starts_with("/t/bin isn't on"), "{said}");
+        assert!(said.ends_with("Then try: hello --help\n"), "{said}");
+    }
+}
+
+#[test]
+fn given_a_request_that_names_a_script_then_it_asks_first() {
+    let temp = Temp::new("slip");
+    temp.draft("home-list-top", "text");
+    let human = Format::Human;
+    let ask = |request, format, prompt: &Prompt| {
+        meant_as_a_request(&temp.0, request, format, prompt)
+    };
+
+    let yes = Prompt::answering("y\n");
+    let no = Prompt::answering("\n");
+    let nobody = Prompt::without_terminal();
+
+    assert_eq!(ask("home-list-top", human, &yes), Ok(()));
+    assert!(ask("home-list-top", human, &no).is_err());
+    let said = ask("home-list-top", human, &nobody).expect_err("no terminal");
+    assert!(
+        said.contains("tmite scripts install home-list-top"),
+        "{said}"
+    );
+    assert!(ask("home-list-top", Format::Json, &yes).is_err());
+    assert_eq!(ask("list the top folders", human, &nobody), Ok(()));
+    assert_eq!(ask("other-name", human, &nobody), Ok(()));
+}
+
+#[test]
+fn given_a_request_that_names_an_installed_script_then_it_says_how_to_run_it() {
+    let temp = Temp::new("slip-bin");
+    temp.draft("hello", &script("printf 'hi\\n'"));
+    install_with(&temp, "hello", &Prompt::answering("y\n")).expect("install");
+
+    let said = meant_as_a_request(
+        &temp.0,
+        "hello",
+        Format::Human,
+        &Prompt::without_terminal(),
+    )
+    .expect_err("no terminal");
+
+    assert!(said.contains("To run it: hello"), "{said}");
 }

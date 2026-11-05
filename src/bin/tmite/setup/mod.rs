@@ -5,7 +5,7 @@ mod discover;
 mod fix;
 mod hub;
 mod installed;
-mod profile;
+pub(crate) mod profile;
 pub(crate) mod prompt;
 mod widget;
 

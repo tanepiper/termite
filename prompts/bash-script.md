@@ -33,14 +33,18 @@ The library is already loaded:
 Rules:
 
 - Check what you need up front, and fail early.
-- Quote every expansion. Use arrays for argument lists. Put `--` before user
-  input. Use `printf '%s'` for data.
+- Quote every expansion. Use arrays for argument lists, each on one line or
+  built up with `+=`. Put `--` before user input. Use `printf '%s'` for data.
 - Add `--dry-run` when the script changes things.
 - Never use `eval`, backticks, `sudo`, or `source`. Never pipe a download into a
   shell. Never edit shell startup files. Never make anything writable by other
   users.
 - Don't parse `ls`. For file lists, use `find -print0` with
   `while IFS= read -r -d ''`.
+- To include hidden files in a glob, use `shopt -s dotglob` and `*/` alone. With
+  `dotglob` on, `.*/` lists the same folders a second time.
+- Do every part of the request, and print any figure it asks to see. Work only in
+  the folders it names.
 - Handle macOS and Linux differences in `sed -i`, `stat`, `date` and `readlink -f`,
   or use `require_os` if one platform is enough.
 
