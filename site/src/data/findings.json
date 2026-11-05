@@ -589,12 +589,27 @@
    "strength": "strong",
    "model": "llama3.1 8B",
    "numbers": [
-    51,
-    168,
+    499,
+    840,
     0,
-    756,
-    17,
-    28
+    980,
+    73,
+    112
+   ]
+  },
+  {
+   "id": "context-edge",
+   "kind": "long sessions",
+   "strength": "strong",
+   "numbers": [
+    110,
+    0,
+    224,
+    67,
+    120,
+    224,
+    130,
+    224
    ]
   },
   {

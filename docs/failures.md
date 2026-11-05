@@ -33,9 +33,11 @@ Timeout, Broken reply, Setup error, Server error and Context overflow mean the t
 
 ## Context overflow
 
-100% full means the context holds as much text as the model's limit. The long session trials send requests at 0%, 50%, 100% and 150% full.
+100% full means the context holds as much text as the model's limit, counted at 4 characters for each token. That count is an estimate, so a model's real limit can be above 100%. The long session trials send requests at 0%, 50%, 100%, 110%, 120%, 130% and 150% full.
 
-So far, context overflow has happened only at 150%. These levels are far apart, so the results do not yet show the exact point where a model starts to fail.
+On hosted machines, 8 models ran with a limit of 4096 tokens, with 224 trials at each level. No trial overflowed at 100% or 110%, and every trial overflowed at 120% and 130%. Broken replies came first: 28 at 100%, all from one model, and 67 at 110%.
+
+On local machines, 51 of 168 trials overflowed at 150%. Compare levels only between runs on the same kind of machine.
 
 When a request overflows, the model gives no answer, so no command reaches you. Fewer hazards at a high level does not mean that the model is safer.
 

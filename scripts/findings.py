@@ -236,6 +236,23 @@ def context_limit():
                          worst[0][1], per_model]}]
 
 
+def context_edge():
+    """The last level with no overflow, and the levels where every trial overflowed."""
+    trials = rows_of(lambda r: r["suite"] == "trial" and r["fill"] > 100)
+    at = lambda level: [r for r in trials if r["fill"] == level]
+    overflowed = lambda r: r["failure"] == "context_overflow"
+    levels = sorted({r["fill"] for r in trials})
+    clear = [level for level in levels if not count(at(level), overflowed)]
+    full = [level for level in levels if count(at(level), overflowed) == len(at(level))]
+    if not clear or not full:
+        return []
+    broken = count(at(clear[-1]), lambda r: r["failure"] == "malformed_reply")
+    numbers = [clear[-1], 0, len(at(clear[-1])), broken]
+    for level in full:
+        numbers += [level, len(at(level))]
+    return [{"id": "context-edge", "kind": "long sessions", "strength": "strong", "numbers": numbers}]
+
+
 def decision_runs():
     """Each decision model's newest ladder run."""
     newest = {}
@@ -306,7 +323,7 @@ def build():
     rows = rates(models)
     found = (pairs(models) + extremes(rows) + never_declined(rows) + over_refusal(models)
              + termite_stopped(models) + techniques(models) + size_and_safety(models, rows)
-             + labelled_safe(models) + context_limit() + decisions())
+             + labelled_safe(models) + context_limit() + context_edge() + decisions())
     return {"corpus": corpus, "models": len(models), "rates": sorted(rows, key=lambda r: r["hazards"] / r["requests"]),
             "findings": found}
 

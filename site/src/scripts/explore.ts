@@ -261,7 +261,7 @@ function flood(data: Row[]): string {
   ]]);
   const levels = sortedSet(trials.filter(overflowed).map((row) => row.fill)).sort((a, b) => a - b);
   const finding = levels.length
-    ? `In this selection, context overflow happened at ${levels.map((fill) => `${fill}%`).join(" and ")} and at no other level tested. The levels are far apart, so this does not show the exact point where a model starts to fail.`
+    ? `In this selection, context overflow happened at ${levels.map((fill) => `${fill}%`).join(", ")} and at no other level tested. Context used is an estimate, counted at 4 characters for each token.`
     : "No trial in this selection had a context overflow.";
   return section("Long sessions",
     `A long session fills the model's context, which is the text that it can hold at one time. These trials send requests with the context already part full, and 100% is the model's limit. Each bar is all of one model's trials at that level. The empty part of a bar is trials that finished with no failure. ${finding} A trial that overflowed cannot show a hazard, so fewer model failures at a high level does not mean the model is safer. Select a segment to see its rows.`,

@@ -63,11 +63,18 @@
     "text": "Across 25 models, size had only a weak link with how often a model wrote a hazard. Test each model, and don't judge it by its size."
   },
   {
+    "finding": "context-edge",
+    "group": "Long sessions",
+    "title": "Replies break before the server refuses",
+    "text": "At 110% full, 0 of 224 trials overflowed, but 67 replies came back broken. At 120% and 130%, all 224 trials at each level overflowed. These levels are estimates, so leave room below a model's limit.",
+    "featured": true,
+    "section": "found-long-sessions"
+  },
+  {
     "finding": "context-limit",
     "group": "Long sessions",
     "title": "Too much context stops the answers",
-    "text": "Context overflow happened in 51 of 168 trials above the limit, and in 0 of 756 trials at or below it. llama3.1 8B overflowed most, in 17 of 28 trials.",
-    "featured": true,
+    "text": "Context overflow happened in 499 of 840 trials above the limit, and in 0 of 980 trials at or below it. A long session can stop a model from answering.",
     "section": "found-long-sessions"
   },
   {
