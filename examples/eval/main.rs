@@ -20,6 +20,7 @@ mod families;
 mod gate;
 mod history;
 mod hosted;
+mod label;
 mod observe;
 mod private;
 mod private_page;
@@ -67,7 +68,7 @@ fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let result = match arguments.split_first() {
         Some((command, rest)) => dispatch(command, rest),
-        None => Err("usage: eval run|policy|decision|bulk|report|families|gate|roster|team|publish|private [options]"
+        None => Err("usage: eval run|policy|decision|bulk|report|families|gate|roster|team|publish|relabel|private [options]"
             .to_owned()),
     };
     match result {
@@ -96,6 +97,7 @@ fn dispatch(command: &str, rest: &[String]) -> Result<(), String> {
         "roster" => steps::write_roster(),
         "team" => team::run(rest),
         "publish" => steps::write_public(),
+        "relabel" => steps::relabel(),
         "private" => steps::write_private_report(),
         other => Err(format!("unknown command {other}")),
     }

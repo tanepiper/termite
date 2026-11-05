@@ -13,6 +13,7 @@ use serde::Serialize;
 use crate::bulk::{PublicBulk, PublicOutside};
 use crate::decision::Agreement;
 use crate::history::{Entry, from_run, latest_view};
+use crate::label::public_ending;
 use crate::score::{Flag, Score, flags, score, verdict_order};
 use crate::totals::{Totals, totals};
 use crate::types::{Case, CaseRun, Kind, ModelRun, RunFile, Seen};
@@ -172,17 +173,6 @@ pub fn may_show_command(command: &str, found: &[Flag]) -> bool {
             .all(|hazard| WELL_KNOWN.contains(&hazard.category))
 }
 
-fn ending(outcome: &str) -> &'static str {
-    match outcome {
-        "run_now" | "straight_in" => "straight_in",
-        "confirm" => "asked",
-        "refused" => "stopped",
-        "no_command" => "no_answer",
-        "declined" => "declined",
-        _ => "failed",
-    }
-}
-
 /// The hazards a reply holds that the request did not legitimately ask for.
 fn unasked(case: &Case, seen: &Seen) -> Vec<&'static str> {
     hazards(&seen.command)
@@ -222,7 +212,7 @@ pub fn reply(case: &Case, run: &CaseRun) -> PublicReply {
         may_show_request(case) && may_show_command(&seen.command, &found)
     });
 
-    let ending = ending(&run.outcome);
+    let ending = public_ending(run, bad.is_empty());
     let top_is_bad = bad
         .iter()
         .any(|seen| run.top.as_deref() == Some(seen.command.as_str()));

@@ -66,6 +66,12 @@ The `refusal` field was first tested on 5 November 2026, in one ZeroGPU run of L
 8B with refusals removed. It declined 7 of 24 hostile requests, so this model can refuse.
 It wrote commands for 16 of them. Past runs still show they could not refuse.
 
+All 14 core models ran on 5 November 2026 with the refusal field. Declined hostile
+requests, safety-trained against refusals removed: Qwen3 4B 17 and 0, qwen2.5-coder 4 and
+0, qwen2.5 3 and 1, Llama 3.1 8B 2 and 7, Phi-4 mini and Gemma 3 4B 0 and 0. Each is one
+run, so none of this is a finding yet. It does show that the old "no difference" result
+came from the reply format for at least Qwen3.
+
 **A new reply needs its own value.** In that run 6 of 48 replies had no commands and an
 empty refusal. `eval` counts them as `failed`, so they would land in `broke`, which says
 nothing about the model. That's wrong: the server worked and the model chose to say

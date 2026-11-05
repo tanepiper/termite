@@ -11,7 +11,7 @@ use termite::{PRIVATE_DIR_MODE, PRIVATE_FILE_MODE, write_private};
 use crate::bulk::{self, BulkFile, Outside, PublicBulk};
 use crate::decision::{self, Agreement, Choice, DecisionFile, Rung, agreement};
 use crate::history::{self, Entry, latest_view};
-use crate::observe::{self, Suite};
+use crate::observe::{self, Suite, Write};
 use crate::private::{self, KnownIssue};
 use crate::private_page::{index_page, recommendations, report_page, stamp};
 use crate::publish;
@@ -194,13 +194,14 @@ fn update_history(
     read_lines(HISTORY)
 }
 
-/// Write one file of observations for each source not yet recorded. Files
-/// are committed and never rewritten, so losing the raw runs loses no chart.
+/// Write one file of observations for each source. Files are committed, so
+/// losing the raw runs loses no chart. Only `relabel` rewrites them.
 fn record_observations(
     runs: &[RunFile],
     cases: &[Case],
     decisions: &[DecisionFile],
     rungs: &[Rung],
+    write: Write,
 ) -> Result<(), String> {
     let mut specs: Vec<ModelSpec> = read_lines(MODELS)?;
     let mut decision: Vec<ModelSpec> = read_lines(DECISION_MODELS)?;
@@ -242,22 +243,23 @@ fn record_observations(
         batches.push((format!("ladder-{}", file.started), rows));
     }
 
-    for (name, rows) in batches {
-        let path = format!("{OBSERVATIONS}/{name}.jsonl");
-        if rows.is_empty() || Path::new(&path).exists() {
-            continue;
-        }
-        let mut text = String::new();
-        for row in &rows {
-            text.push_str(
-                &serde_json::to_string(row)
-                    .map_err(|error| error.to_string())?,
-            );
-            text.push('\n');
-        }
-        fs::write(&path, text).map_err(|error| error.to_string())?;
-    }
-    Ok(())
+    observe::save_batches(OBSERVATIONS, batches, write)
+}
+
+/// Rewrite the recorded observations from the raw runs, after a change to
+/// the label rules. It adds no source: `publish` does that.
+pub fn relabel() -> Result<(), String> {
+    let decisions: Vec<DecisionFile> = crate::hosted::decisions()?
+        .into_iter()
+        .chain(sorted_decisions())
+        .collect();
+    record_observations(
+        &all_runs()?,
+        &read_lines(REQUESTS)?,
+        &decisions,
+        &read_lines(LADDER)?,
+        Write::Recorded,
+    )
 }
 
 pub fn write_public() -> Result<(), String> {
@@ -273,7 +275,7 @@ pub fn write_public() -> Result<(), String> {
     let mut bulks: Vec<BulkFile> = read_results("bulk-");
     bulks.sort_by_key(|file| file.started);
 
-    record_observations(&all_runs()?, &cases, &decisions, &rungs)?;
+    record_observations(&all_runs()?, &cases, &decisions, &rungs, Write::New)?;
     let mut data = publish::build(&runs, &cases)
         .ok_or("no model results yet: run `eval run` first")?;
     data.trend =

@@ -15,7 +15,11 @@ const FAILURE_WORDS: Record<string, string> = {
   policy_gap: "Policy bypass", straight_in_risky: "Risky injected", injection_followed: "Injection followed",
   understated: "Hazard labelled safe", hazard_written: "Hazard written", wrong_answer: "Wrong answer",
   no_command: "No usable command", timeout: "Timeout", context_overflow: "Context overflow",
-  malformed_reply: "Broken reply", server_error: "Server error", rated_safe: "Risk rated safe",
+  malformed_reply: "Broken reply", setup_error: "Setup error", server_error: "Server error", rated_safe: "Risk rated safe",
+};
+const ENDING_WORDS: Record<string, string> = {
+  straight_in: "Injected", asked: "Needs approval", refused: "Blocked", no_command: "No usable command",
+  declined: "Declined", failed: "Error", rated: "Rated",
 };
 /** What went wrong, worst first. Position in this list picks the colour, `--seg-N`. */
 const SEVERITY: { label: string; modes: string[] }[] = [
@@ -27,16 +31,16 @@ const SEVERITY: { label: string; modes: string[] }[] = [
   { label: "Wrong answer", modes: ["wrong_answer"] },
   { label: "No usable command", modes: ["no_command"] },
   { label: "Timeout", modes: ["timeout"] },
-  { label: "Error", modes: ["context_overflow", "malformed_reply", "server_error"] },
+  { label: "Error", modes: ["context_overflow", "malformed_reply", "setup_error", "server_error"] },
 ];
 /** The server or the run gave out. Says nothing about what the model would do. */
-const DID_NOT_FINISH = ["timeout", "context_overflow", "malformed_reply", "server_error"];
+const DID_NOT_FINISH = ["timeout", "context_overflow", "malformed_reply", "setup_error", "server_error"];
 const TABS: [string, string][] = [
   ["text", "Command models"], ["decision", "Decision models"], ["vision", "Vision models"], ["image", "Image models"],
 ];
 const FACETS: [keyof Row, string][] = [
   ["suite", "Tests"], ["model", "Model"], ["family", "Family"], ["query_kind", "Intent"],
-  ["domain", "Area"], ["technique", "Type"], ["level", "Level"], ["failure", "Failure"], ["fill", "How full its memory was (%)"],
+  ["domain", "Area"], ["technique", "Type"], ["level", "Level"], ["ending", "Result"], ["failure", "Failure"], ["fill", "How full its memory was (%)"],
 ];
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
@@ -329,7 +333,7 @@ function drawFacets(): void {
   $("facets").innerHTML = FACETS.map(([key, label]) => {
     const values = sortedSet(mine.map((row) => String(row[key])));
     if (values.length < 2) return "";
-    const options = values.map((v) => `<option value="${esc(v)}" ${chosen[key] === v ? "selected" : ""}>${esc(FAILURE_WORDS[v] ?? v)}</option>`).join("");
+    const options = values.map((v) => `<option value="${esc(v)}" ${chosen[key] === v ? "selected" : ""}>${esc((key === "ending" ? ENDING_WORDS[v] : FAILURE_WORDS[v]) ?? v)}</option>`).join("");
     return `<label>${label}<select data-facet="${key}"><option value="">All</option>${options}</select></label>`;
   }).join("");
 }

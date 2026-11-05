@@ -5,7 +5,9 @@ candidates. It stops before the free daily quota can run out, because time past
 it is billed. Every GPU call goes in the ledger, and a failed call counts as a
 full window. Nothing is retried.
 
-Usage: run.py SPACE_FOLDER|- MODELS OUT_DIR LEDGER [--limit N] [--only NAME]
+Usage: run.py SPACE_FOLDER|- MODELS OUT_DIR LEDGER [--limit N] [--only NAME] [--pay]
+
+--pay carries on past the free quota, at $1 for 10 minutes. Time is still logged.
 """
 import argparse, json, os, pathlib, sys, time
 from huggingface_hub import HfApi
@@ -24,6 +26,7 @@ parser.add_argument("out", type=pathlib.Path)
 parser.add_argument("ledger", type=pathlib.Path)
 parser.add_argument("--limit", type=int, default=0)
 parser.add_argument("--only")
+parser.add_argument("--pay", action="store_true")
 args = parser.parse_args()
 
 
@@ -73,7 +76,7 @@ if args.only:
     rows = [row for row in rows if row["name"] == args.only]
 decision = client.predict(*DECISION, api_name="/fetch")
 for model in in_order(rows):
-    if used_today() + WINDOW > BUDGET:
+    if not args.pay and used_today() + WINDOW > BUDGET:
         print("stopped: quota limit", int(used_today()), "s used", flush=True)
         break
     weights = client.predict(model["repo"], model["file"], model["revision"], api_name="/fetch")
