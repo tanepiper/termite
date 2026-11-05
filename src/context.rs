@@ -27,6 +27,7 @@ pub struct Context {
     shell: String,
     cwd: String,
     session: Session,
+    unattended: bool,
 }
 
 impl Context {
@@ -50,6 +51,18 @@ impl Context {
         self.session
     }
 
+    /// Nobody is there to answer a question: an agent, CI or no terminal.
+    pub fn unattended(&self) -> bool {
+        self.unattended
+    }
+
+    /// Say whether anybody is there to answer a question.
+    #[must_use]
+    pub fn with_unattended(mut self, unattended: bool) -> Self {
+        self.unattended = unattended;
+        self
+    }
+
     /// Create a context.
     ///
     /// ```
@@ -69,6 +82,7 @@ impl Context {
             shell: shell.into(),
             cwd: cwd.into(),
             session,
+            unattended: false,
         }
     }
 }

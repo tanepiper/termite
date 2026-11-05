@@ -9,7 +9,10 @@
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
-use termite::{Answer, Ranked, Rating, rate, to_printable, warnings_in};
+use termite::{
+    Answer, Classification, Held, Level, Ranked, Rating, classify_candidate,
+    rate, to_printable, warnings_in,
+};
 
 const RED: &str = "1;31";
 const YELLOW: &str = "33";
@@ -36,12 +39,25 @@ pub(crate) struct View {
 }
 
 impl View {
+    fn classified(&self, ranked: &Ranked) -> Classification {
+        classify_candidate(ranked.candidate(), &self.cwd, self.home.as_deref())
+    }
+
+    /// A level that asks counts as risky, so the question defaults to no.
     fn rating(&self, ranked: &Ranked) -> Rating {
+        if self.classified(ranked).level.asks() {
+            return Rating::Risky;
+        }
         rate(ranked.candidate(), &self.cwd, self.home.as_deref())
     }
 
     fn warnings(&self, ranked: &Ranked) -> Vec<&'static str> {
-        warnings_in(ranked.candidate().command(), &self.cwd)
+        let mut found = warnings_in(ranked.candidate().command(), &self.cwd);
+        let classified = self.classified(ranked);
+        if found.is_empty() && classified.level.asks() {
+            found = classified.reasons;
+        }
+        found
     }
 
     fn paint(&self, code: &str, text: &str) -> String {
@@ -99,6 +115,29 @@ impl View {
         )
     }
 
+    /// A held command is text to read. A withheld one isn't shown at all.
+    fn held(&self, held: &Held) -> String {
+        let word = match held.shown {
+            Some(_) => "✗ display only",
+            None => "✗ blocked",
+        };
+        let reason = to_printable(&held.message());
+        let mut text = format!("{}  {reason}\n", self.paint(RED, word));
+        if let Some(ranked) = &held.shown {
+            let shown = self.paint(RED, &command(ranked));
+            text.push_str(&format!(
+                "  {shown}\n  Not put at your prompt. To use it, type it yourself.\n"
+            ));
+        } else if held.level == Level::Never {
+            text.push_str("  This command is not shown.\n");
+        }
+        text
+    }
+
+    fn all_held(&self, held: &[Held]) -> String {
+        held.iter().map(|one| self.held(one)).collect()
+    }
+
     fn with_note(&self, ranked: &Ranked, note: &str, reason: &str) -> String {
         let reason = to_printable(reason);
         format!("{}  {note}: {reason}\n", self.entry(ranked, "", "  "))
@@ -135,13 +174,14 @@ pub(crate) fn exit_code(answer: &Answer, view: &View) -> u8 {
         Answer::Failed(_) => return 1,
         Answer::NoUsableCommand { .. }
         | Answer::Refused { .. }
+        | Answer::Held(_)
         | Answer::Declined { .. } => return 2,
         Answer::Confirm(ranked)
         | Answer::StraightIn { ranked, .. }
         | Answer::ConfirmWithReason { ranked, .. } => {
             std::slice::from_ref(ranked)
         },
-        Answer::Choose(ranked) => ranked.as_slice(),
+        Answer::Choose { ranked, .. } => ranked.as_slice(),
     };
 
     // A script must not treat a risky command as a good answer.
@@ -158,7 +198,10 @@ const STRAIGHT: &str = "Injected";
 fn human(answer: &Answer, view: &View) -> String {
     match answer {
         Answer::Confirm(ranked) => view.entry(ranked, "", "  "),
-        Answer::Choose(ranked) => view.list(ranked),
+        Answer::Choose { ranked, held } => {
+            format!("{}{}", view.list(ranked), view.all_held(held))
+        },
+        Answer::Held(held) => view.held(held),
         Answer::StraightIn { ranked, reason } => {
             view.with_note(ranked, STRAIGHT, reason)
         },
@@ -189,10 +232,12 @@ fn json(answer: &Answer, view: &View) -> Value {
         Answer::Confirm(ranked) => {
             json!({ "kind": "confirm", "command": one(ranked) })
         },
-        Answer::Choose(ranked) => json!({
+        Answer::Choose { ranked, held } => json!({
             "kind": "choose",
             "commands": ranked.iter().map(one).collect::<Vec<_>>(),
+            "held": held.iter().map(|one| held_json(one, view)).collect::<Vec<_>>(),
         }),
+        Answer::Held(held) => held_json(held, view),
         Answer::StraightIn { ranked, reason } => json!({
             "kind": "straight_in",
             "command": one(ranked),
@@ -240,13 +285,16 @@ fn zle(answer: &Answer, view: &View) -> String {
         Answer::Confirm(ranked) => {
             one("confirm", ranked, view.entry(ranked, "", "  "))
         },
-        Answer::Choose(ranked) => {
+        // A held command leaves the command line empty, as a refusal does.
+        Answer::Held(held) => format!("refused\n\n\n{}", view.held(held)),
+        Answer::Choose { ranked, held } => {
             let mut text = format!("choose\n{}\n", ranked.len());
             for ranked in ranked {
                 let rating = view.rating(ranked).as_str();
                 text.push_str(&format!("{rating}\t{}\n", command(ranked)));
             }
             text.push_str(&view.list(ranked));
+            text.push_str(&view.all_held(held));
             text
         },
         Answer::StraightIn { ranked, reason } => one(
@@ -288,8 +336,24 @@ fn command(ranked: &Ranked) -> String {
     to_printable(ranked.candidate().command())
 }
 
+fn held_json(held: &Held, view: &View) -> Value {
+    let mut value = json!({
+        "kind": "held",
+        "level": held.level.number(),
+        "insert": false,
+        "reason": held.message(),
+    });
+    if let Some(ranked) = &held.shown {
+        value["command"] = ranked_json(ranked, view);
+    }
+    value
+}
+
 fn ranked_json(ranked: &Ranked, view: &View) -> Value {
+    let level = view.classified(ranked).level;
     json!({
+        "level": level.number(),
+        "insert": level.may_insert() && !level.asks(),
         "command": ranked.candidate().command(),
         "description": ranked.candidate().description(),
         "risk": ranked.candidate().risk().as_str(),
@@ -315,7 +379,8 @@ mod tests {
 
     use serde_json::json;
     use termite::{
-        Answer, AssistError, Candidate, CommandRejected, Ranked, Risk, Service,
+        Answer, AssistError, Candidate, CommandRejected, Held, Level, Ranked,
+        Risk, Service,
     };
 
     use super::{Format, View, exit_code, render};
@@ -351,7 +416,10 @@ mod tests {
     fn all_answers() -> Vec<Answer> {
         vec![
             Answer::Confirm(best()),
-            Answer::Choose(vec![best(), risky()]),
+            Answer::Choose {
+                ranked: vec![best(), risky()],
+                held: Vec::new(),
+            },
             Answer::StraightIn {
                 ranked: best(),
                 reason: "It only lists files.".into(),
@@ -400,6 +468,55 @@ mod tests {
         }
     }
 
+    fn held(command: Option<Ranked>, level: Level) -> Held {
+        Held {
+            level,
+            reasons: vec!["needs root"],
+            shown: command,
+        }
+    }
+
+    #[test]
+    fn given_a_held_command_when_rendered_for_zle_then_nothing_can_be_inserted()
+    {
+        let shown = Answer::Held(held(Some(risky()), Level::SystemDangerous));
+
+        let text = plain(&shown, Format::Zle);
+
+        assert!(text.starts_with("refused\n\n\n"), "{text}");
+        assert!(text.contains("rm -rf ~"), "{text}");
+        assert!(text.contains("type it yourself"), "{text}");
+    }
+
+    #[test]
+    fn given_a_withheld_command_then_no_format_shows_it() {
+        let answer = Answer::Held(held(None, Level::Never));
+
+        for format in [Format::Human, Format::Json, Format::Zle] {
+            let text = plain(&answer, format);
+            assert!(!text.contains("rm -rf"), "{text}");
+            assert!(text.contains("level 5"), "{text}");
+        }
+        assert_eq!(exit_code(&answer, &view(false)), 2);
+    }
+
+    #[test]
+    fn given_a_list_with_a_held_command_then_it_is_not_one_of_the_choices() {
+        let answer = Answer::Choose {
+            ranked: vec![best()],
+            held: vec![held(Some(risky()), Level::SystemDangerous)],
+        };
+
+        let text = plain(&answer, Format::Zle);
+
+        assert!(
+            text.starts_with("choose\n1\nreads\tls -la ~/code\n"),
+            "{text}"
+        );
+        assert!(!text.contains("risky\trm"), "{text}");
+        assert!(text.contains("✗ display only"), "{text}");
+    }
+
     #[test]
     fn given_a_refusal_when_rendered_for_zle_then_there_is_no_command_to_insert()
      {
@@ -414,8 +531,10 @@ mod tests {
 
     #[test]
     fn given_model_text_with_control_characters_then_zle_lines_stay_intact() {
-        let answer =
-            Answer::Choose(vec![ranked("ls", "List\nfiles\tnow\x1b[31m", 0.5)]);
+        let answer = Answer::Choose {
+            ranked: vec![ranked("ls", "List\nfiles\tnow\x1b[31m", 0.5)],
+            held: Vec::new(),
+        };
 
         assert_eq!(
             plain(&answer, Format::Zle),
@@ -479,6 +598,8 @@ mod tests {
                 "command": {
                     "command": "ls -la ~/code",
                     "description": "List the code folder",
+                    "level": 0,
+                    "insert": true,
                     "risk": "read",
                     "rating": "reads",
                     "warnings": [],

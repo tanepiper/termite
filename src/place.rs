@@ -24,6 +24,39 @@ impl Isolation {
     }
 }
 
+/// Variables that mean an agent or CI started this. The list can only grow.
+const UNATTENDED: [&str; 14] = [
+    "CI",
+    "GITHUB_ACTIONS",
+    "GITLAB_CI",
+    "BUILDKITE",
+    "JENKINS_URL",
+    "CIRCLECI",
+    "TF_BUILD",
+    "TEAMCITY_VERSION",
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CODEX_SANDBOX",
+    "CURSOR_TRACE_ID",
+    "GEMINI_CLI",
+    "TERMITE_AGENT",
+];
+
+/// Is nobody there to answer a question? True for any of the variables, set
+/// to anything, any `AIDER_` variable, or no terminal. Nothing can turn this
+/// off: an agent that hides its variables still has no terminal.
+pub fn unattended<I, S>(variables: I, has_terminal: bool) -> bool
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    !has_terminal
+        || variables.into_iter().any(|name| {
+            let name = name.as_ref();
+            UNATTENDED.contains(&name) || name.starts_with("AIDER_")
+        })
+}
+
 /// Words that name a container in `/proc/1/cgroup`.
 const CONTAINER_GROUPS: [&str; 4] =
     ["docker", "containerd", "kubepods", "libpod"];
@@ -103,6 +136,24 @@ fn hypervisor_flag() -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn given_each_variable_then_nobody_is_there() {
+        for name in super::UNATTENDED {
+            assert!(super::unattended([name], true), "{name}");
+        }
+        assert!(super::unattended(["AIDER_MODEL"], true));
+    }
+
+    #[test]
+    fn given_no_terminal_then_nobody_is_there() {
+        assert!(super::unattended(["HOME"], false));
+    }
+
+    #[test]
+    fn given_a_terminal_and_no_variable_then_a_person_is_there() {
+        assert!(!super::unattended(["HOME", "PATH"], true));
+    }
+
     use std::path::PathBuf;
 
     use super::*;

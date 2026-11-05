@@ -216,5 +216,10 @@ pub fn may_read_secrets(command: &str, cwd: &Path) -> bool {
         || matches!(read_only(command), Err(PolicyRefusal::ReadsSecret { .. }))
 }
 
+/// Whether `path` names, or may match, a file that holds secrets.
+pub(crate) fn names_secret(path: &str) -> bool {
+    secrets::is_secret_path(path)
+}
+
 #[cfg(test)]
 mod tests;

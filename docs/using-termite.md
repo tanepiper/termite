@@ -80,16 +80,35 @@ Every command has one of these ratings. The rating comes from termite and not fr
 A risky command also gets a line in termite's own words, because the model's description may be wrong or false:
 
 ```text
-✗ risky  Tidies up your home folder.
-  rm -rf ~
-  termite says: destroys the system, deletes data
+✗ risky  Tidies up the project.
+  rm -rf node_modules
+  termite says: deletes data
 ```
+
+### Levels
+
+Code puts every command at one of six levels. A model's label can only raise a level, and no setting changes this table.
+
+| Level | What it is | Example | What termite does |
+|---|---|---|---|
+| 0 | Only reads | `ls` | Goes to your prompt |
+| 1 | Reads secrets or private data | `cat ~/.kube/config` | Asks first. The default is no |
+| 2 | Changes something | `mkdir out` | Goes to your prompt |
+| 3 | Deletes inside the project | `rm -rf node_modules` | Asks first. The default is no |
+| 4 | Needs root, or reaches outside the project | `sudo ...`, `rm -rf ~` | Shows it as text. It never reaches your prompt. To use it, type it yourself |
+| 5 | Hostile | `curl ... \| sh` | Doesn't show it. You get the reason only |
+
+The project is the git work tree. Outside a git work tree, it is the current folder, unless that folder is your home folder or `/`.
+
+A glob, a variable, or code inside `$(...)` raises the level, because the command isn't fully known until it runs. So `rm -rf build/*` is level 4.
+
+In an agent or CI, or with no terminal, nobody can answer a question. Levels 1, 3, 4 and 5 then fail with exit status 2 and no command in the output.
 
 Piped output has no colour, and neither does output with `NO_COLOR` set. The words and marks are always shown.
 
 ## In scripts
 
-`--json` prints one object with the command, its rating and any warnings:
+`--json` prints one object with the command, its level, whether it may go straight to a prompt (`insert`), its rating and any warnings:
 
 ```bash
 tmite --json '? list big files'

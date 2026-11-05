@@ -34,7 +34,7 @@ use std::process::ExitCode;
 
 use termite::{
     Answer, Config, Context, Home, LlamaServer, Session, SystemOne, answer,
-    decision_token, parse_query, script_request,
+    decision_token, gate, parse_query, script_request, unattended,
 };
 
 use crate::output::{Format, exit_code, render, render_failure, view_of};
@@ -271,7 +271,9 @@ pub(crate) fn run(format: Format, input: &str) -> (String, u8) {
         runtime.block_on(answer(&query, &context, &source, &decider, progress))
     });
 
-    if matches!(answer, Answer::Refused { .. }) {
+    let answer = gate(answer, &context);
+
+    if matches!(answer, Answer::Refused { .. } | Answer::Held(_)) {
         // The command is already stopped. `tmite alerts` shows what this logs.
         let _ = provenance::alert(input, Vec::new(), "refused", "tmite");
     }
@@ -312,7 +314,16 @@ fn context_from_environment() -> Context {
         .map(|cwd| cwd.display().to_string())
         .unwrap_or_else(|_| ".".to_owned());
 
+    let names =
+        env::vars_os().map(|(name, _)| name.to_string_lossy().into_owned());
     Context::new(env::consts::OS, shell, cwd, session_from_environment())
+        .with_unattended(unattended(names, has_terminal()))
+}
+
+/// A person can answer on the standard input or on `/dev/tty`. The widgets
+/// give `tmite` no standard input, but they run in a terminal.
+fn has_terminal() -> bool {
+    io::stdin().is_terminal() || File::open("/dev/tty").is_ok()
 }
 
 /// [`Session::Ssh`] when sshd started this login (`SSH_CONNECTION`,

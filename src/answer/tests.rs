@@ -120,7 +120,7 @@ fn given_choose_mode_when_answered_then_every_command_is_returned_best_first() {
         &ranking_in_order(),
     );
 
-    let Answer::Choose(ranked) = answer else {
+    let Answer::Choose { ranked, .. } = answer else {
         panic!("expected Choose, got {answer:?}");
     };
     let commands: Vec<&str> =
@@ -147,7 +147,7 @@ fn given_choose_mode_with_duplicates_then_one_merged_command_is_ranked() {
         &decider,
     );
 
-    let Answer::Choose(ranked) = answer else {
+    let Answer::Choose { ranked, .. } = answer else {
         panic!("expected Choose, got {answer:?}");
     };
     assert_eq!(ranked.len(), 1);

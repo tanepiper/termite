@@ -187,9 +187,15 @@ fn summarise(reply: &Answer) -> (&'static str, String, Option<String>) {
             ("confirm", reason.clone(), command(ranked))
         },
         Answer::Confirm(ranked) => ("confirm", String::new(), command(ranked)),
-        Answer::Choose(ranked) => {
+        Answer::Choose { ranked, .. } => {
             ("confirm", String::new(), ranked.first().and_then(command))
         },
+        // The evaluation scores what `answer` gives, before the gate.
+        Answer::Held(held) => (
+            "refused",
+            held.message(),
+            held.shown.as_ref().and_then(command),
+        ),
         Answer::Refused { ranked, reason } => {
             ("refused", reason.clone(), command(ranked))
         },

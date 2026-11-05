@@ -259,7 +259,8 @@ termite logs what it installs and what it stops, as hashes, in a signed chain. S
 
 ### What termite does not protect against
 
-- **A warning does not block a command.** `?` and `??` mark a risky command in red and ask twice, but if you approve it, `sudo` or `rm -rf` still reaches your prompt. The six-level classification on the roadmap will change this; until then, read every command before you press Enter.
+- **Levels 1 to 3 still reach your prompt if you say yes.** A contained delete such as `rm -rf node_modules` asks first, but a yes puts it at your prompt, so read every command before you press Enter. Root commands and commands that reach outside the project never reach your prompt.
+- **`tmite check` still uses the three ratings,** not the six levels.
 - **The read-only policy matches paths as written.** It does not follow
   symlinks, and with zsh's `GLOB_DOTS` on, `cat *` can reach hidden files.
 - **Malware running as your user** can do anything you can, including
@@ -342,15 +343,8 @@ These are designed and specified, with tickets:
 - **Intents:** `tmite ask | choose | run | script`. `?` gets a trigger
   you choose.
   ([spec](specs/2026-11-04-intents-and-confirm-card/spec.md))
-- **Six levels and a confirm card:** code puts every command at a level,
-  and the models can only raise it:
-  - 0 read and 2 change go to your prompt;
-  - 1 sensitive read and 3 contained delete (`rm -rf node_modules`) ask
-    first, then go to your prompt;
-  - 4 dangerous to the system is **display only**: never inserted, never
-    copied;
-  - 5 never is **withheld**;
-  - for agents and CI, levels 1, 3, 4 and 5 always fail.
+- **A confirm card:** the [six levels](docs/using-termite.md#levels) are
+  built. A card drawn by `tmite` itself will replace the widget's questions.
 - **Checks on input and output:**
   - requests and replies are checked;
   - risky requests are flagged, and each flag adds fixed instructions to

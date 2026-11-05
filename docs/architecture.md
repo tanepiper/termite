@@ -38,6 +38,7 @@ Each row may use only the rows above it.
 | `sse` | reads a streamed reply | any split of the bytes gives the same reply; bounded | `error` |
 | `merge` | joins commands that do the same thing | pure; the most harmful risk label wins | `candidate` |
 | `policy` | what `?x` may inject with no question | an allowlist; anything unknown is refused; reads only git config | `command` |
+| `classify` | puts every command at one of six levels | plain code, no model; doubt raises a level; a model's label can only raise it; reads the disk only to find the project and symlinks | `candidate`, `hazard`, `policy` |
 | `script` | reads a script or a stream and rates each command | reads text only; memory stays bounded; anything it cannot read is risky | `command`, `hazard`, `policy`, `rating` |
 | `config` | the config file | checks URLs; holds no token | `error`, `home` |
 | `decide` | the decision model's client | can only make an answer stricter than the thresholds allow | `candidate`, `command`, `config`, `context`, `error` |

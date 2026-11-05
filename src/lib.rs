@@ -11,6 +11,7 @@
 mod adversarial_tests;
 mod answer;
 mod candidate;
+mod classify;
 mod command;
 mod config;
 mod context;
@@ -33,8 +34,9 @@ mod sse;
 #[cfg(test)]
 mod test_support;
 
-pub use answer::{Answer, answer};
+pub use answer::{Answer, Held, answer, gate};
 pub use candidate::{Candidate, Risk};
+pub use classify::{Classification, Level, classify, classify_candidate};
 pub use command::{
     CommandRejected, MAX_COMMAND_CHARS, check_command, to_printable,
 };
@@ -57,7 +59,7 @@ pub use home::{
     write_private,
 };
 pub use merge::merge_candidates;
-pub use place::{Isolation, isolation, isolation_under};
+pub use place::{Isolation, isolation, isolation_under, unattended};
 pub use policy::{PolicyRefusal, may_read_secrets, read_only, read_only_in};
 pub use progress::{NoProgress, Progress, Stage};
 pub use provenance::{

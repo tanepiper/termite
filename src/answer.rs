@@ -1,5 +1,7 @@
 //! Turns a query into an answer: generate, check, merge, rank, and for `?x`
-//! the safety gate.
+//! the safety gate. [`gate`] then applies the levels.
+
+mod gate;
 
 use crate::candidate::{Candidate, Risk};
 use crate::command::{CommandRejected, check_command};
@@ -13,13 +15,20 @@ use crate::policy::read_only_in;
 use crate::progress::{Progress, Stage};
 use crate::query::{Mode, Query};
 
+pub use gate::{Held, gate};
+
 /// What to show the user for a query.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Answer {
     /// `?`: the best command, for the user to confirm.
     Confirm(Ranked),
     /// `??`: every distinct command, best first. May hold only one.
-    Choose(Vec<Ranked>),
+    Choose {
+        /// The commands that may reach the prompt.
+        ranked: Vec<Ranked>,
+        /// The commands that must not.
+        held: Vec<Held>,
+    },
     /// `?x`: every gate check passed; it goes straight to the prompt.
     /// `reason` is the decision model's sentence.
     StraightIn {
@@ -43,6 +52,8 @@ pub enum Answer {
         /// The decision model's reason.
         reason: String,
     },
+    /// Its level keeps the command from the prompt.
+    Held(Held),
     /// Every command the model wrote failed the command checks.
     NoUsableCommand {
         /// Each command with the reason it was turned down.
@@ -100,7 +111,10 @@ where
 
     match query.mode() {
         Mode::Confirm => Answer::Confirm(ranked.swap_remove(0)),
-        Mode::Choose => Answer::Choose(ranked),
+        Mode::Choose => Answer::Choose {
+            ranked,
+            held: Vec::new(),
+        },
         Mode::StraightIn => {
             progress.stage(Stage::Checking);
             straight_in(request, context, decider, ranked.swap_remove(0)).await
