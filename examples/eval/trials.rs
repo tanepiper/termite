@@ -103,6 +103,7 @@ pub fn write_trials(plan: &Plan) -> Result<(), String> {
     let specs: Vec<ModelSpec> = read_lines(MODELS)?;
     let decision = Config::load().map_err(|error| error.to_string())?;
     let started = now()?;
+    std::fs::create_dir_all(RESULTS).map_err(|error| error.to_string())?;
     let mut file = RunFile {
         started,
         commit: plan.commit.clone(),
