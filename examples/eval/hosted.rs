@@ -112,6 +112,7 @@ fn finished(files: Vec<RunFile>) -> Vec<RunFile> {
         .into_iter()
         .filter(|file| !file.in_progress)
         .map(|mut file| {
+            file.ran_on = machine(&file.commit).to_owned();
             file.commit = commit(&file.commit).to_owned();
             for model in &mut file.models {
                 model.name = base(&model.name).to_owned();
@@ -153,6 +154,7 @@ pub fn decisions() -> Result<Vec<DecisionFile>, String> {
         path.contains("-hosted-decision") || path.contains("-zerogpu-decision")
     })?;
     for file in &mut files {
+        file.ran_on = machine(&file.commit).to_owned();
         file.commit = commit(&file.commit).to_owned();
         for model in &mut file.models {
             model.name = base(&model.name).to_owned();
@@ -191,7 +193,7 @@ pub struct RunRecord {
 }
 
 /// The machine a run used, from the note its commit carries.
-fn machine(commit: &str) -> &'static str {
+pub fn machine(commit: &str) -> &'static str {
     if commit.contains("-hosted-t4") {
         "Hugging Face Jobs, T4 GPU"
     } else if commit.contains("-hosted") {
@@ -199,7 +201,7 @@ fn machine(commit: &str) -> &'static str {
     } else if commit.contains("-zerogpu") {
         "Hugging Face ZeroGPU"
     } else {
-        "My Mac"
+        "Local Sandbox on Mac"
     }
 }
 
@@ -257,7 +259,7 @@ fn command_record(
             handed += usize::from(seen.handed_over);
         }
     }
-    let local = machine(&file.commit) == "My Mac";
+    let local = machine(&file.commit) == "Local Sandbox on Mac";
     let name = base(&model.name);
     RunRecord {
         started: file.started,
@@ -296,11 +298,8 @@ pub fn ledger(
     choices: &[Choice],
 ) -> Result<Vec<RunRecord>, String> {
     let repos = repos()?;
-    let mut hosted: Vec<RunFile> = read(|path| {
-        path.ends_with("-hosted.json")
-            || path.ends_with("-hosted-t4.json")
-            || path.ends_with("-zerogpu.json")
-    })?;
+    let mut hosted: Vec<RunFile> =
+        read(|path| is_hosted(path) && !is_trial(path))?;
     hosted.retain(|file| !file.in_progress);
     let mut records: Vec<RunRecord> = hosted
         .iter()
@@ -316,7 +315,7 @@ pub fn ledger(
         for run in &file.models {
             let score = agreement(run, rungs, choices);
             let name = base(&run.name);
-            let local = machine(&file.commit) == "My Mac";
+            let local = machine(&file.commit) == "Local Sandbox on Mac";
             records.push(RunRecord {
                 started: file.started,
                 commit: commit(&file.commit).to_owned(),
@@ -445,7 +444,7 @@ mod tests {
             "Hugging Face Jobs, CPU"
         );
         assert_eq!(machine("abc-zerogpu"), "Hugging Face ZeroGPU");
-        assert_eq!(machine("abc-dirty"), "My Mac");
+        assert_eq!(machine("abc-dirty"), "Local Sandbox on Mac");
         assert_eq!(
             command_for("abc-hosted-t4", "run", "m, hosted T4"),
             "HOSTED_GPU=1 scripts/hosted.sh run 'm, hosted T4'"

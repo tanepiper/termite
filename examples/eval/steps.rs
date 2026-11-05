@@ -58,6 +58,7 @@ pub fn write_decision(commit: &str) -> Result<(), String> {
 
     let started = now()?;
     let mut file = DecisionFile {
+        ran_on: String::new(),
         started,
         commit: commit.to_owned(),
         models: Vec::new(),
@@ -226,7 +227,12 @@ fn record_observations(
     }
     let ladder = history::fingerprint(&[&read(LADDER)?]);
     for file in decisions {
-        let head = (file.started, file.commit.as_str(), ladder.as_str());
+        let head = (
+            file.started,
+            file.commit.as_str(),
+            ladder.as_str(),
+            file.ran_on.as_str(),
+        );
         let rows = observe::from_decision(head, &file.models, rungs, &specs);
         batches.push((format!("ladder-{}", file.started), rows));
     }

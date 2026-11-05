@@ -10,24 +10,27 @@ import Explain from "../components/Explain.astro";
     Every trial of every model, with one row for each trial. Use the filters, then select any part of a chart to see its rows.
   </p>
   <p class="note">
-    Rows hold ids and numbers, and never a request or a command.
-    <a href={page("docs/evaluation/")}>How the testing works</a>.
+    Rows hold ids and numbers, and never a request or a command.{" "}
+    <a href={page("docs/tests/")}>What each test does</a>.{" "}
     <a href={page("docs/failures/")}>What each failure type means</a>.
   </p>
 
   <Explain summary="What the filters mean" terms={[
     ["Trial", "One request sent to one model, or one command given to a decision model to score."],
+    ["Run", "One model going through one test, from start to finish. A run holds many trials."],
+    ["Machine", "What ran the model. Local Sandbox on Mac is an M3 Mac with 96 GB of memory."],
     ["Tests", "core is the main request set, outside is public collections of attacks, and trial is repeated requests and long sessions."],
     ["Intent", "everyday is an ordinary job, risky is a legitimate job that can cause harm, and hostile is an attack."],
     ["Area", "What the request is about, such as secrets or deletion. Public attack collections and the safety ladder are not classified by topic."],
     ["Type", "How the request is written, such as a direct attack or an instruction hidden in other text."],
     ["Level", "Levels 1 and 2 are everyday requests, levels 3 and 4 are risky, and levels 5 to 7 are hostile."],
     ["Result", "What termite did: Injected, Needs approval, Blocked, No usable command, Declined, Silent or Error. Declined includes a model that wrote only a printed refusal or warning."],
-    ["How full its memory was", "How much of the model's context was already in use, where 100 is the model's limit."],
+    ["Context used", "How much filler text came before the request. 100 means 4096 tokens, a limit set for the test."],
     ["Failure", "What went wrong. Each type is described under the chart that shows it, and on the failure types page."],
   ]} />
 
   <div id="tabs" role="tablist" aria-label="Model type"></div>
+  <div id="subviews" role="tablist" aria-label="Test"></div>
   <form id="facets" aria-label="Filters"></form>
   <p class="note" id="count" role="status" data-base={page()}>Loading…</p>
   <div id="views"></div>
@@ -44,6 +47,15 @@ import Explain from "../components/Explain.astro";
   #tabs { display: flex; flex-wrap: wrap; gap: 0.3em; margin: 1.4em 0 0.8em; }
   #tabs button { font: inherit; padding: 0.3em 0.8em; color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
   #tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  #subviews { display: flex; flex-wrap: wrap; gap: 0.2em 1.2em; margin: 0 0 1em; border-bottom: 1px solid var(--line); }
+  #subviews button { font: inherit; padding: 0.35em 0; color: var(--ink-soft); background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; }
+  #subviews button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--ink); }
+  #subviews button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .test-note { margin: 0.8em 0 1.4em; padding: 0.8em 1em; background: var(--panel); border-radius: 4px; }
+  .test-note h3 { margin: 0 0 0.4em; font-size: 1rem; }
+  .test-note p { margin: 0.6em 0 0; font-size: 0.9rem; }
+  details.machine { margin: 1em 0; }
+  details.machine > summary { cursor: pointer; font-weight: 600; }
   #facets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.7em 1em; }
   #facets label { display: grid; gap: 0.2em; min-width: 0; font-size: 0.88rem; color: var(--ink-soft); }
   #facets select { width: 100%; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.3em; }
@@ -71,6 +83,7 @@ import Explain from "../components/Explain.astro";
   .f8 { background: var(--seg-8); }
   .f9 { background: var(--seg-9); }
   .f10 { background: var(--seg-10); }
+  .fbar.untested { background: none; color: var(--ink-soft); text-align: center; }
   .fills { display: grid; grid-template-columns: minmax(6em, 15em) repeat(var(--levels), 1fr); gap: 0.7em; align-items: center; font-size: 0.88rem; margin: 0.35em 0; }
   .fills .level { font-size: 0.75rem; color: var(--ink-soft); }
   .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24em), 1fr)); gap: 1.2em 1.6em; margin-top: 1em; }
@@ -92,6 +105,10 @@ import Explain from "../components/Explain.astro";
   .meanings dt i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 0.4em; }
   .meanings dd { margin: 0; }
   @media (max-width: 640px) { .meanings { grid-template-columns: minmax(0, 1fr); } .meanings dd { margin-bottom: 0.5em; } }
+  .reading { display: grid; grid-template-columns: minmax(9em, 13em) minmax(0, 1fr); gap: 0.3em 1em; margin: 0.6em 0 1em; max-width: 46rem; font-size: 0.85rem; color: var(--ink-soft); }
+  .reading dt { color: var(--ink); font-weight: 500; }
+  .reading dd { margin: 0; }
+  @media (max-width: 640px) { .reading { grid-template-columns: minmax(0, 1fr); } .reading dd { margin-bottom: 0.5em; } }
   .figures { font-size: 0.8rem; margin-top: 0.8em; }
   .figures th, .figures td { white-space: nowrap; padding: 0.25em 0.6em; }
   .figures thead th { color: var(--ink-soft); font-weight: 400; }

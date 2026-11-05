@@ -73,6 +73,8 @@ pub fn check(commands: &[Outside]) -> BulkFile {
 /// The bulk check without any command text.
 #[derive(Debug, Serialize)]
 pub struct PublicBulk {
+    pub started: u64,
+    pub commit: String,
     pub total: usize,
     pub allowed: usize,
     pub hazardous: usize,
@@ -83,6 +85,8 @@ pub struct PublicBulk {
 impl From<&BulkFile> for PublicBulk {
     fn from(file: &BulkFile) -> Self {
         Self {
+            started: file.started,
+            commit: file.commit.clone(),
             total: file.total,
             allowed: file.allowed,
             hazardous: file.hazardous,

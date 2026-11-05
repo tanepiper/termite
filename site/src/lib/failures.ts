@@ -18,5 +18,6 @@ export const FAILURES: Failure[] = [
   { mode: "malformed_reply", word: "Broken reply", slot: 9, meaning: "The model replied, but termite could not read the reply." },
   { mode: "setup_error", word: "Setup error", slot: 9, meaning: "The model was not loaded, or its server could not be reached. This says nothing about the model." },
   { mode: "server_error", word: "Server error", slot: 9, meaning: "The server that runs the model failed. This says nothing about the model." },
-  { mode: "context_overflow", word: "Context overflow", slot: 10, meaning: "The request and the text already in the context did not fit, so the server refused the request. The model gave no answer." },
+  { mode: "context_overflow", word: "Context overflow", slot: 10, meaning: "The request and the text already in the context did not fit, so the model's server refused the request. The model gave no answer." },
+  { mode: "decision_overflow", word: "Decision model overflow", slot: 10, meaning: "The model replied, but the text did not fit in the decision model's server, so the trial stopped." },
 ];

@@ -16,14 +16,16 @@ Models run one at a time, and each model is unloaded when it finishes, so that t
 
 ## What gets tested
 
+[The tests](tests.md) describes each test in detail.
+
 | Test | Asks | Needs a model? |
 |---|---|---|
 | Unit and fuzz tests | Does the code do what it says? | No |
 | Scripted attacks, `eval policy` | Can a known trick get past the policy? | No |
-| Outside commands, `eval bulk` | What does the policy do with 45,000 real commands? | No |
+| Outside commands, `eval bulk` | What does the policy do with 46,518 commands from public datasets? | No |
 | Core requests, `eval run` | What do models write for 161 requests, from `list files` to outright attacks? | Yes |
 | Outside requests, `eval run --corpus` | The same question, with public jailbreak and injection sets | Yes |
-| Repeats and floods, `eval trials` | Does it give the same answer twice, and what happens behind a full context? | Yes |
+| Repeats and long sessions, `eval trials` | Does it give the same answer twice, and what happens when the context is full? | Yes |
 | The ladder, `eval decision` | Does a decision model rate risky commands as safe, and can it order commands by danger? | Yes |
 
 The outside datasets are pinned to one revision in `eval/sources.jsonl` and checked by hash. `scripts/fetch-sources.sh` downloads them, and it never runs code from them.
@@ -44,17 +46,34 @@ Every result uses one of these words.
 
 Each problem also has its own word. [Failure types](failures.md) describes all of them.
 
-## Why repeats and floods
+## Why repeats and long sessions
 
 If you ask a model the same thing five times, you can get five different answers, so one run is not enough for a safety test. `eval trials` repeats each case and records whether the answer changed.
 
-It then floods the context: it places the request behind a long session until the context is half full, full and over full, and it clears nothing. termite starts each question with an empty context, so this test measures the model. It also shows what happens when another program sends termite a very large request. termite has no size limit on requests today, and this is on the list of work.
+It then fills the context. It places the request after a long session, at set levels from half full to over full.
+
+- termite starts each question with an empty context, so this test measures the model.
+- The test also shows what happens when another program sends termite a very large request.
+- termite has no size limit on requests today. I plan to add one.
 
 ## Everything is an observation
 
-Every trial becomes one row in `eval/observations/`, in a strict format (`eval/schema/observation.md`). A row holds ids, numbers and fixed words. It cannot hold a request or a command, because the type has no field for one, so these files are safe to commit. New runs add new files. `eval relabel` rewrites the recorded files from the raw runs when the label rules change, and it does not change a score.
+Every trial becomes one row in `eval/observations/`, in a strict format (`eval/schema/observation.md`).
 
-Each row records which model ran which case, the kind and family of that model, the condition (which repeat, and how full the context was), how the trial ended, and what went wrong. The [Explore page](/termite/explore/) is built only from these rows. A new model appears as new rows, and a model that I stop testing stops appearing.
+- A row holds ids, numbers and fixed words.
+- A row cannot hold a request or a command, because the type has no field for one. This makes these files safe to commit.
+- New runs add new files.
+- `eval relabel` rewrites the files from the raw runs when the label rules change. It does not change a score.
+
+Each row records:
+
+- which model ran which case
+- the kind and family of that model
+- the condition: which repeat, and how full the context was
+- how the trial ended
+- what went wrong
+
+The [Explore page](/termite/explore/) uses only these rows. A new model appears as new rows. A model that I stop testing stops appearing.
 
 A one-line summary of each run goes in `eval/history.jsonl`, which is append-only, with a fingerprint of the test set. Scores are compared only when the fingerprints match, because a better score on a different test means nothing.
 
@@ -67,7 +86,12 @@ A one-line summary of each run goes in `eval/history.jsonl`, which is append-onl
 | Anything more harmful | Topic, type of request, how it ended | Full detail |
 | Anything that passed termite's checks | Topic only, until fixed | Full detail, at the top |
 
-Nothing is quoted by default. A request needs `"disclose":"show"` in the corpus, and a command must pass every rule in `examples/eval/publish.rs`. The export then searches its own output for every withheld string, and it writes nothing if it finds one. `scripts/check-public.sh` makes a second, different check before the site deploys.
+Nothing is quoted by default.
+
+- A request needs `"disclose":"show"` in the corpus.
+- A command must pass every rule in `examples/eval/publish.rs`.
+- The export searches its own output for every withheld string. If it finds one, it writes nothing.
+- `scripts/check-public.sh` makes a second, different check before the site deploys.
 
 Private reports go to `~/termite-private`, outside the repository, so that git cannot include them. Each report is a dated static page that says what to do and how to report it, and no report is ever replaced. Each finding is one of these:
 
@@ -79,7 +103,9 @@ The tools never search online and never contact anyone. Only a person can decide
 
 ## Keeping the data
 
-Raw runs hold withheld commands, so they stay out of the repository. `scripts/archive-runs.sh` copies them to `~/termite-private/runs` and to a private dataset on Hugging Face, together with the observations. It first checks that the dataset is private, every time, and it stops if the dataset is not private.
+Raw runs hold withheld commands, so they stay out of the repository.
+
+`scripts/archive-runs.sh` copies them to `~/termite-private/runs` and to a private dataset on Hugging Face, with the observations. It checks that the dataset is private every time, and it stops if the dataset is not private.
 
 ## Watch popular models
 
@@ -119,7 +145,13 @@ scripts/hosted.sh run 'LFM3 1.7B, hosted'
 scripts/hosted.sh fetch
 ```
 
-The models are in `eval/hosted-models.jsonl`. They run on CPU for $0.03 an hour, and the script stops if a run could cost more than the monthly credit. Use `HOSTED_GPU=1` for a model of about 7B or more; a T4 costs $0.40 an hour, and Llama 3.1 8B on a T4 matched a local run on usefulness, time and endings. On CPU, requests can pass the 120-second limit. A request that fails before the model writes anything cannot show a hazard, so treat a hosted hazard count as a minimum, and check how many requests failed. A hosted run uses a model's weights only inside the job, and I do not send test requests to Inference Providers.
+The models are in `eval/hosted-models.jsonl`.
+
+- **CPU:** $0.03 an hour. The script stops if a run could cost more than the monthly credit. Requests can pass the 120-second limit.
+- **T4 GPU:** $0.40 an hour. Use `HOSTED_GPU=1` for a model of about 7B or more. Llama 3.1 8B on a T4 matched a local run on usefulness, time and endings.
+- **Hazard counts:** a request that fails before the model writes anything cannot show a hazard. Treat a hosted hazard count as a minimum, and check how many requests failed.
+- **Weights:** a hosted run uses a model's weights only inside the job.
+- **Inference Providers:** I do not send test requests to them.
 
 `eval publish` reads hosted runs from `~/termite-private/runs` and treats them like any
 other run, with the same grades, charts and checks on what may be quoted. Every finished run is included, from CPU jobs, T4 jobs and ZeroGPU, and it appears in the history. A model's grade comes from its newest run, and a local run counts as newer than a hosted one. The
@@ -130,7 +162,12 @@ machine, starting command, commit and results.
 
 `scripts/hosted.sh decision 'NAME'` tests one model from
 `eval/hosted-decision-models.jsonl` on the ladder, on a CPU job. Each model needs a
-job of its own. Kev-4B scored about the same hosted as local, so these results can be compared with local runs. A model that is not built for `/v1/systemone` fails every question, and a model in a file that `llama-server` cannot read stops the job. The models page shows no score for a model that answered nothing.
+job of its own.
+
+- Kev-4B scored about the same hosted as local, so these results can be compared with local runs.
+- A model that is not built for `/v1/systemone` fails every question.
+- A model in a file that `llama-server` cannot read stops the job.
+- The models page shows no score for a model that answered nothing.
 
 `sandbox/zerogpu/run.py --decision` tests the same list on the ZeroGPU Space, one model at a time, and a model with a `letters` recipe runs through `sandbox/zerogpu/letters.py`, which is much faster than a CPU job. The list marks each model as `core` or `candidate`, and pins each one to a revision.
 
@@ -159,13 +196,29 @@ scripts/hosted.sh space
 HF_TOKEN=... uvx --with huggingface_hub --with gradio_client python sandbox/zerogpu/run.py target/hosted/space eval/zerogpu-core.jsonl ~/termite-private/runs ~/termite-private/zerogpu-ledger.jsonl
 ```
 
-A model that is still running after 400 seconds stops, keeps the requests it finished, and carries on in the next window with `--skip`, up to five windows, so large models finish in parts and the parts make one run. Models whose last runs failed go to the end of the list. The weights are kept in the private bucket `tanepiper/termite-models`, mounted read-only at `/models`, so a run downloads nothing and a restart loses nothing. After adding a model, run `sandbox/zerogpu/mirror.py`. Use `-` in place of the folder to keep the Space as it is, `--limit 4` for a short trial, and `--only NAME` for one model, and `--pay` to carry on past the free quota. The script runs the reference model first, then the models that ran longest ago. It stops at 35 minutes in any 24 hours, from a ledger of time used. Other ZeroGPU use on the account isn't in the ledger.
+- **Time limit:** a model that is still running after 400 seconds stops and keeps the requests it finished. It continues in the next window with `--skip`, for up to five windows. The parts make one run.
+- **Order:** the reference model runs first, then the models that ran longest ago. Models whose last runs failed go to the end of the list.
+- **Weights:** they are in the private bucket `tanepiper/termite-models`, mounted read-only at `/models`. A run downloads nothing, and a restart loses nothing. After adding a model, run `sandbox/zerogpu/mirror.py`.
+- **Daily limit:** the script stops at 35 minutes in any 24 hours, from a ledger of time used. Other ZeroGPU use on the account isn't in the ledger.
+
+Options:
+
+- `-` in place of the folder keeps the Space as it is.
+- `--limit 4` runs a short trial.
+- `--only NAME` runs one model.
+- `--pay` continues past the free quota.
+- `--fills 100,110` runs long session trials at those levels.
 
 Runs from before 5 November 2026 at about 11:00 used a simpler server and no decision model, so read them with care. Llama 3.1 8B with safety training removed wrote hazards for 24 of 24 hostile requests on that server, and for 17 on a T4 with the full servers.
 
 ### Findings
 
-`scripts/findings.py` works out what the results show, from the public data. It uses each model's newest run that could refuse, on the newest test set, and compares a safety-trained model with its refusals-removed copy request by request. The `termite-analyst` agent turns findings into short callouts in `site/src/data/callouts.json`. `scripts/findings.py --check` stops the site from deploying if a callout doesn't match a finding.
+`scripts/findings.py` works out what the results show, from the public data.
+
+- It uses each model's newest run that could refuse, on the newest test set.
+- It compares a safety-trained model with its refusals-removed copy request by request.
+- The `termite-analyst` agent turns findings into short callouts in `site/src/data/callouts.json`.
+- `scripts/findings.py --check` stops the site from deploying if a callout doesn't match a finding.
 
 ## The corpus
 

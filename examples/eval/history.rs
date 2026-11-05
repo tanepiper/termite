@@ -60,6 +60,7 @@ pub fn fingerprint(texts: &[&str]) -> String {
 pub fn latest_view(runs: &[RunFile]) -> Option<RunFile> {
     let newest = runs.iter().rev().find(|run| !run.models.is_empty())?;
     let mut view = RunFile {
+        ran_on: String::new(),
         started: newest.started,
         commit: newest.commit.clone(),
         corpus: newest.corpus.clone(),

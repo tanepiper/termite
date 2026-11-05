@@ -587,14 +587,14 @@
    "id": "context-limit",
    "kind": "long sessions",
    "strength": "strong",
-   "model": "llama3.1 8B",
+   "model": "Llama 3.2 3B",
    "numbers": [
-    499,
-    840,
+    448,
+    672,
     0,
-    980,
-    73,
-    112
+    224,
+    56,
+    84
    ]
   },
   {

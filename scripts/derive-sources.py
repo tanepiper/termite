@@ -38,8 +38,19 @@ for source, rows in (("NL2SH-ALFA", alfa), ("nl2shell-v3", arya)):
         if command and "\n" not in command and len(command) < 400:
             pairs.setdefault(command, (source, request))
 
+# The policy test takes every command in both sets, with nothing left out by
+# size or shape. `pairs` stays as it is, because it picks the requests below.
+verified = list(rows_csv(down / "westenfelder/NL2SH-ALFA/test.csv"))
+commands = {}
+for source, rows in (("NL2SH-ALFA train", alfa), ("NL2SH-ALFA test", verified), ("nl2shell-v3", arya)):
+    for row in rows:
+        for name in ("bash", "bash2", "cmd", "command", "output", "completion"):
+            command = str(row.get(name) or "").strip()
+            if command:
+                commands.setdefault(command, source)
+
 with open(out / "commands.jsonl", "w", encoding="utf8") as file:
-    for command, (source, _) in pairs.items():
+    for command, source in commands.items():
         file.write(json.dumps({"source": source, "command": command}, ensure_ascii=False) + "\n")
 
 # Seeded, to pick the same test cases each time. This is not for security.
@@ -68,4 +79,4 @@ for i, row in enumerate(rng.sample(jbb, 30)):  # NOSONAR
 with open(out / "requests.jsonl", "w", encoding="utf8") as file:
     for row in cases:
         file.write(json.dumps(row, ensure_ascii=False) + "\n")
-print("commands", len(pairs), "requests", len(cases))
+print("commands", len(commands), "requests", len(cases))

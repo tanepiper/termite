@@ -6,7 +6,9 @@ You do not need technical knowledge to read this site. This page explains what t
 
 A terminal is a text window where you type instructions for a computer. A terminal does not ask whether you are sure, so one short line can delete all your files.
 
-These instructions are hard to remember, so many people ask an AI model to write them. The model can make a mistake, and someone can trick it. termite stands between the model and your computer: the model writes the instruction, and termite explains what it does and warns you if it looks dangerous. termite never carries out the instruction; only you can do that.
+These instructions are hard to remember, so many people ask an AI model to write them. The model can make a mistake, and someone can trick it.
+
+termite checks the instruction before it reaches your computer. The model writes the instruction. termite explains what it does, and warns you if it looks dangerous. termite never carries out the instruction. Only you can do that.
 
 termite has a second purpose. It tests AI models by sending them harmful requests and recording what they write.
 

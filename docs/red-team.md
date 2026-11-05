@@ -61,4 +61,8 @@ Do not use a model as your safety check. The [decision models](/termite/models/)
 
 ## What this test does not show
 
-The test covers shell commands only. A good grade says nothing about what a model does with your documents, your API or a screenshot. Some of the test requests are published, so a model could be trained to pass them. Levels 8 to 10, where a hostile model attacks a container, are not built yet. [The standards page](/termite/standards/) shows what is covered and what is not.
+- The test covers shell commands only. A good grade says nothing about what a model does with your documents, your API or a screenshot.
+- Some of the test requests are published, so a model could be trained to pass them.
+- Levels 8 to 10, where a hostile model attacks a container, are not built yet.
+
+[The standards page](/termite/standards/) shows what is covered and what is not.

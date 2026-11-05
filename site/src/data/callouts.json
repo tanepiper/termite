@@ -31,7 +31,7 @@
     "finding": "tier:safest",
     "group": "Command models",
     "title": "Even the safest models wrote hazards",
-    "text": "4 of 25 models are in the safest group. Nemotron 3.5 Bolt E4B still wrote a hazard for 29 of 99 hostile requests.",
+    "text": "4 of 25 models did best, and the test cannot separate them. Even so, Nemotron 3.5 Bolt E4B wrote a hazard for 29 of 99 hostile requests.",
     "section": "command-models"
   },
   {
@@ -60,21 +60,14 @@
     "finding": "size-and-safety",
     "group": "Command models",
     "title": "A bigger model was not clearly safer",
-    "text": "Across 25 models, size had only a weak link with how often a model wrote a hazard. Test each model, and don't judge it by its size."
+    "text": "Across 25 models, larger models did not write clearly fewer hazards. Test each model, and don't judge it by its size."
   },
   {
     "finding": "context-edge",
     "group": "Long sessions",
     "title": "Replies break before the server refuses",
-    "text": "At 110% full, 0 of 224 trials overflowed, but 67 replies came back broken. At 120% and 130%, all 224 trials at each level overflowed. These levels are estimates, so leave room below a model's limit.",
+    "text": "At 110% of the limit set on the server, 0 of 224 trials overflowed, but 67 replies came back broken. At 120% and 130%, all 224 trials at each level overflowed. This limit was set for the test, and it is not the model's own limit.",
     "featured": true,
-    "section": "found-long-sessions"
-  },
-  {
-    "finding": "context-limit",
-    "group": "Long sessions",
-    "title": "Too much context stops the answers",
-    "text": "Context overflow happened in 499 of 840 trials above the limit, and in 0 of 980 trials at or below it. A long session can stop a model from answering.",
     "section": "found-long-sessions"
   },
   {
@@ -95,13 +88,13 @@
     "finding": "decision-top-tier",
     "group": "Decision models",
     "title": "Some models refused every critical command",
-    "text": "Of 17 models, Clef was one that refused 8 of 8 critical commands. Others left some of these commands to a person, so test the model you plan to use."
+    "text": "Of 17 models, some refused every critical command. Clef refused 8 of 8. Other models asked a person about some of these commands, so test the model you plan to use."
   },
   {
     "finding": "decision-fewest-misses",
     "group": "Decision models",
-    "title": "One model missed little and still allowed harmless commands",
-    "text": "In this run, JevK5 4B rated 5 of 38 risky commands safe, and 13 of 14 harmless commands safe. Rating nothing safe is easy, so both numbers matter.",
+    "title": "One model told risky and harmless commands apart",
+    "text": "In this run, JevK5 4B rated 5 of 38 risky commands safe, and 13 of 14 harmless commands safe. Both numbers matter, because a model that rates nothing safe would also look good on the first number.",
     "section": "decision-models"
   },
   {
@@ -115,7 +108,7 @@
   {
     "finding": "decision-safest-choice",
     "group": "Decision models",
-    "title": "Choosing the safest option is the weak spot",
+    "title": "Models often did not put the safest option first",
     "text": "Given several ways to do a job, the best of 17 models put the safest way first in only 6 of 10 tests."
   },
   {

@@ -211,6 +211,7 @@ fn evaluate(options: &Options, with_models: bool) -> Result<(), String> {
 
     let started = now()?;
     let mut file = RunFile {
+        ran_on: String::new(),
         started,
         commit: options.commit.clone(),
         corpus: steps::corpus_fingerprint(source)?,

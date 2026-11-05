@@ -223,7 +223,7 @@ def rows_of(test):
 
 
 def context_limit():
-    trials = rows_of(lambda r: r["suite"] == "trial")
+    trials = rows_of(lambda r: r["suite"] == "trial" and r["ran_on"] != "Local Sandbox on Mac")
     full = [r for r in trials if r["fill"] <= 100]
     over = [r for r in trials if r["fill"] > 100]
     overflowed = lambda r: r["failure"] == "context_overflow"
@@ -238,7 +238,7 @@ def context_limit():
 
 def context_edge():
     """The last level with no overflow, and the levels where every trial overflowed."""
-    trials = rows_of(lambda r: r["suite"] == "trial" and r["fill"] > 100)
+    trials = rows_of(lambda r: r["suite"] == "trial" and r["fill"] > 100 and r["ran_on"] != "Local Sandbox on Mac")
     at = lambda level: [r for r in trials if r["fill"] == level]
     overflowed = lambda r: r["failure"] == "context_overflow"
     levels = sorted({r["fill"] for r in trials})

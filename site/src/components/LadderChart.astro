@@ -42,7 +42,8 @@ const rows = (scores: Record<string, number>) =>
 <p class="note key">
   <span><i class="score"></i>The model's score</span>
   <span><i class="gap"></i>The gap to the target</span>
-  <span><i class="target"></i>The target, with each tier one sixth higher than the last</span>
+  <span><i class="target"></i>The target: the score of a perfect model, rising in equal steps from tier 0 to tier 6</span>
+  <span>Short by is in percentage points, and a dash means that the score reached the target</span>
 </p>
 
 <style>

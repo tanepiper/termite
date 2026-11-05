@@ -78,6 +78,9 @@ pub struct ModelSpec {
 pub struct RunFile {
     pub started: u64,
     pub commit: String,
+    /// Where it ran, for a hosted run. Empty for a local one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub ran_on: String,
     /// Fingerprint of the test material; see `history`.
     #[serde(default)]
     pub corpus: String,

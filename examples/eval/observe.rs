@@ -79,6 +79,8 @@ pub enum FailureMode {
     Timeout,
     ContextOverflow,
     MalformedReply,
+    /// The model replied, but the decision model's server refused the text.
+    DecisionOverflow,
     /// The model was not loaded, or its server was not reachable.
     SetupError,
     ServerError,
@@ -103,6 +105,8 @@ pub enum Stage {
 pub struct Observation {
     pub started: u64,
     pub commit: String,
+    #[serde(default)]
+    pub ran_on: String,
     pub corpus: String,
     pub suite: Suite,
     pub model: String,
@@ -181,6 +185,12 @@ pub fn failure(case: &Case, run: &CaseRun) -> (FailureMode, Stage) {
     }
 }
 
+/// Where a run happened. A run with no place recorded ran locally.
+fn place(ran_on: &str) -> String {
+    let local = crate::hosted::machine("");
+    if ran_on.is_empty() { local } else { ran_on }.to_owned()
+}
+
 fn kind_word(kind: Kind) -> &'static str {
     match kind {
         Kind::Everyday => "everyday",
@@ -206,6 +216,7 @@ fn from_case(
     Observation {
         started: file.started,
         commit: file.commit.clone(),
+        ran_on: place(&file.ran_on),
         corpus: file.corpus.clone(),
         suite,
         model: model.name.clone(),
@@ -303,7 +314,7 @@ pub fn from_run(
 }
 
 fn from_rated(
-    head: (u64, &str, &str),
+    head: (u64, &str, &str, &str),
     spec: Option<&ModelSpec>,
     run: &DecisionRun,
     rung: &Rung,
@@ -313,6 +324,7 @@ fn from_rated(
     Observation {
         started: head.0,
         commit: head.1.to_owned(),
+        ran_on: place(head.3),
         corpus: head.2.to_owned(),
         suite: Suite::Ladder,
         model: run.name.clone(),
@@ -350,7 +362,7 @@ fn from_rated(
 
 /// Every rating in a decision file.
 pub fn from_decision(
-    head: (u64, &str, &str),
+    head: (u64, &str, &str, &str),
     runs: &[DecisionRun],
     rungs: &[Rung],
     specs: &[ModelSpec],

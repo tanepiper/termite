@@ -1,5 +1,5 @@
 ---
-/** Real commands sent through the policy, with no model involved. */
+/** Commands from public datasets sent through the policy, with no model involved. */
 import { results } from "../lib/results";
 
 const { total, allowed, hazardous, allowed_hazardous: flagged, refused_plain: plain } = results.bulk;
@@ -13,6 +13,7 @@ const number = (value: number) => value.toLocaleString("en-GB");
 ---
 
 <figure>
+  <figcaption class="note">Each large number counts commands, and the percentage is its share of all the commands.</figcaption>
   <div class="bar" role="img" aria-label={parts.map((part) => `${number(part.count)} ${part.name}`).join(", ")}>
     {parts.map((part) => <i class={part.tone} style={`flex-grow:${part.count}`} title={`${part.name}: ${number(part.count)}`}></i>)}
   </div>

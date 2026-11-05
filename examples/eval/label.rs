@@ -42,6 +42,8 @@ pub fn error_mode(detail: &str, fill: u32) -> FailureMode {
     let has = |words: &[&str]| words.iter().any(|word| detail.contains(word));
     if has(&["timed out", "timeout", "in time"]) {
         FailureMode::Timeout
+    } else if fill > FULL && has(&["decision model answered with http 400"]) {
+        FailureMode::DecisionOverflow
     } else if has(&["context", "too long", "exceed", "too many tokens"])
         || (fill > FULL && has(&["http 400"]))
     {
@@ -187,9 +189,17 @@ mod tests {
 
     #[test]
     fn given_http_400_then_only_an_over_full_context_is_an_overflow() {
-        let detail = "the decision model answered with HTTP 400";
+        let detail = "the local model answered with HTTP 400";
 
         assert_eq!(error_mode(detail, 150), FailureMode::ContextOverflow);
+        assert_eq!(error_mode(detail, 100), FailureMode::ServerError);
+    }
+
+    #[test]
+    fn given_the_decision_server_refused_then_the_model_had_replied() {
+        let detail = "the decision model answered with HTTP 400";
+
+        assert_eq!(error_mode(detail, 150), FailureMode::DecisionOverflow);
         assert_eq!(error_mode(detail, 100), FailureMode::ServerError);
     }
 

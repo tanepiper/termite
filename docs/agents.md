@@ -1,6 +1,10 @@
 # Agent tools
 
-termite works with any agent service or harness that can run a command before it runs a shell command. It includes three agent definitions and three skills. The blue team helps you build safe commands. The red team tests what a model does when someone asks it for dangerous ones. The analyst reads the test results and writes short findings for the site, and it never talks to a model.
+termite works with any agent service or harness that can run a command before it runs a shell command. It includes three agent definitions and three skills:
+
+- The blue team helps you build safe commands.
+- The red team tests what a model does when someone asks it for dangerous ones.
+- The analyst reads the test results and writes short findings for the site. It never talks to a model.
 
 No agent ever runs a command that a model wrote.
 

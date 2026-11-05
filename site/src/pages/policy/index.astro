@@ -1,0 +1,71 @@
+---
+import Base from "../../layouts/Base.astro";
+import BulkBar from "../../components/BulkBar.astro";
+import { page, results } from "../../lib/results";
+
+const { totals, bulk } = results;
+const attacks = totals.policy_refused + totals.policy_escaped;
+const harmless = totals.policy_allowed + totals.policy_over_refused;
+const day = (seconds: number) =>
+  new Date(seconds * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+---
+
+<Base title="Policy tests" description="How termite's policy is tested with no AI model involved." current="policy">
+  <h1>Policy tests</h1>
+  <p class="lead">
+    These tests use no AI model. They send commands straight to termite's policy, to check
+    termite itself.
+  </p>
+  <p>
+    The policy is a fixed set of rules in termite's code. It allows a command only if it can prove
+    that the command only reads. It does not depend on a model, so it still works when a model
+    writes something dangerous. The same commands always give the same result.
+  </p>
+  <p>
+    No command is run in these tests. The policy reads each command as text and gives a result.
+  </p>
+
+  <h2>Known attacks</h2>
+  <p>
+    I wrote a fixed list of {attacks + harmless} commands. {attacks} are known attacks that the
+    policy must block, and {harmless} are harmless commands that it must allow.
+  </p>
+  <div class="scroll"><table>
+    <thead><tr><th scope="col">Commands</th><th scope="col" class="number">Correct</th><th scope="col" class="number">Wrong</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">Known attacks, which must be blocked</th><td class="number">{totals.policy_refused} of {attacks}</td><td class="number">{totals.policy_escaped}</td></tr>
+      <tr><th scope="row">Harmless commands, which must be allowed</th><td class="number">{totals.policy_allowed} of {harmless}</td><td class="number">{totals.policy_over_refused}</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">
+    Last run on {day(results.started)}, on the Local Sandbox on Mac, with code version {results.commit}.
+  </p>
+  <p>
+    This test shows that the policy stops the attacks on this list. It cannot show that the policy
+    stops an attack that nobody has thought of yet.
+  </p>
+
+  <h2>Commands from public datasets</h2>
+  <p>
+    I also sent every command in two public datasets through the policy:{" "}
+    {bulk.total.toLocaleString("en-GB")} commands, after duplicates were removed. Nothing was left
+    out because of its size or shape.
+  </p>
+  <p>
+    These datasets were made to train models, and most of their commands are unverified. They are
+    not a record of commands that people ran. Some of the commands contain typing errors.
+  </p>
+  <BulkBar />
+  <p class="note">
+    Last run on {day(bulk.started)}, on the Local Sandbox on Mac, with code version {bulk.commit}.
+  </p>
+  <p>
+    This test shows what the policy allows across many kinds of command. A blocked command is one
+    that the policy could not prove only reads. Many of these commands do write, so this figure does
+    not show how much harmless work the policy blocks.
+  </p>
+
+  <p>
+    <a href={page("docs/tests/#tests-that-use-no-model")}>Read how these tests fit with the model tests</a>.
+  </p>
+</Base>

@@ -30,7 +30,7 @@ The ladder has about 50 of these rows, but it is a test set, so **it cannot be u
 
 Split by command, not by row. If `ls` in `~/.ssh` is in training and `ls` in `~/.aws` is in the test, the test no longer measures anything new.
 
-I need about two thousand rows. The 45,000 outside commands are the starting material, combined with a list of folders. Rules label the easy rows, a large model suggests labels for the rest, and I check a sample by hand. If the labels are wrong, all the later work is wasted.
+I need about two thousand rows. The 46,518 outside commands are the starting material, combined with a list of folders. Rules label the easy rows, a large model suggests labels for the rest, and I check a sample by hand. If the labels are wrong, all the later work is wasted.
 
 ## Lesson 4: when to stop
 

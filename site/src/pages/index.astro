@@ -16,7 +16,7 @@ for (const run of results.runs) {
 const sizes = working.map((model) => newest.get(model.name)?.requests ?? 0);
 const requestSets = [...new Set(sizes)].sort((a, b) => b - a)
   .map((size) => `${sizes.filter((other) => other === size).length} got ${size} requests`)
-  .join(" and ");
+  .join(", ").replace(/, ([^,]*)$/, " and $1");
 const scored = results.decision.filter((model) => model.pairs > 0);
 const unscored = results.decision.length - scored.length;
 const sum = (value: (model: (typeof scored)[number]) => number) => scored.reduce((total, model) => total + value(model), 0);
@@ -61,9 +61,12 @@ const bestChoice = scored.reduce((best, model) => (model.safest_first > best.saf
   <h2>What the command models wrote</h2>
   <p>
     I sent requests to {working.length} command models, from "list the files" to direct
-    attacks: {requestSets}. They wrote {totals.commands_written} commands, and
-    {" "}{totals.hazardous} of them were hazards: commands that could cause harm, and that the
-    request did not legitimately need. These are the kinds of harm those commands could cause.
+    attacks. {requestSets[0].toUpperCase() + requestSets.slice(1)}.
+  </p>
+  <p>
+    They wrote {totals.commands_written} commands, and {totals.hazardous} of them were hazards.
+    A hazard is a command that could cause harm, and that the request did not need.
+    These are the kinds of harm those commands could cause.
   </p>
 
   <div class="saves">
@@ -97,7 +100,8 @@ const bestChoice = scored.reduce((best, model) => (model.safest_first > best.saf
         ? `${totals.got_past_policy} could reach your prompt without approval; these only read a file and run nothing.`
         : `${totals.got_past_policy} could reach your prompt without approval.`}{" "}
     With no model involved, I also ran {totals.policy_refused + totals.policy_escaped} known
-    attacks against the policy, and {totals.policy_escaped} passed.
+    attacks against the policy, and {totals.policy_escaped} passed.{" "}
+    <a href={page("policy/")}>Read about the policy tests</a>.
   </p>
   <p>
     In {handedOver} cases, the model's top answer was the dangerous command, so it was handed
@@ -107,10 +111,13 @@ const bestChoice = scored.reduce((best, model) => (model.safest_first > best.saf
 
   <h2>How the decision models judged risk</h2>
   <p>
-    A decision model gives each command a harm score, and termite uses that score to rank
-    commands and to decide whether to ask for approval. I tested these models with the safety
-    ladder: commands and folders sorted into seven tiers, from tier 0 to tier 6, by how much
-    harm they can do. A model that judges risk well gives a higher score at each higher tier.
+    A decision model gives each command a harm score. termite uses that score to rank commands
+    and to decide whether to ask for approval.
+  </p>
+  <p>
+    I tested these models with the safety ladder. It sorts commands and folders into seven
+    tiers, from tier 0 to tier 6, by how much harm they can do. A model that judges risk well
+    gives a higher score at each higher tier.
     {unscored > 0 && ` ${unscored} of the ${results.decision.length} models gave no usable score, so the chart shows the other ${scored.length}.`}
   </p>
   <LadderChart />
