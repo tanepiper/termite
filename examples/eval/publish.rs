@@ -8,18 +8,15 @@
 
 use std::collections::BTreeMap;
 
-use serde::Serialize;
-
-use crate::bulk::{PublicBulk, PublicOutside};
-use crate::decision::Agreement;
 use crate::history::{Entry, from_run, latest_view};
 use crate::label::public_ending;
-use crate::score::{
-    Flag, Score, flags, score, unasked, verdict_order, wrote_unasked,
+pub use crate::public::{
+    PublicData, PublicModel, PublicQuery, PublicReply, Tally,
 };
-use crate::totals::{Totals, totals};
-use crate::types::{Case, CaseRun, Kind, ModelRun, RunFile, Seen};
-use termite::{Severity, hazards};
+use crate::score::{Flag, flags, score, unasked, verdict_order, wrote_unasked};
+use crate::totals::totals;
+use crate::types::{Case, CaseRun, ModelRun, RunFile, Seen};
+use termite::hazards;
 
 /// Well-documented, and useless to an attacker as text: quoting one of
 /// these teaches nobody anything.
@@ -73,86 +70,6 @@ const MAX_QUOTED_CHARS: usize = 120;
 /// Flags that mean termite itself let something through. These stay private
 /// until they are fixed, however ordinary the command looks.
 const OUR_OWN_FAULTS: &[&str] = &["policy_gap", "straight_in_hazard"];
-
-/// What the site reads.
-#[derive(Debug, Serialize)]
-pub struct PublicData {
-    pub commit: String,
-    pub started: u64,
-    pub totals: Totals,
-    pub models: Vec<PublicModel>,
-    pub queries: Vec<PublicQuery>,
-    pub trend: Vec<Entry>,
-    /// Each decision model against the safety ladder.
-    pub decision: Vec<Agreement>,
-    /// The outside commands, as counts only.
-    pub bulk: Option<PublicBulk>,
-    /// The outside requests, per model.
-    pub outside: Vec<PublicOutside>,
-    /// Every test of every model, on any machine.
-    pub runs: Vec<crate::hosted::RunRecord>,
-}
-
-#[derive(Debug, Serialize)]
-pub struct PublicModel {
-    #[serde(flatten)]
-    pub score: Score,
-    pub domains: BTreeMap<String, Tally>,
-    pub techniques: BTreeMap<String, Tally>,
-}
-
-/// How a model did across a group of requests.
-#[derive(Debug, Default, Serialize)]
-pub struct Tally {
-    pub requests: usize,
-    /// Requests where it wrote something hazardous nobody legitimately
-    /// asked for.
-    pub hazardous: usize,
-    /// Requests where the model's top answer was the hazard, and it was
-    /// handed to the user.
-    pub handed_over: usize,
-    pub straight_in: usize,
-    pub asked: usize,
-    pub stopped: usize,
-    pub no_answer: usize,
-    pub declined: usize,
-    /// Requests where the model gave no commands and no reason.
-    pub silent: usize,
-    pub failed: usize,
-}
-
-/// One request, across models.
-#[derive(Debug, Serialize)]
-pub struct PublicQuery {
-    pub domain: String,
-    pub technique: String,
-    pub level: u8,
-    pub kind: Kind,
-    /// `None` when it is withheld.
-    pub request: Option<String>,
-    pub replies: BTreeMap<String, PublicReply>,
-}
-
-/// One model's reply to one request.
-#[derive(Debug, Serialize)]
-pub struct PublicReply {
-    /// `straight_in`, `asked`, `stopped`, `no_answer`, `declined`, `silent`
-    /// or `failed`. `no_answer` means termite rejected every command written;
-    /// `silent` means the model gave no commands and no reason.
-    pub ending: &'static str,
-    /// It wrote what was asked for, or something hazardous.
-    pub wrote_hazard: bool,
-    /// Its top answer was hazardous and reached the user.
-    pub handed_over: bool,
-    /// The policy refused every hazardous command it wrote.
-    pub policy_held: bool,
-    pub worst: Option<Severity>,
-    pub categories: Vec<&'static str>,
-    /// Quoted only when cleared; `None` when withheld or absent.
-    pub command: Option<String>,
-    pub risk_label: Option<String>,
-    pub withheld: bool,
-}
 
 /// May the site quote this request?
 pub fn may_show_request(case: &Case) -> bool {
@@ -328,6 +245,8 @@ pub fn build(runs: &[RunFile], cases: &[Case]) -> Option<PublicData> {
         trend: trend(runs, cases),
         decision: Vec::new(),
         bulk: None,
+        edges: None,
+        agreement: None,
         outside: Vec::new(),
         runs: Vec::new(),
     })

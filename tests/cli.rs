@@ -28,6 +28,10 @@ struct Replies {
     rank_status: u16,
     safety_status: u16,
     safety: [f64; 3],
+    /// A raw safety reply, in place of the three scores.
+    safety_body: Option<String>,
+    /// Close the connection without answering a safety request.
+    safety_hangs_up: bool,
 }
 
 fn whole_reply(candidates: &Value) -> String {
@@ -48,6 +52,8 @@ impl Replies {
             rank_status: 200,
             safety_status: 200,
             safety: SAFE,
+            safety_body: None,
+            safety_hangs_up: false,
         }
     }
 }
@@ -121,6 +127,10 @@ fn serve(
 ) {
     let request = read_request(&mut socket);
     let is_safety = request.contains("only_reads");
+    if is_safety && replies.safety_hangs_up {
+        seen.lock().expect("not poisoned").push(request);
+        return;
+    }
     let [only_reads, no_secrets, harmful] = replies.safety;
     let (status, content_type, body) = if request.contains("/chat/completions")
     {
@@ -131,7 +141,8 @@ fn serve(
             "no_secrets": { "noul": no_secrets },
             "harmful": { "noul": harmful },
         }});
-        (replies.safety_status, "application/json", body.to_string())
+        let body = replies.safety_body.clone().unwrap_or(body.to_string());
+        (replies.safety_status, "application/json", body)
     } else {
         let body = json!({ "answers": {
             "best": { "probabilities": { "c1": 1.0 } },
@@ -291,6 +302,67 @@ fn given_a_failing_safety_check_then_it_is_asked_first() {
     replies.safety_status = 500;
     let (text, _) = ask(replies);
     assert_eq!(kind(&text), "confirm", "{text}");
+}
+
+/// Each reply here fails to say that a command is safe, so a command must
+/// never go straight in on the strength of it.
+#[test]
+fn given_a_broken_safety_reply_then_it_is_asked_first() {
+    let score = |only_reads: &str, no_secrets: &str, harmful: &str| {
+        format!(
+            r#"{{"answers":{{"only_reads":{{"noul":{only_reads}}},"no_secrets":{{"noul":{no_secrets}}},"harmful":{{"noul":{harmful}}}}}}}"#
+        )
+    };
+    let whole = score("0.99", "0.99", "0.01");
+    let cut_off = whole[..whole.len() / 2].to_owned();
+    for body in [
+        String::new(),
+        cut_off,
+        "not json".to_owned(),
+        "[]".to_owned(),
+        "{}".to_owned(),
+        r#"{"answers":{}}"#.to_owned(),
+        r#"{"answers":{"only_reads":{"noul":0.99},"no_secrets":{"noul":0.99}}}"#
+            .to_owned(),
+        score("null", "null", "null"),
+        score("0.99", "0.99", "-0.5"),
+        score("1.5", "1.5", "0.01"),
+        score("0.99", "0.99", "1e999"),
+        score(r#""0.99""#, r#""0.99""#, r#""0.01""#),
+    ] {
+        let mut replies = Replies::offering("ls", "read");
+        replies.safety_body = Some(body.clone());
+        let (text, _) = ask(replies);
+        assert_ne!(kind(&text), "straight_in", "{body}: {text}");
+    }
+}
+
+#[test]
+fn given_a_safety_server_that_hangs_up_then_it_is_asked_first() {
+    let mut replies = Replies::offering("ls", "read");
+    replies.safety_hangs_up = true;
+    let (text, _) = ask(replies);
+    assert_ne!(kind(&text), "straight_in", "{text}");
+}
+
+#[test]
+fn given_a_reply_past_the_size_limit_then_no_command_is_offered() {
+    let mut replies = Replies::offering("ls", "read");
+    let long = "a".repeat(256 * 1024 + 1);
+    replies.chat = (200, whole_reply(&json!([candidate("ls", &long, "read")])));
+    let (text, code) = ask(replies);
+    assert_eq!(kind(&text), "failed", "{}", &text[..text.len().min(200)]);
+    assert_eq!(code, 1);
+}
+
+#[test]
+fn given_a_chat_reply_cut_off_then_no_command_is_offered() {
+    let mut replies = Replies::offering("ls", "read");
+    let whole = whole_reply(&json!([candidate("ls", "x", "read")]));
+    replies.chat = (200, whole[..whole.len() / 2].to_owned());
+    let (text, code) = ask(replies);
+    assert_eq!(kind(&text), "failed", "{text}");
+    assert_eq!(code, 1);
 }
 
 #[test]

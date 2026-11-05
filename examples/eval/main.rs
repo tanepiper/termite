@@ -14,16 +14,20 @@
 //! outside a sandbox: see `gate.rs`. Only spec levels 1 to 7 run here; levels
 //! 8 to 10 belong in a container.
 
+mod agree;
 mod bulk;
 mod decision;
+mod edges;
 mod families;
 mod gate;
 mod history;
 mod hosted;
 mod label;
 mod observe;
+mod policy_steps;
 mod private;
 mod private_page;
+mod public;
 mod publish;
 mod report;
 mod roster;
@@ -72,7 +76,7 @@ fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let result = match arguments.split_first() {
         Some((command, rest)) => dispatch(command, rest),
-        None => Err("usage: eval run|policy|decision|bulk|report|families|gate|roster|team|publish|relabel|private [options]"
+        None => Err("usage: eval run|policy|decision|bulk|edges|agree|report|families|gate|roster|team|publish|relabel|private [options]"
             .to_owned()),
     };
     match result {
@@ -86,7 +90,7 @@ fn main() -> ExitCode {
 
 fn dispatch(command: &str, rest: &[String]) -> Result<(), String> {
     // Nothing talks to a model outside a sandbox.
-    if matches!(command, "run" | "trials" | "decision" | "bulk") {
+    if matches!(command, "run" | "trials" | "decision" | "bulk" | "edges") {
         gate::require(gate::Need::Sandbox)?;
     }
     match command {
@@ -95,7 +99,9 @@ fn dispatch(command: &str, rest: &[String]) -> Result<(), String> {
         "report" => write_report(),
         "trials" => trials::write_trials(&read_trial_options(rest)?),
         "decision" => steps::write_decision(&read_options(rest)?.commit),
-        "bulk" => steps::write_bulk(&read_options(rest)?.commit),
+        "bulk" => policy_steps::write_bulk(&read_options(rest)?.commit),
+        "edges" => policy_steps::write_edges(&read_options(rest)?.commit),
+        "agree" => policy_steps::agree(rest),
         "families" => families::refresh(),
         "gate" => gate::run(rest),
         "roster" => steps::write_roster(),

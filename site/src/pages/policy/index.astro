@@ -3,7 +3,16 @@ import Base from "../../layouts/Base.astro";
 import BulkBar from "../../components/BulkBar.astro";
 import { page, results } from "../../lib/results";
 
-const { totals, bulk } = results;
+const { totals, bulk, edges, agreement } = results;
+const count = (value: number) => value.toLocaleString("en-GB");
+const buildNames: Record<string, string> = {
+  macos: "macOS",
+  "linux-glibc-arm64": "Linux with glibc on ARM",
+  "linux-musl-arm64": "Linux with musl on ARM",
+  "linux-glibc-x86": "Linux with glibc on x86",
+  "linux-musl-x86": "Linux with musl on x86",
+};
+const builds = (agreement?.builds ?? []).map((name: string) => buildNames[name] ?? name);
 const attacks = totals.policy_refused + totals.policy_escaped;
 const harmless = totals.policy_allowed + totals.policy_over_refused;
 const day = (seconds: number) =>
@@ -64,6 +73,67 @@ const day = (seconds: number) =>
     that the policy could not prove only reads. Many of these commands do write, so this figure does
     not show how much harmless work the policy blocks.
   </p>
+
+  {edges && (
+    <>
+      <h2>Edge tests</h2>
+      <p>
+        A limit is a common place for a check to fail. termite refuses a command longer than 500
+        characters, so this test makes {count(edges.copies)} padded copies of the fixed commands
+        above. Their lengths are just under, at and just over the limit, and then far over it. Each
+        command is padded in four ways: with spaces, a long argument, a comment and multi-byte
+        characters.
+      </p>
+      <div class="scroll"><table>
+        <thead><tr><th scope="col">Result</th><th scope="col" class="number">Copies</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Blocked, as they must be</th><td class="number">{count(edges.blocked)}</td></tr>
+          <tr><th scope="row">Allowed, and they should have been blocked</th><td class="number">{count(edges.escaped)}</td></tr>
+          <tr><th scope="row">Harmless, and still allowed</th><td class="number">{count(edges.kept)}</td></tr>
+          <tr><th scope="row">Harmless, and blocked after padding</th><td class="number">{count(edges.changed)}</td></tr>
+        </tbody>
+      </table></div>
+      <p class="note">
+        Last run on {day(edges.started)}, on the Local Sandbox on Mac, with code version {edges.commit}.
+      </p>
+      <p>
+        A harmless command can be blocked after padding because the padding changes it. An extra
+        argument can turn a command that only reads into one that writes. This result is stricter,
+        so it is safe.
+      </p>
+      <p>
+        The normal test suite also sends broken replies from a fake model server, such as an empty
+        reply, a missing score or a score outside the allowed range. None of them can make a command
+        count as safe.
+      </p>
+    </>
+  )}
+
+  {agreement && (
+    <>
+      <h2>Build agreement</h2>
+      <p>
+        The same program can behave differently when it is built for a different system. This test
+        sends the same {count(agreement.commands)} commands to {builds.length} builds of termite, and
+        compares the results. Each command gets {agreement.checks} checks: one on the text alone, and
+        one in each of {agreement.checks - 1} made-up folders.
+      </p>
+      <p>
+        <strong>{count(agreement.disagreements)}</strong> {agreement.disagreements === 1 ? "command gave" : "commands gave"} a
+        different result on a different build.
+      </p>
+      <p>Builds: {builds.join("; ")}.</p>
+      <p class="note">
+        Last run on {day(agreement.started)}, with code version {agreement.commit}. The Linux builds ran in
+        containers with no network.
+      </p>
+      <p>
+        If all the builds agree, it does not prove that they are right, because they can all be wrong
+        in the same way. Other systems may also give different results. The idea for this test comes
+        from <a href="https://sshhole.com/">a report about OpenSSH on musl Linux</a>.
+      </p>
+    </>
+  )}
 
   <p>
     <a href={page("docs/tests/#tests-that-use-no-model")}>Read how these tests fit with the model tests</a>.

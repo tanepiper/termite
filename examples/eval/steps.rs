@@ -8,8 +8,10 @@ use std::path::{Path, PathBuf};
 
 use termite::{PRIVATE_DIR_MODE, PRIVATE_FILE_MODE, write_private};
 
-use crate::bulk::{self, BulkFile, Outside, PublicBulk};
+use crate::agree;
+use crate::bulk::{self, BulkFile, PublicBulk};
 use crate::decision::{self, Choice, DecisionFile, Rung, scores};
+use crate::edges::{EdgeFile, PublicEdges};
 use crate::history::{self, Entry, latest_view};
 use crate::observe::{self, Suite, Write};
 use crate::private::{self, KnownIssue};
@@ -25,7 +27,6 @@ use crate::{
 pub(crate) const LADDER: &str = "eval/corpus/ladder.jsonl";
 pub(crate) const CHOICES: &str = "eval/corpus/choices.jsonl";
 pub(crate) const DECISION_MODELS: &str = "eval/decision-models.jsonl";
-const OUTSIDE_COMMANDS: &str = "eval/downloads/derived/commands.jsonl";
 const OBSERVATIONS: &str = "eval/observations";
 const OUTSIDE_REQUESTS: &str = "eval/downloads/derived/requests.jsonl";
 pub(crate) const KNOWN_ISSUES: &str = "eval/known-issues.jsonl";
@@ -34,7 +35,7 @@ const HISTORY: &str = "eval/history.jsonl";
 /// Below the home folder, so no git command can ever pick it up.
 pub const PRIVATE_HOME: &str = "termite-private";
 
-fn read(path: &str) -> Result<String, String> {
+pub(crate) fn read(path: &str) -> Result<String, String> {
     fs::read_to_string(path).map_err(|error| format!("{path}: {error}"))
 }
 
@@ -43,7 +44,10 @@ pub fn corpus_fingerprint(requests: &str) -> Result<String, String> {
     Ok(history::fingerprint(&[&read(requests)?, &read(COMMANDS)?]))
 }
 
-fn save<T: serde::Serialize>(path: &str, value: &T) -> Result<(), String> {
+pub(crate) fn save<T: serde::Serialize>(
+    path: &str,
+    value: &T,
+) -> Result<(), String> {
     let text = serde_json::to_string_pretty(value)
         .map_err(|error| error.to_string())?;
     fs::write(path, text).map_err(|error| error.to_string())
@@ -75,28 +79,6 @@ pub fn write_decision(commit: &str) -> Result<(), String> {
     fs::remove_dir_all(&home).map_err(|error| error.to_string())?;
     println!("saved {path}");
     Ok(())
-}
-
-/// Run the outside commands through the policy.
-pub fn write_bulk(commit: &str) -> Result<(), String> {
-    let text = read(OUTSIDE_COMMANDS)?;
-    let commands: Vec<Outside> = read_lines(OUTSIDE_COMMANDS)?;
-    let started = now()?;
-    let file = BulkFile {
-        started,
-        commit: commit.to_owned(),
-        corpus: history::fingerprint(&[&text]),
-        ..bulk::check(&commands)
-    };
-    println!(
-        "bulk: {} commands, {} allowed, {} flagged, {} allowed and flagged",
-        file.total,
-        file.allowed,
-        file.hazardous,
-        file.allowed_hazardous.len()
-    );
-    fs::create_dir_all(RESULTS).map_err(|error| error.to_string())?;
-    save(&format!("{RESULTS}/bulk-{started}-{commit}.json"), &file)
 }
 
 fn finished(prefix: &str) -> Vec<RunFile> {
@@ -276,6 +258,10 @@ pub fn write_public() -> Result<(), String> {
         update_history(&runs, &cases, &decisions, &rungs, &choices, &bulks)?;
     data.decision = scores(&decisions, &rungs, &choices);
     data.bulk = bulks.last().map(PublicBulk::from);
+    let mut edge_runs: Vec<EdgeFile> = read_results("edges-");
+    edge_runs.sort_by_key(|file| file.started);
+    data.edges = edge_runs.last().map(PublicEdges::from);
+    data.agreement = agree::public(&agree::latest(read_results("agree-")));
     let outside = finished("outside-");
     if let Some(run) = newest_by(outside, |run| run.started) {
         // Outside requests are never quoted, so only counts go out.
