@@ -145,7 +145,11 @@ pub(crate) fn exit_code(answer: &Answer, view: &View) -> u8 {
     };
 
     // A script must not treat a risky command as a good answer.
-    u8::from(offered.iter().any(|one| view.rating(one) == Rating::Risky))
+    if offered.iter().any(|one| view.rating(one) == Rating::Risky) {
+        2
+    } else {
+        0
+    }
 }
 
 const ASKING: &str = "Needs approval";
@@ -511,21 +515,21 @@ mod tests {
             .map(|answer| exit_code(answer, &view))
             .collect();
 
-        assert_eq!(codes, [0, 1, 0, 0, 2, 2, 2, 1]);
+        assert_eq!(codes, [0, 2, 0, 0, 2, 2, 2, 1]);
     }
 
     #[test]
-    fn given_a_risky_command_then_the_exit_code_is_1() {
-        assert_eq!(exit_code(&Answer::Confirm(risky()), &view(false)), 1);
+    fn given_a_risky_command_then_the_exit_code_is_2() {
+        assert_eq!(exit_code(&Answer::Confirm(risky()), &view(false)), 2);
     }
 
     #[test]
-    fn given_a_secret_folder_then_the_exit_code_is_1() {
+    fn given_a_secret_folder_then_the_exit_code_is_2() {
         let view = View {
             cwd: PathBuf::from("/Users/me/.ssh"),
             ..view(false)
         };
 
-        assert_eq!(exit_code(&Answer::Confirm(best()), &view), 1);
+        assert_eq!(exit_code(&Answer::Confirm(best()), &view), 2);
     }
 }
