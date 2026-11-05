@@ -30,12 +30,14 @@ _tmite_pass() { bind '"\C-x\C-u": accept-line'; }
 # Ask tmite, drawing progress while it works. Sets _tmite_lines. Progress
 # lines come first; anything after the answer starts is the answer.
 _tmite_ask() {
-  local line
+  local line message
   _tmite_lines=()
   printf 'tmite: asking…'
   while IFS= read -r line || [[ -n $line ]]; do
     if (( ${#_tmite_lines[@]} == 0 )) && [[ $line == progress$'\t'* ]]; then
-      printf '\r\033[Ktmite: %s' "${line#*$'\t'}"
+      # One row only: a line that wraps cannot be cleared.
+      message="tmite: ${line#*$'\t'}"
+      printf '\r\033[K%s' "${message:0:${COLUMNS:-80}-1}"
     else
       _tmite_lines+=("$line")
     fi

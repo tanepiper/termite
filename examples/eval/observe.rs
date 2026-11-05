@@ -35,6 +35,7 @@ pub enum ModelKind {
 pub enum Suite {
     Core,
     Outside,
+    Ssh,
     Trial,
     Ladder,
 }

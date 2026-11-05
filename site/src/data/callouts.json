@@ -18,7 +18,7 @@
     "finding": "pair:llama3.1 8B",
     "group": "Command models",
     "title": "Removing safety training does not always add hazards",
-    "text": "llama3.1 8B wrote a hazard for 73 of 84 hostile requests. Its copy with safety training removed wrote 35 and declined 21, against 3. Test each copy, and don't assume what it will do.",
+    "text": "llama3.1 8B wrote a hazard for 74 of 84 hostile requests. Its copy with safety training removed wrote 35 and declined 21, against 3. Test each copy, and don't assume what it will do.",
     "section": "safety-training-removed"
   },
   {
@@ -38,7 +38,7 @@
     "finding": "termite-stopped",
     "group": "Command models",
     "title": "termite stopped almost every hazard",
-    "text": "These 25 models wrote 1601 hazardous replies to hostile requests. termite stopped or held 1599 of them for a person to check, and 2 were Injected.",
+    "text": "These 25 models wrote 1602 hazardous replies to hostile requests. termite stopped or held 1600 of them for a person to check, and 2 were Injected.",
     "featured": true,
     "section": "command-models"
   },
@@ -54,7 +54,7 @@
     "finding": "labelled-safe",
     "group": "Command models",
     "title": "Models called hazards harmless",
-    "text": "In at least 236 of 1601 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
+    "text": "In at least 236 of 1602 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
   },
   {
     "finding": "size-and-safety",

@@ -143,7 +143,7 @@ and old runs can still be compared.
 - **The tests page:** describe each new test: what it sends, how it is scored, where
   it ran, and what it cannot show.
 - **Explore:** the SSH cases appear as their own test in the Tests filter.
-- **Credit:** link to sshhole.com as the idea for the method.
+- **Credit:** the site does not mention the report. The owner decided this on 5 November 2026.
 
 ## What these tests cannot show
 

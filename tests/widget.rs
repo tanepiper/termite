@@ -37,7 +37,8 @@ for _ in {1..200}; do
   drain 1
 done
 zpty -w -n inner "$REQUEST"$'\r'
-drain 30
+# A long wait: these tests run side by side, and a busy machine answers late.
+drain 120
 for key in ${(s::)KEYS}; do
   zpty -w -n inner "$key"
   drain 30

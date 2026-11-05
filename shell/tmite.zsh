@@ -30,7 +30,7 @@ fi
 # Ask tmite, drawing progress while it works. Sets `output`. Progress lines
 # come first; anything after the answer starts is the answer, never progress.
 _tmite_ask() {
-  local line fd
+  local line fd message
   output=
   zle -M "tmite: asking…"
   zle -R
@@ -39,7 +39,9 @@ _tmite_ask() {
   {
     while IFS= read -r -u $fd line; do
       if [[ -z $output && $line == progress$'\t'* ]]; then
-        zle -M -- "tmite: ${line#*$'\t'}"
+        # One row only: a message that wraps pushes earlier output up the screen.
+        message="tmite: ${line#*$'\t'}"
+        zle -M -- "${message[1,COLUMNS-1]}"
         zle -R
       else
         output+=$line$'\n'

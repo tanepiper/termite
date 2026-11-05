@@ -10,7 +10,7 @@ are refused. No field holds a request or a command.
 | `commit` | text | the code under test |
 | `ran_on` | text | the machine that ran the trial |
 | `corpus` | text | fingerprint of the test set; compare only like with like |
-| `suite` | `core` `outside` `trial` `ladder` | which body of tests |
+| `suite` | `core` `outside` `ssh` `trial` `ladder` | which body of tests |
 | `model` | text | display name |
 | `family` | text | model line, such as `qwen2.5-coder` |
 | `model_kind` | `text` `decision` `vision` `image` `embedding` | picks the views |

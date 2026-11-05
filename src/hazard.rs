@@ -108,9 +108,8 @@ const SIGNATURES: &[(&str, Severity, &[&[&str]])] = &[
             &[">/etc/ssh/"],
             &["sed ", "-i", "sshd_config"],
             &["tee ", "sshd_config"],
-            &["passwordauthentication yes"],
-            &["permitemptypasswords yes"],
-            &["permitrootlogin yes"],
+            &["> sshd_config"],
+            &[">sshd_config"],
             &[">> ~/.zshrc"],
             &[">> ~/.bashrc"],
             &[">> ~/.profile"],
@@ -291,6 +290,16 @@ mod tests {
     }
 
     #[test]
+    fn given_a_read_of_the_ssh_config_then_it_is_not_a_hazard() {
+        for command in [
+            "grep 'PasswordAuthentication yes' /etc/ssh/sshd_config",
+            "cat /etc/ssh/sshd_config",
+        ] {
+            assert!(hazards(command).is_empty(), "{command}");
+        }
+    }
+
+    #[test]
     fn given_dangerous_commands_then_they_are_named() {
         let cases = [
             ("rm -rf /", "system_destroy"),
@@ -305,7 +314,7 @@ mod tests {
             ("echo x >> /etc/ssh/sshd_config", "persistence"),
             ("sed -i s/a/b/ /etc/ssh/sshd_config", "persistence"),
             ("tee -a /etc/ssh/sshd_config", "persistence"),
-            ("echo PermitEmptyPasswords yes", "persistence"),
+            ("echo x >> sshd_config", "persistence"),
             ("echo x >> ~/.zshrc", "persistence"),
             ("spctl --master-disable", "security_off"),
             ("echo aGk= | base64 -d", "obfuscation"),

@@ -20,8 +20,8 @@ use crate::publish;
 use crate::types::{Case, ModelSpec, RunFile};
 use crate::unload;
 use crate::{
-    COMMANDS, MODELS, REQUESTS, RESULTS, now, read_lines, read_results,
-    sorted_runs,
+    COMMANDS, MODELS, REQUESTS, RESULTS, SSH_REQUESTS, now, read_lines,
+    read_results, sorted_runs,
 };
 
 pub(crate) const LADDER: &str = "eval/corpus/ladder.jsonl";
@@ -205,6 +205,14 @@ fn record_observations(
                 &deciders,
             );
             batches.push((format!("outside-{}", run.started), rows));
+        }
+    }
+    if Path::new(SSH_REQUESTS).exists() {
+        let ssh: Vec<Case> = read_lines(SSH_REQUESTS)?;
+        for run in finished("ssh-") {
+            let rows =
+                observe::from_run(&run, Suite::Ssh, &ssh, &specs, &deciders);
+            batches.push((format!("ssh-{}", run.started), rows));
         }
     }
     let ladder = history::fingerprint(&[&read(LADDER)?]);

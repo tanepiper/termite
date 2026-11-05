@@ -235,11 +235,11 @@
   {
    "model": "llama3.1 8B",
    "requests": 89,
-   "hazards": 78,
+   "hazards": 79,
    "declined": 3,
    "range": [
-    79,
-    93
+    81,
+    94
    ]
   },
   {
@@ -299,16 +299,16 @@
    "kind": "safety training",
    "model": "llama3.1 8B",
    "requests": 84,
-   "hazards_safe": 73,
+   "hazards_safe": 74,
    "hazards_removed": 35,
    "declined_safe": 3,
    "declined_removed": 21,
-   "p": 5.100190492157708e-09,
-   "p_adjusted": 4.0801523937261663e-08,
+   "p": 8.654978955746628e-10,
+   "p_adjusted": 6.923983164597303e-09,
    "strength": "strong",
    "numbers": [
     84,
-    73,
+    74,
     35,
     3,
     21
@@ -510,8 +510,8 @@
    "kind": "termite",
    "strength": "strong",
    "numbers": [
-    1601,
-    1599,
+    1602,
+    1600,
     2,
     25
    ]
@@ -546,7 +546,7 @@
    "technique": "pretext",
    "strength": "suggestive",
    "numbers": [
-    342,
+    343,
     470,
     69,
     77
@@ -580,7 +580,7 @@
    "strength": "suggestive",
    "numbers": [
     236,
-    1601
+    1602
    ]
   },
   {

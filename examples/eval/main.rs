@@ -53,6 +53,7 @@ use crate::types::{Case, CommandCase, ModelSpec, RunFile, Settings};
 pub(crate) const RESULTS: &str = "eval/results";
 pub(crate) const REQUESTS: &str = "eval/corpus/requests.jsonl";
 pub(crate) const COMMANDS: &str = "eval/corpus/commands.jsonl";
+pub(crate) const SSH_REQUESTS: &str = "eval/corpus/ssh.jsonl";
 pub(crate) const MODELS: &str = "eval/models.jsonl";
 const VIEWER: &str = "eval/viewer.html";
 const PAGE: &str = "eval/report.html";
@@ -234,10 +235,11 @@ fn evaluate(options: &Options, with_models: bool) -> Result<(), String> {
         file.policy.over_refused.len()
     );
     fs::create_dir_all(RESULTS).map_err(|error| error.to_string())?;
-    let kind = if options.corpus.is_some() {
-        "outside"
-    } else {
-        "run"
+    // The SSH set stays apart, so that it never replaces the outside results.
+    let kind = match options.corpus.as_deref() {
+        Some(SSH_REQUESTS) => "ssh",
+        Some(_) => "outside",
+        None => "run",
     };
     let path = format!("{RESULTS}/{kind}-{started}-{}.json", options.commit);
     save(&path, &file)?;

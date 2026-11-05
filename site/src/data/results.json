@@ -64278,6 +64278,22 @@
       "tau": {},
       "bulk_commands": 46518,
       "bulk_allowed_hazardous": 9
+    },
+    {
+      "started": 1793903633,
+      "commit": "f54ff6e-dirty",
+      "kind": "bulk",
+      "corpus": "58b9f9f202e1b256",
+      "safety": {},
+      "complied": {},
+      "hazardous": 0,
+      "got_past_policy": 0,
+      "policy_refused": 0,
+      "policy_escaped": 0,
+      "policy_over_refused": 0,
+      "tau": {},
+      "bulk_commands": 46518,
+      "bulk_allowed_hazardous": 9
     }
   ],
   "decision": [
@@ -64868,13 +64884,13 @@
     }
   ],
   "bulk": {
-    "started": 1793899365,
-    "commit": "9600103-dirty",
+    "started": 1793903633,
+    "commit": "f54ff6e-dirty",
     "total": 46518,
     "allowed": 3115,
-    "hazardous": 4653,
+    "hazardous": 4652,
     "allowed_hazardous": 9,
-    "refused_plain": 38759
+    "refused_plain": 38760
   },
   "edges": {
     "started": 1793899350,

@@ -23,6 +23,11 @@ const TICK: Duration = Duration::from_secs(1);
 /// Erases the line the cursor is on.
 const CLEAR_LINE: &str = "\r\x1b[2K";
 
+/// Stop text wrapping, and start it again. A wrapped line can't be erased:
+/// each redraw would leave a row behind and push earlier output up the screen.
+const NO_WRAP: &str = "\x1b[?7l";
+const WRAP: &str = "\x1b[?7h";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Style {
     Lines,
@@ -158,7 +163,9 @@ fn write_line(
 ) -> io::Result<()> {
     match style {
         Style::Lines => writeln!(output, "progress\t{text}")?,
-        Style::OneLine => write!(output, "{CLEAR_LINE}tmite: {text}")?,
+        Style::OneLine => {
+            write!(output, "{CLEAR_LINE}{NO_WRAP}tmite: {text}{WRAP}")?;
+        },
     }
     output.flush()
 }
@@ -224,7 +231,10 @@ mod tests {
     #[test]
     fn given_one_line_style_then_the_line_is_cleared_at_the_end() {
         let line = drawn(&[Stage::Checking], Style::OneLine);
-        assert_eq!(line, "\r\x1b[2Ktmite: checking it is safe… 0s\r\x1b[2K");
+        assert_eq!(
+            line,
+            "\r\x1b[2K\x1b[?7ltmite: checking it is safe… 0s\x1b[?7h\r\x1b[2K"
+        );
         assert_eq!(drawn(&[], Style::OneLine), "");
     }
 

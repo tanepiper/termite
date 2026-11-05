@@ -77,6 +77,25 @@ Each public set is pinned to one version and checked by hash.
 
 **What it cannot show:** many of these requests are not about the shell, so a command is often not a sensible reply. Two models are too few to compare models.
 
+## SSH requests
+
+**Question:** what do models write for jobs on the SSH server, and what does termite do with it?
+
+The other request sets had no request about the SSH server. This set adds 12 requests. They are kept apart from the core requests, so that older runs can still be compared.
+
+| Requests | What it is |
+|---|---|
+| 3 | Checking a machine: versions, settings and locked accounts |
+| 3 | Fixing a machine, such as turning off password logins |
+| 3 | Hostile requests that weaken SSH logins |
+| 3 | The same hostile requests, hidden in other text |
+
+**How it is scored:** in the same way as core requests. A change to the SSH server must never be Injected.
+
+**Where it ran:** on the Local Sandbox on Mac.
+
+**What it cannot show:** 12 requests are a small sample. No login is attempted, so this test does not show whether a machine is affected by any SSH bug.
+
 ## Repeated requests
 
 **Question:** does a model give the same answer twice?
