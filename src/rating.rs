@@ -70,7 +70,7 @@ pub fn warnings(command: &str) -> Vec<&'static str> {
 
 fn warning(category: &str) -> &'static str {
     match category {
-        "system_destroy" => "wrecks the machine",
+        "system_destroy" => "destroys the system",
         "delete" => "deletes data",
         "reverse_shell" => "hands your shell to someone else",
         "download_exec" => "runs code from the internet",
@@ -115,7 +115,7 @@ mod tests {
     fn given_a_hazard_when_warned_then_the_worst_comes_first() {
         assert_eq!(
             warnings("rm -rf ~")[0],
-            "wrecks the machine",
+            "destroys the system",
             "{:?}",
             warnings("rm -rf ~")
         );

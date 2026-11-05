@@ -1,45 +1,36 @@
 # In plain English
 
-You don't need to be technical to read this site. Here's what it's about, and what
-the words mean.
+You do not need technical knowledge to read this site. This page explains what termite does and what the words on the site mean.
 
 ## What termite is
 
-A terminal is the plain text window where you give a computer typed instructions.
-It's powerful, and it doesn't ask if you're sure. One short line can delete
-everything you own.
+A terminal is a text window where you type instructions for a computer. A terminal does not ask whether you are sure, so one short line can delete all your files.
 
-Those instructions are hard to remember, so people ask AI to write them. That works
-until the AI gets it wrong, or someone tricks it. termite sits in the middle. The AI
-writes the instruction, and termite explains what it does and warns you if it looks
-dangerous. It never carries it out. You always do that yourself.
+These instructions are hard to remember, so many people ask an AI model to write them. The model can make a mistake, and someone can trick it. termite stands between the model and your computer: the model writes the instruction, and termite explains what it does and warns you if it looks dangerous. termite never carries out the instruction; only you can do that.
 
-It also does a second job: testing AI models before anyone trusts them, by asking
-them to do bad things and writing down what they did.
+termite has a second purpose. It tests AI models by sending them harmful requests and recording what they write.
 
-## If you're deciding whether to use a model
+## If you are deciding whether to use a model
 
-Three things to take from this site:
-
-- **Small AI models mostly do as they're told.** Ask one to do something harmful and
-  it usually will. Don't count on the model to say no.
-- **The safety has to sit outside the model.** Plain rules that can't be talked
-  round are what kept these commands from going anywhere.
-- **A person stays in charge.** termite never carries out an instruction on its own.
+- **Do not rely on the model to protect you.** In my tests, most models wrote a dangerous command for most hostile requests. The reply format in those tests required a command, so the tests do not show whether a model would refuse.
+- **Keep the safety checks outside the model.** Fixed rules in code cannot be persuaded, and those rules stopped the dangerous commands in those tests from reaching the prompt without approval.
+- **Keep a person in control.** termite never carries out an instruction by itself.
 
 ## The words
 
 | Word | What it means |
 |---|---|
-| **Model** | An AI, like the one behind ChatGPT. Here, small ones that run on your own computer rather than someone else's |
+| **Model** | An AI program. On this site, usually a small one that runs on your own computer |
 | **Command** | One typed instruction to the computer |
-| **Prompt** | The spot in the terminal where you type. A command sitting there has not happened yet |
-| **Hazardous** | A command that could do real harm: delete things, show passwords, let someone in |
-| **Hostile request** | Someone asking the AI to do something harmful on purpose |
-| **Safety training** | The training that teaches an AI to say no to harmful requests |
-| **Safety training removed** | A copy of a model with that training deliberately stripped out, so it won't say no. People share these openly, so we test them to see the worst case |
-| **Command model** | The AI that writes the commands |
-| **Decision model** | A second AI that scores how dangerous a command looks |
-| **Red team** | People who attack something on purpose, to find the weak spots first |
-| **Blue team** | People who defend it |
-| **Grade** | How often a model went along with hostile requests, from A (rarely) to E (nearly always). F means something got past termite's rules |
+| **Prompt** | The place in the terminal where you type. A command at the prompt has not run yet |
+| **Hazard** | A command that could cause real harm, such as deleting files, showing passwords or giving someone else access |
+| **Hostile request** | A request that asks a model to do something harmful on purpose |
+| **Safety training** | Training that teaches a model to refuse harmful requests |
+| **Safety training removed** | A copy of a model that has had this training taken out. People share these copies openly, so I test them to see the worst case |
+| **Command model** | The model that writes commands |
+| **Decision model** | A second model that scores how dangerous a command looks |
+| **Red team** | People who attack a system on purpose to find its weaknesses |
+| **Blue team** | People who defend a system |
+| **Grade** | How often a model wrote a hazard for a hostile request, from A (rarely) to E (nearly always). F means a hazard passed termite's policy |
+
+[How the testing works](evaluation.md#result-words) lists the words for each result.

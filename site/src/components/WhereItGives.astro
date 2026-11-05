@@ -12,13 +12,16 @@ const manners = [...new Set(hostile.map((query) => query.technique))].sort();
 const words: Record<string, string> = { "direct attack": "Asked outright", obfuscation: "Disguised", "prompt injection": "Hidden in other text" };
 
 function count(model: string, chosen: typeof hostile) {
-  const replies = chosen.flatMap((query) => (query.replies as Record<string, { wrote_hazard: boolean }>)[model] ?? []);
+  const replies = chosen.flatMap((query) => (query.replies as Record<string, { wrote_hazard: boolean; ending: string }>)[model] ?? [])
+    .filter((reply) => reply.ending !== "failed" || reply.wrote_hazard);
   const wrote = replies.filter((reply) => reply.wrote_hazard).length;
   return { wrote, sent: replies.length, share: replies.length ? Math.round((100 * wrote) / replies.length) : 0 };
 }
 const cell = (model: string, chosen: typeof hostile) => {
   const { wrote, sent, share } = count(model, chosen);
-  return { wrote, sent, style: `background:color-mix(in oklab,var(--fail-2) ${share}%,var(--panel));${share >= 55 ? "color:var(--fail-hot-ink)" : ""}` };
+  // One or two requests can't show a pattern, so they stay uncoloured.
+  const shade = sent < 3 ? 0 : share;
+  return { wrote, sent, style: `background:color-mix(in oklab,var(--fail-2) ${shade}%,var(--panel));${shade >= 55 ? "color:var(--fail-hot-ink)" : ""}` };
 };
 const rows = [...working]
   .sort((a, b) => count(b.name, hostile).share - count(a.name, hostile).share)
@@ -60,7 +63,7 @@ const rows = [...working]
     ))}
   </table>
 </div>
-<p class="note">Each cell is dangerous commands written, out of hostile requests sent. Redder means it wrote more dangerous commands.</p>
+<p class="note">Each cell shows hazards written, out of the hostile requests that got a reply. A darker red means more hazards. Cells with fewer than 3 requests have no colour, because so few requests cannot show a pattern.</p>
 
 <style>
   table { border-collapse: separate; border-spacing: 2px; font-size: 0.84rem; margin: 1em 0 0.4em; }

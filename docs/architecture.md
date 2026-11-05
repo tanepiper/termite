@@ -1,8 +1,8 @@
 # How termite is built
 
-termite is a safety tool, so a reader has to be able to check it. This page
-is the map. `tests/architecture.rs` fails the build when the code stops
-matching it, so a change to the design changes this page in the same commit.
+termite is a safety tool, so readers must be able to check it. This page
+describes the design. `tests/architecture.rs` fails the build when the code
+does not match it, so a change to the design must update this page in the same commit.
 
 ## Rules
 
@@ -10,13 +10,13 @@ matching it, so a change to the design changes this page in the same commit.
    tests. A file that grows is split along a boundary a reader would name.
 2. **One direction.** A module uses only the modules listed for it below.
    There are no cycles.
-3. **Effects at the edges.** The library prints nothing, starts no process
+3. **Side effects stay in the binary.** The library prints nothing, starts no process
    and spawns no thread. Only `generate` and `decide` talk to a server. The
    `tmite` binary owns the terminal, processes and threads.
 4. **Every input is bounded.** Anything read from a model, a server or a
    repository has a limit, listed under Memory.
-5. **Nothing fails open.** Doubt, an error or a timeout makes the answer
-   stricter, never looser.
+5. **Errors never loosen a check.** Doubt, an error or a timeout makes the
+   answer stricter.
 6. **Model text is data.** It is never run by termite and never written to a
    terminal without `to_printable`.
 
@@ -31,14 +31,14 @@ Each row may use only the rows above it.
 | `context` | the OS, shell, folder and session | plain data | |
 | `error` | every way an answer can fail | typed; says which service failed | |
 | `home` | termite's private folder and script names | refuses folders that others can write to; writes files 0600 | |
-| `provenance` | the log of what termite installed | hashes only; a log that doesn't verify is never added to | `home` |
-| `progress` | where an answer has got to | carries only our words and numbers; cannot change the answer | |
+| `provenance` | the log of what termite installed | hashes only; termite never adds to a log that fails verification | `home` |
+| `progress` | the current stage of an answer | carries only termite's own words and numbers; cannot change the answer | |
 | `heartbeat` | checks the server during a long wait | reports only; the time limit decides when to give up | `progress` |
 | `query` | reads `?`, `??`, `?x` | pure | |
 | `sse` | reads a streamed reply | any split of the bytes gives the same reply; bounded | `error` |
-| `merge` | joins commands that are really the same | pure; the most harmful risk label wins | `candidate` |
-| `policy` | what `?x` may run unasked | an allowlist; anything unknown is refused; reads only git config | `command` |
-| `script` | reads a script or a stream and rates each command | reads text only; memory stays bounded; anything it can't read is risky | `command`, `hazard`, `policy`, `rating` |
+| `merge` | joins commands that do the same thing | pure; the most harmful risk label wins | `candidate` |
+| `policy` | what `?x` may inject with no question | an allowlist; anything unknown is refused; reads only git config | `command` |
+| `script` | reads a script or a stream and rates each command | reads text only; memory stays bounded; anything it cannot read is risky | `command`, `hazard`, `policy`, `rating` |
 | `config` | the config file | checks URLs; holds no token | `error`, `home` |
 | `decide` | the decision model's client | can only make an answer stricter than the thresholds allow | `candidate`, `command`, `config`, `context`, `error` |
 | `generate` | the chat model's client | 1 to 5 candidates, or a typed error, which includes the model declining | `candidate`, `command`, `config`, `context`, `error`, `heartbeat`, `progress`, `sse` |

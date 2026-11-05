@@ -130,20 +130,21 @@ fn newest_by<T>(mut files: Vec<T>, started: impl Fn(&T) -> u64) -> Option<T> {
     files.pop()
 }
 
+/// Each model's newest result, wherever it ran.
 fn scores(
     decisions: &[DecisionFile],
     rungs: &[Rung],
     choices: &[Choice],
 ) -> Vec<Agreement> {
-    decisions
-        .last()
-        .map(|file| {
-            file.models
-                .iter()
-                .map(|run| agreement(run, rungs, choices))
-                .collect()
-        })
-        .unwrap_or_default()
+    let mut newest_first: Vec<&DecisionFile> = decisions.iter().collect();
+    newest_first.sort_by_key(|file| std::cmp::Reverse(file.started));
+    let mut found: Vec<Agreement> = Vec::new();
+    for run in newest_first.iter().flat_map(|file| &file.models) {
+        if !found.iter().any(|score| score.name == run.name) {
+            found.push(agreement(run, rungs, choices));
+        }
+    }
+    found
 }
 
 fn sorted_decisions() -> Vec<DecisionFile> {
@@ -277,12 +278,7 @@ pub fn write_public() -> Result<(), String> {
         .ok_or("no model results yet: run `eval run` first")?;
     data.trend =
         update_history(&runs, &cases, &decisions, &rungs, &choices, &bulks)?;
-    data.decision = scores(&local, &rungs, &choices);
-    for run in hosted.iter().rev().flat_map(|file| &file.models) {
-        if !data.decision.iter().any(|score| score.name == run.name) {
-            data.decision.push(agreement(run, &rungs, &choices));
-        }
-    }
+    data.decision = scores(&decisions, &rungs, &choices);
     data.bulk = bulks.last().map(PublicBulk::from);
     let outside = finished("outside-");
     if let Some(run) = newest_by(outside, |run| run.started) {

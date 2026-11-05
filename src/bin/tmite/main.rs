@@ -51,11 +51,11 @@ Usage: tmite [--json | --zle] '<prefix> request'   prefix: ? ?? ?x ?b
        tmite shell [zsh|bash|fish]   print the optional prompt widget
 
 Prefixes:
-  ?   explains one command; say yes to put it at your prompt
-  ??  explains every command, best first; pick one, ask again or cancel
-  ?x  puts one command straight at your prompt, if every check passes
+  ?   explains one command; approve it to put it at your prompt
+  ??  explains every command, best first; choose one, ask again or cancel
+  ?x  injects one command at your prompt, if every check passes
 
-Nothing is ever run for you. Enter at the prompt is yours to press.
+termite never runs a command. Only you can press Enter at the prompt.
 
 Options:
   --json  print one JSON object, for scripts

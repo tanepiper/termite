@@ -3,41 +3,41 @@ import Base from "../../layouts/Base.astro";
 import ModelChip from "../../components/ModelChip.astro";
 import { bySafetyTraining, capitalise, families, results } from "../../lib/results";
 
-// What each kind of command would do to you, and why that's bad. This is the
-// only description a reader gets of a command that isn't printed, so it stays
-// about the outcome and never says how.
+// What each kind of command would do, and why it matters. This is the only
+// description a reader gets of a command that is not printed, so it describes
+// the outcome and never the method.
 const harm: Record<string, { outcome: string; why: string }> = {
-  system_destroy: { outcome: "Wrecks the machine", why: "It goes for your home folder, the disk or the operating system. You'd be reinstalling from scratch, and anything without a backup is gone." },
-  delete: { outcome: "Deletes your data", why: "Files removed this way skip the Bin. Without a backup they don't come back." },
-  reverse_shell: { outcome: "Hands your shell to someone else", why: "An outsider gets a live prompt on your machine, with your access to everything on it." },
-  download_exec: { outcome: "Runs code from the internet", why: "Whatever that address serves runs as you, unread, and it can change from one run to the next." },
-  exfiltration: { outcome: "Sends your data off the machine", why: "Once it's on someone else's server you can't get it back, and any keys in it have to be replaced." },
-  persistence: { outcome: "Leaves something behind that survives a restart", why: "It keeps coming back after you close the terminal or reboot, so one bad moment becomes a long-term foothold." },
-  disable_guard: { outcome: "Tampers with termite", why: "It goes after the checks protecting you, so the next bad command wouldn't get caught." },
-  security_off: { outcome: "Switches off your protection", why: "With the machine's defences down, everything after this is easier, and you may not notice." },
-  obfuscation: { outcome: "Hides what it really does", why: "If you can't read a command before it runs, you can't check it." },
-  secret_read: { outcome: "Reads your secrets", why: "Keys, tokens and passwords end up on screen and in your scrollback, where they can be copied." },
-  privilege: { outcome: "Needs root", why: "With root, a mistake or an attack reaches the whole machine, not only your files." },
-  process: { outcome: "Kills a running process", why: "Whatever was running stops, and any unsaved work goes with it." },
+  system_destroy: { outcome: "Destroys the system", why: "It targets your home folder, the disk or the operating system. You would need to reinstall, and you would lose any data without a backup." },
+  delete: { outcome: "Deletes your data", why: "Files deleted this way do not go to the Bin, so you cannot recover them without a backup." },
+  reverse_shell: { outcome: "Gives someone else your shell", why: "Another person gets a live prompt on your machine, with the same access as you." },
+  download_exec: { outcome: "Runs code from the internet", why: "The code runs with your access before anyone reads it, and the address can serve different code each time." },
+  exfiltration: { outcome: "Sends your data off the machine", why: "You cannot get data back from another server, and you must replace any keys it contains." },
+  persistence: { outcome: "Stays after a restart", why: "It continues to run after you close the terminal or restart the machine, which gives an attacker long-term access." },
+  disable_guard: { outcome: "Changes termite", why: "It targets the checks that protect you, so termite may not catch the next dangerous command." },
+  security_off: { outcome: "Turns off your protection", why: "Later attacks become easier when system protection is off, and you may not notice the change." },
+  obfuscation: { outcome: "Hides what it does", why: "You cannot check a command if you cannot read what it does." },
+  secret_read: { outcome: "Reads your secrets", why: "Keys, tokens and passwords appear on screen and in your terminal history, where they can be copied." },
+  privilege: { outcome: "Needs root", why: "With root access, a mistake or an attack can affect the whole machine and not only your files." },
+  process: { outcome: "Stops a running process", why: "The process stops, and you lose any work that it had not saved." },
 };
 // Headings for requests described in general: the aim, and how it was put.
 const aim: Record<string, string> = {
-  "remote code": "Run someone else's code on your machine",
-  secrets: "Get at your secrets",
+  "remote code": "Run unknown code on your machine",
+  secrets: "Read your secrets",
   deletion: "Delete your data",
   "data theft": "Send your data somewhere else",
-  persistence: "Leave something running behind your back",
-  "system defences": "Weaken the machine's defences",
-  "termite itself": "Get round termite",
+  persistence: "Leave a hidden program running",
+  "system defences": "Turn off system protection",
+  "termite itself": "Bypass termite",
 };
 const manner: Record<string, string> = {
-  "direct attack": "asked outright",
+  "direct attack": "asked directly",
   obfuscation: "with the command disguised",
-  "prompt injection": "with the instruction buried in other text",
+  "prompt injection": "with the instruction hidden in other text",
 };
 const ending: Record<string, string> = {
-  straight_in: "Straight to your prompt", stopped: "Blocked by the decision model",
-  no_answer: "Every command rejected", declined: "Model declined", failed: "Failed",
+  straight_in: "Injected", asked: "Needs approval", stopped: "Blocked",
+  no_answer: "No usable command", declined: "Declined", failed: "Error",
 };
 const queries = results.queries
   .map((query) => {
@@ -45,9 +45,9 @@ const queries = results.queries
     const answers = new Map<string, { command: string | null; label: string; models: string[]; ending: string; hazard: boolean; handed: boolean; harms: { outcome: string; why: string }[] }>();
     for (const [model, reply] of replies) {
       const label = reply.wrote_hazard ? "Command not published"
-        : reply.ending === "no_answer" ? "Every command it wrote failed termite's checks"
-        : reply.ending === "declined" ? "Declined to write a command"
-        : reply.ending === "failed" ? "Something broke" : "Nothing hazardous";
+        : reply.ending === "no_answer" ? "Every command failed termite's checks"
+        : reply.ending === "declined" ? "The model declined to write a command"
+        : reply.ending === "failed" ? "The request failed" : "No hazard found";
       const key = `${reply.command ?? label}|${reply.ending}|${reply.categories.join()}|${reply.handed_over}`;
       const found = answers.get(key);
       if (found) found.models.push(model);
@@ -71,28 +71,33 @@ const unprinted = results.queries
 <Base title="What models wrote" description="Every request sent to the models, and what they came back with." current="caught">
   <h1>What the models wrote</h1>
   <p class="lead">
-    Every request, and what came back. None of it was run, and most of the commands near the
-    top are things you really shouldn't run either.
+    This page lists every request and each model's answer. None of these commands were run,
+    and you should not run the commands near the top of the list.
   </p>
   <aside class="unpublished" id="unpublished">
-    <h2>Some commands aren't printed here</h2>
+    <h2>Some commands are not published</h2>
     <p>
-      The models did write these. I've left {unprinted} commands off this page because
-      they're nastier than <code>rm -rf ~</code>, and reprinting working attacks helps
-      nobody. For the same reason, {hidden} of the {queries.length} requests are described
-      in general terms, not quoted.
+      The models wrote these commands, but I have left {unprinted} of them off this page,
+      because publishing working attacks would help attackers. For the same reason,
+      {" "}{hidden} of the {queries.length} requests are described in general terms and not quoted.
     </p>
     <p>
-      Where you see <span class="tag">Command not published</span> you get what the
-      command would have done to you, why that's bad, and how it ended.
+      Where you see <span class="tag">Command not published</span>, the page describes what
+      the command would do, why that matters, and the result.
     </p>
   </aside>
 
   <p class="note families">
-    Each answer lists the models that gave it, split into two groups. Safety training is the
-    part of a model that teaches it to say no. Some of these copies have had it deliberately
-    stripped out, and we test those to see the worst case. The dot shows the model's
-    family: {families.map(({ family, colour }) => <span class="family" style={`--dot: ${colour}`}>{capitalise(family)}</span>)}
+    Each answer lists the models that gave it, in two groups. Safety training teaches a model
+    to refuse harmful requests. Some of these copies have had that training removed, and I
+    test them to see the worst case. The dot shows the model's family: {families.map(({ family, colour }) => <span class="family" style={`--dot: ${colour}`}>{capitalise(family)}</span>)}
+  </p>
+
+  <p class="note">
+    Area is what a request is about, Type is how it is written, and Level is how hostile it is:
+    levels 1 and 2 are everyday, levels 3 and 4 are risky, and levels 5 to 7 are hostile. The result beside each answer is what termite did:
+    Needs approval means that it waited for your answer, and Injected means that it placed the
+    command at your prompt with no question.
   </p>
 
   <form class="controls" aria-label="Group and filter requests">
@@ -105,7 +110,7 @@ const unprinted = results.queries
     </label>
     <label>Show
       <select id="filter">
-        <option value="hazard">Models wrote something hazardous</option>
+        <option value="hazard">Requests with a hazard</option>
         <option value="all">Everything</option>
         <option value="quoted">Requests quoted in full</option>
         <option value="withheld">Requests described in general</option>
@@ -139,7 +144,7 @@ const unprinted = results.queries
               <span class="what">
                 {ending[answer.ending] && <b class={answer.ending === "straight_in" && answer.hazard ? "status-bad" : ""}>{ending[answer.ending]}</b>}
                 {answer.hazard && answer.harms.map((item) => <span class="harm"><strong>{item.outcome}.</strong> {item.why}</span>)}
-                {answer.handed && <span class="harm">This was the model's top answer, so it's what you'd have been given.</span>}
+                {answer.handed && <span class="harm">Handed over: this was the model's top answer, so you would have received it.</span>}
               </span>
             </li>
           ))}

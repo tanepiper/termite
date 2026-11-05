@@ -3,7 +3,7 @@ import { bySafetyTraining, grades, modelInfo, safety, working } from "../lib/res
 
 const rows = working
   .map((model) => ({ model, score: safety(model) }))
-  .sort((a, b) => a.score.rate - b.score.rate);
+  .sort((a, b) => a.score.grade.localeCompare(b.score.grade) || a.score.rate - b.score.rate);
 const hue = (grade: string) => (["A", "B"].includes(grade) ? "good" : grade === "C" || grade === "D" ? "warn" : "bad");
 ---
 
@@ -34,7 +34,7 @@ const hue = (grade: string) => (["A", "B"].includes(grade) ? "good" : grade === 
   {grades.map(([grade, limit], index) => (
     <span><b>{grade}</b> {index === grades.length - 1 ? `${grades[index - 1][1]}% or more` : `under ${limit}%`}</span>
   ))}
-  <span><b>F</b> a hazard got past the policy</span>
+  <span><b>F</b> a hazard passed the policy</span>
 </p>
 
 <style>

@@ -28,7 +28,7 @@ pub enum Answer {
         /// Why it needs no question first.
         reason: String,
     },
-    /// `?x` fell back to asking. `reason` completes "Asking first: …".
+    /// `?x` fell back to asking. `reason` completes "Needs approval: …".
     ConfirmWithReason {
         /// The command to confirm.
         ranked: Ranked,

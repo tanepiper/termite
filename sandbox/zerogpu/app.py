@@ -1,41 +1,53 @@
 """Test one model on ZeroGPU. `fetch` downloads it with the internet on and
 returns its path. `run` holds the GPU, in a separate process, so the path is
-passed in, and everything inside it is confined by `confine`."""
+passed in, and everything inside it is confined by `confine`. The servers are
+the pinned llama-server that T4 jobs use, copied by `hosted.sh server`."""
 import glob, json, os, pathlib, shutil, signal, site, subprocess
 import gradio as gr
 import spaces
-from huggingface_hub import list_repo_files, snapshot_download
+from huggingface_hub import hf_hub_download, snapshot_download
 
 HERE = pathlib.Path(__file__).parent
-SITE = site.getsitepackages()[0]
-LIBS = ":".join(glob.glob(SITE + "/nvidia/*/lib"))
+COMMIT = (HERE / "commit").read_text().strip()
+LLAMA = "/tmp/llama"
+LIBS = ":".join([LLAMA] + glob.glob(site.getsitepackages()[0] + "/nvidia/*/lib"))
 ALIAS = "model"
 SOCKET = "/tmp/run/model.sock"
+DECISION = "ggml-org/Kev-4B-GGUF:Q8_0"
+DECISION_SOCKET = "/tmp/run/decision.sock"
+
+shutil.copytree(HERE / "llama", LLAMA, dirs_exist_ok=True)
+os.chmod(LLAMA + "/llama-server", 0o755)
 
 INNER = r"""
-python3 /tmp/work/serve.py "$MODEL" model /tmp/run/model.sock >/tmp/run/server.log 2>&1 &
-server=$!
-tries=0
-until [ -S /tmp/run/model.sock ]; do
-  tries=$((tries + 1))
-  if [ $tries -ge 120 ] || ! kill -0 $server 2>/dev/null; then echo SERVER FAILED; tail -15 /tmp/run/server.log | cut -c1-200; exit 1; fi
-  sleep 1
-done
-grep -c 'assigned to device CUDA0' /tmp/run/server.log
-/tmp/eval run --only "$NAME" --commit 74dd4fd-zerogpu $LIMIT
+serve() {
+  /tmp/llama/llama-server --model "$1" --alias "$2" --host "$3" --ctx-size 4096 --n-gpu-layers 99 >"$3.log" 2>&1 &
+  server=$!
+  tries=0
+  until grep -q 'listening on' "$3.log" 2>/dev/null; do
+    tries=$((tries + 1))
+    if [ $tries -ge 120 ] || ! kill -0 $server 2>/dev/null; then echo SERVER FAILED; tail -15 "$3.log" | cut -c1-200; exit 1; fi
+    sleep 1
+  done
+}
+serve "$DECISION_WEIGHTS" "$DECISION" /tmp/run/decision.sock
+serve "$MODEL" model /tmp/run/model.sock
+grep -h offloaded /tmp/run/*.log || true
+/tmp/eval run --only "$NAME" --commit "$COMMIT-zerogpu" $LIMIT
 """
 
 
-def fetch(repo):
-    files = [f for f in list_repo_files(repo) if "q4_k_m" in f.lower() and f.endswith(".gguf")]
-    whole = [f for f in files if "-of-" not in f]
-    chosen = whole[:1] or sorted(files)
-    folder = snapshot_download(repo, allow_patterns=chosen)
-    return str(pathlib.Path(folder) / sorted(chosen)[0])
+def fetch(repo, file, revision):
+    """Download pinned weights. A split file needs all of its parts."""
+    if "-00001-of-" in file:
+        pattern = file.replace("-00001-of-", "-*-of-")
+        folder = snapshot_download(repo, revision=revision, allow_patterns=[pattern])
+        return str(pathlib.Path(folder) / file)
+    return hf_hub_download(repo, file, revision=revision)
 
 
 @spaces.GPU(duration=300)
-def run(weights, spec, limit):
+def run(weights, decision_weights, spec, limit):
     shutil.rmtree("/tmp/work", ignore_errors=True)
     shutil.rmtree("/tmp/run", ignore_errors=True)
     os.makedirs("/tmp/work/src")
@@ -45,18 +57,18 @@ def run(weights, spec, limit):
     shutil.copy(HERE / "eval-tool", "/tmp/eval")
     shutil.copy(HERE / "confine", "/tmp/confine")
     os.chmod("/tmp/confine", 0o755)
-    shutil.copy(HERE / "serve.py", "/tmp/work/serve.py")
     os.chmod("/tmp/eval", 0o755)
     model = json.loads(spec)
     model.update(url="http://127.0.0.1:8080", socket=SOCKET, model=ALIAS, context_tokens=4096)
     pathlib.Path("/tmp/work/eval/models.jsonl").write_text(json.dumps(model) + "\n")
     pathlib.Path("/tmp/work/home/config.json").write_text(json.dumps({
         "model_url": "http://127.0.0.1:8080", "model": ALIAS,
-        "decision_url": "http://127.0.0.1:8080", "decision_model": "none",
-        "model_socket": SOCKET}))
-    env = {**os.environ, "MODEL": weights, "NAME": model["name"], "TMPDIR": "/tmp/run",
-           "HOME": "/tmp/run", "TERMITE_HOME": "/tmp/work/home", "LD_LIBRARY_PATH": LIBS,
-           "LIMIT": f"--limit {int(limit)}" if int(limit) else ""}
+        "decision_url": "http://127.0.0.1:9931", "decision_model": DECISION,
+        "model_socket": SOCKET, "decision_socket": DECISION_SOCKET}))
+    env = {**os.environ, "MODEL": weights, "DECISION_WEIGHTS": decision_weights,
+           "DECISION": DECISION, "NAME": model["name"], "COMMIT": COMMIT,
+           "TMPDIR": "/tmp/run", "HOME": "/tmp/run", "TERMITE_HOME": "/tmp/work/home",
+           "LD_LIBRARY_PATH": LIBS, "LIMIT": f"--limit {int(limit)}" if int(limit) else ""}
     job = subprocess.Popen(
         ["/tmp/confine", "--write", "/tmp/work/eval", "--write", "/tmp/run",
          "--write", "/dev", "--write", "/proc", "--", "/bin/sh", "-c", INNER],
@@ -70,7 +82,7 @@ def run(weights, spec, limit):
         log, _ = job.communicate()
         code = "timeout"
     finally:
-        # The model server is in the group too: leave nothing behind.
+        # The model servers are in the group too: leave nothing behind.
         try:
             os.killpg(job.pid, signal.SIGKILL)
         except ProcessLookupError:
@@ -80,7 +92,8 @@ def run(weights, spec, limit):
 
 
 with gr.Blocks() as demo:
-    repo, spec, limit, out = gr.Text(), gr.Text(), gr.Number(value=0), gr.Text()
-    gr.Button("fetch").click(fetch, repo, out, api_name="fetch")
-    gr.Button("run").click(run, [repo, spec, limit], out, api_name="run")
+    repo, file, revision, out = gr.Text(), gr.Text(), gr.Text(), gr.Text()
+    weights, decision_weights, spec, limit = gr.Text(), gr.Text(), gr.Text(), gr.Number(value=0)
+    gr.Button("fetch").click(fetch, [repo, file, revision], out, api_name="fetch")
+    gr.Button("run").click(run, [weights, decision_weights, spec, limit], out, api_name="run")
 demo.launch()

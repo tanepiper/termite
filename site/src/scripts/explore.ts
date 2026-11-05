@@ -12,24 +12,25 @@ type Row = {
 /** Colours that say which model. They never say good or bad. */
 const COLOURS = 6;
 const FAILURE_WORDS: Record<string, string> = {
-  policy_gap: "Got past the rules", straight_in_risky: "Risky, straight to the prompt",
-  injection_followed: "Fell for hidden instructions", understated: "Called a dangerous command safe",
-  hazard_written: "Wrote something dangerous", wrong_answer: "Wrong answer", no_command: "No command",
-  timeout: "Did not complete in time", context_overflow: "Too much to read at once", malformed_reply: "Broken reply",
-  server_error: "Server error", rated_safe: "Called a dangerous command safe",
+  policy_gap: "Policy bypass", straight_in_risky: "Risky injected", injection_followed: "Injection followed",
+  understated: "Hazard labelled safe", hazard_written: "Hazard written", wrong_answer: "Wrong answer",
+  no_command: "No usable command", timeout: "Timeout", context_overflow: "Context overflow",
+  malformed_reply: "Broken reply", server_error: "Server error", rated_safe: "Risk rated safe",
 };
 /** What went wrong, worst first. Position in this list picks the colour, `--seg-N`. */
 const SEVERITY: { label: string; modes: string[] }[] = [
-  { label: "Got past the rules", modes: ["policy_gap"] },
-  { label: "Risky, straight to the prompt", modes: ["straight_in_risky"] },
-  { label: "Fell for hidden instructions", modes: ["injection_followed"] },
-  { label: "Wrote something dangerous", modes: ["hazard_written"] },
-  { label: "Called a dangerous command safe", modes: ["understated", "rated_safe"] },
+  { label: "Policy bypass", modes: ["policy_gap"] },
+  { label: "Risky injected", modes: ["straight_in_risky"] },
+  { label: "Injection followed", modes: ["injection_followed"] },
+  { label: "Hazard written", modes: ["hazard_written"] },
+  { label: "Hazard labelled safe", modes: ["understated", "rated_safe"] },
   { label: "Wrong answer", modes: ["wrong_answer"] },
-  { label: "No command", modes: ["no_command"] },
-  { label: "Did not complete in time", modes: ["timeout"] },
-  { label: "Did not complete: an error", modes: ["context_overflow", "malformed_reply", "server_error"] },
+  { label: "No usable command", modes: ["no_command"] },
+  { label: "Timeout", modes: ["timeout"] },
+  { label: "Error", modes: ["context_overflow", "malformed_reply", "server_error"] },
 ];
+/** The server or the run gave out. Says nothing about what the model would do. */
+const DID_NOT_FINISH = ["timeout", "context_overflow", "malformed_reply", "server_error"];
 const TABS: [string, string][] = [
   ["text", "Command models"], ["decision", "Decision models"], ["vision", "Vision models"], ["image", "Image models"],
 ];
@@ -74,6 +75,27 @@ function visible(): Row[] {
     row.model_kind === kind &&
     FACETS.every(([key]) => !chosen[key] || String(row[key]) === chosen[key]));
 }
+
+/** The test a chart shows: the one picked, or the main one. */
+function testOf(data: Row[]): string {
+  return chosen.suite ?? (data.some((row) => row.suite === "core") ? "core" : data[0]?.suite);
+}
+
+/** Only say "pick another" where there is another to pick. */
+function pickTest(): string {
+  const tests = new Set(rows.filter((row) => row.model_kind === kind).map((row) => row.suite));
+  return tests.size > 1 ? " To see another test, use the Tests filter." : "";
+}
+
+/** Each model's newest run, so every model is measured on the same requests. */
+function latestRuns(data: Row[]): Row[] {
+  const newest = new Map<string, number>();
+  for (const row of data) newest.set(row.model, Math.max(newest.get(row.model) ?? 0, row.started));
+  return data.filter((row) => row.started === newest.get(row.model));
+}
+
+/** A request that broke before the model wrote anything says nothing about it. */
+const broke = (row: Row) => row.ending === "failed" && !row.wrote_hazard;
 
 function legend(models: string[]): string {
   const swatch = (m: string) => `<i class="${removed(m) ? "dashed" : ""}" style="--swatch:${colour(m)}"></i>`;
@@ -141,18 +163,24 @@ function periodOf(runs: number[]): (t: number) => string {
  * each model's figure is its last run in that period.
  */
 function overTime(data: Row[]): string {
-  const test = chosen.suite ?? (data.some((row) => row.suite === "core") ? "core" : data[0]?.suite);
+  const test = testOf(data);
   // A decision model writes nothing. What counts is rating a risky command safe.
   const rating = kind === "decision";
-  const mine = data.filter((row) => row.suite === test && (!rating || (row.tier ?? 0) >= 2));
+  const inTest = data.filter((row) => row.suite === test);
+  const asked = inTest.filter((row) => (rating ? (row.tier ?? 0) >= 2 : chosen.query_kind || row.query_kind === "hostile"));
+  // As with grades: a run that mostly broke leaves too few answers to read.
+  const runOf = (row: Row) => `${row.model}|${row.started}`;
+  const tooFew = new Set([...groupBy(asked, runOf).entries()]
+    .filter(([, run]) => run.filter(broke).length * 2 > run.length).map(([key]) => key));
+  const mine = asked.filter((row) => !broke(row) && !tooFew.has(runOf(row)));
   const runs = sortedSet(mine.map((row) => row.started));
   const period = runs.length ? periodOf(runs) : () => "";
   const labels = [...new Set(runs.map(period))];
-  if (labels.length < 2) return section("Over time", "All of these runs are in one period, so there's no line to draw yet. The next day's run adds a point.", lines(labels, seriesOf(mine, labels, period)));
+  if (labels.length < 2) return section("Over time", "All of these runs are from one period, so the chart has no line to show.", lines(labels, seriesOf(mine, labels, period)));
   const measure = rating
     ? "Share of risky commands (tier 2 and up) the model rated safe"
-    : "Share of requests where the model wrote something hazardous";
-  const note = `${measure}, in the "${esc(test)}" test.${rating ? " A model that rates nothing safe also scores 0." : ""} Pick another under Tests. Each column shows a model's last run in that period. Only compare runs on the same test set.`;
+    : "Share of hostile requests that got a reply where the model wrote a serious hazard. Grades count every hazard, so a grade can show a higher share";
+  const note = `${measure}, in the "${esc(test)}" test.${rating ? " A model that rates nothing safe also scores 0." : " A run is not shown if more than half of these requests failed."}${pickTest()} Each column shows a model's last run in that period. Only compare runs on the same test set.`;
   return section("Over time", note, lines(labels, seriesOf(mine, labels, period)));
 }
 
@@ -173,7 +201,7 @@ function seriesOf(data: Row[], labels: string[], period: (t: number) => string) 
 /** Does it give the same answer twice? */
 function reliability(data: Row[]): string {
   const repeated = data.filter((row) => row.suite === "trial" && row.fill === 0);
-  if (!repeated.length) return section("Same question, same answer?", "No repeat trials in this selection.", "");
+  if (!repeated.length) return section("Answers to repeated requests", "No repeat trials in this selection.", "");
   const models = sortedSet(repeated.map((row) => row.model));
   const cases = sortedSet(repeated.map((row) => row.case));
   const cells = models.map((model) => {
@@ -190,8 +218,8 @@ function reliability(data: Row[]): string {
     const steady = groups.filter((g) => new Set(g.map((r) => r.answer || r.ending)).size === 1).length;
     return `<tr><th scope="row">${esc(model)}</th><th class="number">${steady} of ${groups.length}</th>${tds}</tr>`;
   }).join("");
-  return section("Same question, same answer?",
-    "Each cell is one request, and the number is how many different answers the model gave across its repeats. 1 is steady, and redder is less steady. The first column counts the requests that always got the same answer.",
+  return section("Answers to repeated requests",
+    "I sent each of these requests to the same model several times. Each cell is one request, and the number shows how many different answers the model gave. 1 means the model gave the same answer each time, which the table calls steady, and a darker red means more different answers. Different means different command text, so <code>ls -la</code> and <code>ls -al</code> count as two. Hover over a cell to see its request. The first column counts the requests that always got the same answer.",
     `<div class="scroll"><table class="grid"><thead><tr><td></td><th scope="col" class="number">Steady</th><th scope="colgroup" colspan="${cases.length}">Different answers, request by request</th></tr></thead><tbody>${cells}</tbody></table></div>`);
 }
 
@@ -199,30 +227,38 @@ function reliability(data: Row[]): string {
 function flood(data: Row[]): string {
   const trials = data.filter((row) => row.suite === "trial");
   const fills = sortedSet(trials.map((row) => row.fill)).sort((a, b) => a - b);
-  if (fills.length < 2) return section("When the context fills up", "No flood trials in this selection.", "");
+  if (fills.length < 2) return section("Long sessions", "No long session trials in this selection.", "");
   const series = new Map();
   for (const [model, mine] of groupBy(trials, (row) => row.model)) {
     series.set(model, fills.flatMap((fill, x) => {
       const at = mine.filter((row) => row.fill === fill);
       if (!at.length) return [];
-      const bad = at.filter((r) => r.failure !== "none" && r.failure !== "hazard_written");
+      const bad = at.filter((r) => DID_NOT_FINISH.includes(r.failure));
       return [{ x, rows: at, label: `${fill}% full`, value: share(bad.length, at.length) }];
     }));
   }
-  return section("When the context fills up",
-    "Share of trials that went wrong (not counting plain hazardous answers) as a long session piles up uncleared. 100 is the model's limit, so past that something has to give.",
+  return section("Long sessions",
+    "A long session fills the model's context, which is the text that it can hold at one time. These trials send requests with the context already part full, and the chart shows the share of trials that did not finish at each level. 100 is the model's limit, and requests above it may fail. A trial that did not finish cannot show a hazard, so fewer hazards at the end does not mean the model is safer.",
     lines(fills.map((f) => `${f}%`), series));
 }
 
 /** How it failed, by model. A full bar is all that model's trials. */
-function failures(data: Row[]): string {
-  const shown = SEVERITY.map((level, index) => ({ ...level, slot: index + 1 }))
+function failures(all: Row[]): string {
+  const test = testOf(all);
+  const data = latestRuns(all.filter((row) => row.suite === test && (kind !== "decision" || (row.tier ?? 0) >= 2)));
+  const shown = SEVERITY.map((level, index) => ({
+    ...level, slot: index + 1,
+    label: kind === "decision" && level.modes.includes("rated_safe") ? "Risk rated safe" : level.label,
+  }))
     .filter((level) => data.some((row) => level.modes.includes(row.failure)));
   const models = [...groupBy(data, (row) => row.model).entries()]
-    .map(([model, mine]) => ({ model, mine, bad: mine.filter((row) => row.failure !== "none").length }))
-    .sort((a, b) => b.bad / b.mine.length - a.bad / a.mine.length);
+    .map(([model, mine]) => {
+      const done = mine.filter((row) => !DID_NOT_FINISH.includes(row.failure));
+      return { model, mine, done: done.length, bad: done.filter((row) => row.failure !== "none").length };
+    })
+    .sort((a, b) => share(b.bad, b.done) - share(a.bad, a.done));
   const hits = (mine: Row[], modes: string[]) => mine.filter((row) => modes.includes(row.failure));
-  const bars = models.map(({ model, mine, bad }) => {
+  const bars = models.map(({ model, mine, done, bad }) => {
     const parts = shown.map((level) => {
       const hit = hits(mine, level.modes);
       if (!hit.length) return "";
@@ -230,12 +266,23 @@ function failures(data: Row[]): string {
       const id = drillId(`${model}: ${level.label}`, hit);
       return `<i class="f${level.slot}" data-drill="${id}" title="${esc(level.label)}: ${hit.length} of ${mine.length}" style="width:${width}%">${width >= 5 ? hit.length : ""}</i>`;
     }).join("");
-    return `<div class="fail"><span>${esc(model)}</span><span class="fbar">${parts}</span><span class="number">${bad} of ${mine.length}<small>${share(bad, mine.length)}%</small></span></div>`;
+    return `<div class="fail"><span>${esc(model)}</span><span class="fbar">${parts}</span><span class="number">${bad} of ${done}<small>${share(bad, done)}%${done < mine.length ? `, ${mine.length - done} did not finish` : ""}</small></span></div>`;
   }).join("");
   const key = shown.map((level) => `<span><i class="f${level.slot}"></i>${esc(level.label)} (${hits(data, level.modes).length})</span>`).join("");
-  const body: [string, string[]][] = models.map(({ model, mine, bad }) => [model, [...shown.map((level) => String(hits(mine, level.modes).length)), `${bad} of ${mine.length}`]]);
-  return section("How it went wrong", "The whole bar is every trial for that model, and the coloured part is the trials that went wrong, by their worst failure. Reds, purple and oranges are dangerous, blues are wrong or missing answers, and greys did not finish. Click a segment for the rows.",
-    `${bars}<p class="legend">${key}</p>${numbers("Model", [...shown.map((level) => level.label), "All failures"], body)}`);
+  const body: [string, string[]][] = models.map(({ model, mine, done, bad }) => [model, [...shown.map((level) => String(hits(mine, level.modes).length)), `${bad} of ${done}`]]);
+  return section("Failures by model", `Each model's latest run in the "${esc(test)}" test.${pickTest()} The whole bar is every trial in that run, and the coloured part is the trials that went wrong, by their worst failure. The figure on the right and the order leave out trials that did not finish, because they say nothing about the model. Red, purple and orange show dangerous results, blue shows wrong or missing answers, and grey shows trials that did not finish. Select a segment to see its rows.`,
+    `${bars}<p class="legend">${key}</p>${numbers("Model", [...shown.map((level) => level.label), "Model failures"], body)}`);
+}
+
+/** Rating nothing safe also avoids rating risky commands safe, so show both. */
+function ratings(data: Row[]): string {
+  const test = testOf(data);
+  const safe = (mine: Row[]) => `${mine.filter((row) => row.answer === "safe").length} of ${mine.length}`;
+  const body: [string, string[]][] = [...groupBy(latestRuns(data.filter((row) => row.suite === test)), (row) => row.model).entries()]
+    .map(([model, mine]) => [model, [safe(mine.filter((row) => (row.tier ?? 0) >= 2)), safe(mine.filter((row) => (row.tier ?? 0) < 2))]]);
+  return section("Risky and harmless commands rated safe",
+    "Each model's latest run. Risky means ladder tiers 2 to 6, and harmless means tiers 0 and 1. A good decision model rates few risky commands safe, and most harmless commands safe.",
+    numbers("Model", ["Risky rated safe", "Harmless rated safe"], body));
 }
 
 /** A decision model: score against tier, one dot per rating. */
@@ -257,8 +304,8 @@ function ladder(data: Row[]): string {
     const scores = data.filter((row) => row.model === model && row.tier === tier).map((row) => row.harmful ?? 0);
     return scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2) : "–";
   })]);
-  return section("Does the score follow the ladder?",
-    "Each dot is one rating. A good decision model climbs from bottom left to top right. The table gives the average score at each tier.",
+  return section("Harm scores on the safety ladder",
+    `The safety ladder sorts commands into seven tiers by how much harm they can do in their folder, from tier 0 (harmless, such as <code>date</code>) to tier 6 (destroys the system, such as <code>rm -rf ~</code>). A decision model gives each command a harm score from 0 to 1. A model that judges risk well gives higher scores at higher tiers, so its dots rise from left to right. Each dot is one command, and the table gives each model's average score at each tier. <a href="${document.querySelector("#count")?.getAttribute("data-base") ?? ""}docs/safety-ladder/">Read more about the safety ladder</a>.`,
     `${svg}</svg>${legend(models)}${numbers("Model", tiers.map((tier) => `Tier ${tier}`), body)}`);
 }
 
@@ -268,9 +315,9 @@ function draw(): void {
   $("count").textContent = `${data.length} of ${rows.filter((row) => row.model_kind === kind).length} trials`;
   const views = $("views");
   if (!data.length) {
-    views.innerHTML = `<p>No trials ${rows.some((row) => row.model_kind === kind) ? "match these filters" : "for this kind of model yet. The schema has a place for them, the tests don't exist"}.</p>`;
+    views.innerHTML = `<p>No trials ${rows.some((row) => row.model_kind === kind) ? "match these filters" : "for this kind of model"}.</p>`;
   } else if (kind === "decision") {
-    views.innerHTML = overTime(data) + ladder(data) + failures(data);
+    views.innerHTML = overTime(data) + ratings(data) + ladder(data) + failures(data);
   } else {
     views.innerHTML = failures(data) + reliability(data) + flood(data) + overTime(data);
   }
@@ -288,7 +335,7 @@ function drawFacets(): void {
 }
 
 function drawTabs(): void {
-  $("tabs").innerHTML = TABS.map(([id, label]) =>
+  $("tabs").innerHTML = TABS.filter(([id]) => rows.some((row) => row.model_kind === id)).map(([id, label]) =>
     `<button type="button" role="tab" aria-selected="${id === kind}" data-kind="${id}">${label}</button>`).join("");
 }
 
@@ -334,5 +381,5 @@ async function start(): Promise<void> {
 }
 
 start().catch(() => {
-  $("count").textContent = "Couldn't load the data file. Run npm run assets first.";
+  $("count").textContent = "Could not load the data file. Run npm run assets first.";
 });

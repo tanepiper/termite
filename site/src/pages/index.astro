@@ -7,39 +7,40 @@ const { totals } = results;
 const onlyRead = totals.got_past_policy === readOnlyFlags;
 ---
 
-<Base title="termite" description="termite finds useful or complex command lines and shell scripts, safely, with AI models on your own machine. It never runs them.">
-  <h1>Validate safe commands and scripts for you and your agents</h1>
+<Base title="termite" description="termite finds shell commands and scripts with AI models on your own machine, and it checks them for you and your agents. It never runs them.">
+  <h1>Find and check shell commands with local AI models</h1>
   <p class="lead">
-    termite helps you find useful or complex command lines and shell scripts safely,
-    using AI models and decision models on your own machine. termite never runs these
-    commands, and it can stop agents running destructive ones.
+    termite uses AI models on your own machine to find shell commands and scripts, and it
+    checks each one before you use it. termite never runs these commands, and it can stop
+    agents from running destructive ones.
   </p>
   <p>
-    It works for both sides of computer security: the blue team who defend, and the red
-    team who attack to find the weak spots first.{" "}
-    <a href={page("docs/plain-english/")}>New to this? Start here</a>.
+    It supports both sides of computer security: the blue team, who defend systems, and the
+    red team, who attack systems to find weaknesses first.{" "}
+    <a href={page("docs/plain-english/")}>Read the introduction in plain English</a>.
   </p>
   <div class="roles">
     <section class="blue">
       <h2>Blue team: get safe commands</h2>
-      <p>Ask your terminal for things in plain English, using AI models on your own machine. termite assumes the model is wrong, or worse. It explains every command, marks the risky ones in red, and never runs anything. Enter stays yours.</p>
-      <p><a href={page("docs/getting-started/")}>Install it</a></p>
+      <p>Ask for a command in plain English, using AI models on your own machine. termite treats every model as untrusted: it explains each command, marks risky commands in red, and never runs anything.</p>
+      <p><a href={page("docs/getting-started/")}>Install termite</a></p>
     </section>
     <section class="red">
       <h2>Red team: test a model</h2>
-      <p>Point it at an AI model before you trust it. It sends the model hostile requests, records which ones get a dangerous command, grades its safety, and tells you what to block or shut down.</p>
+      <p>Test an AI model before you trust it. termite sends the model hostile requests, records which requests get a dangerous command, grades the result, and shows you what to block or restrict.</p>
       <p><a href={page("docs/red-team/")}>Test a model</a></p>
     </section>
   </div>
 
   <img class="demo" src={page("assets/ask.gif")} width="1200" height="600"
-    alt="Typing a question mark and a request at a zsh prompt; termite explains a find command and asks Y or n; yes puts it at the prompt, not run" />
+    alt="Typing a question mark and a request at a zsh prompt; termite explains a find command and asks Y or n; approving it puts it at the prompt, and it does not run" />
 
-  <h2>What it would have saved you from</h2>
+  <h2>What the models wrote</h2>
   <p>
-    I gave {working.length} AI models {totals.requests} requests, from "list the files"
-    to outright attacks. They wrote {totals.commands_written} commands, and
-    {" "}{totals.hazardous} of them were trouble. Here's what they reached for.
+    I sent {totals.requests} requests to {working.length} AI models, from "list the files"
+    to direct attacks. They wrote {totals.commands_written} commands, and
+    {" "}{totals.hazardous} of them were hazards: commands that could cause harm, and that the
+    request did not legitimately need. These are the kinds of harm those commands could cause.
   </p>
 
   <div class="saves">
@@ -64,36 +65,34 @@ const onlyRead = totals.got_past_policy === readOnlyFlags;
     ))}
   </div>
 
-  <h2>Did it work?</h2>
+  <h2>What termite did with the commands</h2>
   <Outcomes harmless={totals.commands_written - totals.hazardous} held={totals.stopped_by_policy} through={totals.got_past_policy} onlyRead={onlyRead} />
   <p>
     {totals.got_past_policy === 0
-      ? `None of those ${totals.hazardous} could reach your prompt without asking you first.`
+      ? `None of those ${totals.hazardous} hazards could reach your prompt without approval.`
       : onlyRead
-        ? `${totals.got_past_policy} could reach your prompt without asking. I read each one: they only read a file and run nothing. The hazard check matches on text, so it flagged words inside them. The rules were right to allow them, and they stay in the count.`
-        : `${totals.got_past_policy} could reach your prompt without asking, and that's a bug.`}{" "}
-    With no model involved, I also threw {totals.policy_refused + totals.policy_escaped} known
-    tricks at the rules: {totals.policy_escaped} got through.
+        ? `${totals.got_past_policy} could reach your prompt without approval; these only read a file and run nothing.`
+        : `${totals.got_past_policy} could reach your prompt without approval.`}{" "}
+    With no model involved, I also ran {totals.policy_refused + totals.policy_escaped} known
+    attacks against the policy, and {totals.policy_escaped} passed.
   </p>
   <p>
-    Here's the number that matters. {handedOver} times, the model's top answer was the
-    dangerous command, and that's what it gave you. termite marks those in red and
-    makes no the default answer. It does not block them. If you say yes, the command goes
-    to your prompt, so read it before you press Enter. Blocking is{" "}
-    <a href={page("docs/safety-ladder/")}>on the roadmap</a>.
+    In {handedOver} cases, the model's top answer was the dangerous command, so it was handed
+    over. termite marks these commands in red and makes no the default answer. It does not
+    block them: if you approve one, it goes to your prompt, so read it before you press Enter.
   </p>
 
-  <h2>How you use it</h2>
+  <h2>How to use it</h2>
   <div class="scroll">
     <table>
       <tbody>
-        <tr><th scope="row"><code>? what's eating my disk</code></th><td>One command, explained. Say yes and it goes to your prompt.</td></tr>
-        <tr><th scope="row"><code>?? what's on port 8080</code></th><td>Every sensible way to do it, explained. Pick one, ask again or cancel.</td></tr>
-        <tr><th scope="row"><code>?x show disk usage</code></th><td>Straight to your prompt, no question, if it just reads and every check agrees.</td></tr>
+        <tr><th scope="row"><code>? what is using my disk space</code></th><td>One command, explained. If you approve it, it goes to your prompt.</td></tr>
+        <tr><th scope="row"><code>?? what is on port 8080</code></th><td>Every sensible way to do it, explained. Choose one, ask again or cancel.</td></tr>
+        <tr><th scope="row"><code>?x show disk usage</code></th><td>Injected at your prompt with no question, if it only reads and every check passes.</td></tr>
       </tbody>
     </table>
   </div>
-  <p>That's with the prompt widget for zsh, bash or fish, which is only a convenience. Without it, <code>tmite</code> prints the same thing in any shell. Your requests and folders stay on your machine. <a href={page("docs/using-termite/")}>More on using it</a>.</p>
+  <p>These examples use the optional prompt widget for zsh, bash or fish. Without it, <code>tmite</code> prints the same result in any shell. Your requests and folders stay on your machine. <a href={page("docs/using-termite/")}>Read the full guide</a>.</p>
 </Base>
 
 <style>

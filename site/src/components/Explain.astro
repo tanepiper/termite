@@ -1,0 +1,27 @@
+---
+/** A closed list of terms and their meanings, placed next to the thing it explains. */
+interface Props {
+  summary: string;
+  terms: [string, string][];
+}
+const { summary, terms } = Astro.props;
+---
+
+<details class="explain">
+  <summary>{summary}</summary>
+  <dl>
+    {terms.map(([term, meaning]) => (<><dt>{term}</dt><dd>{meaning}</dd></>))}
+  </dl>
+</details>
+
+<style>
+  .explain { margin: 0.8em 0 1.2em; font-size: 0.92rem; color: var(--ink-soft); max-width: 46rem; }
+  summary { cursor: pointer; color: var(--ink); font-weight: 500; }
+  dl { display: grid; grid-template-columns: minmax(8em, 13em) minmax(0, 1fr); gap: 0.35em 1.2em; margin: 0.7em 0 0; }
+  dt { color: var(--ink); font-weight: 500; }
+  dd { margin: 0; }
+  @media (max-width: 640px) {
+    dl { grid-template-columns: minmax(0, 1fr); }
+    dd { margin-bottom: 0.5em; }
+  }
+</style>

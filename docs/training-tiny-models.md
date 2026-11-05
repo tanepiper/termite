@@ -1,149 +1,91 @@
-# Training our own tiny shell models
+# Training small shell models
 
-Status: draft, for discussion. Nothing here is built yet.
+Status: draft plan. None of this work is built yet.
 
 ## Why
 
-termite works today with general models: Qwen3.8-27B writes the commands
-and Kev-4B ranks them and judges safety. That works, but it is heavy for a
-one-line answer:
+termite works with general models today: Qwen3.8-27B writes the commands, and Kev-4B ranks them and judges their safety. This pair is large for a one-line answer:
 
-- The 27B chat model runs at about 17 tokens/s on this machine and needs
-  ~28 GB. A query takes 10–40 s, mostly in model loading and swapping.
-- With reasoning on, the same model spends ~70 s thinking before writing
-  `du -sh .`. (We now turn reasoning off, which gives the same answer in
-  9 s.)
-- General models are weak exactly where shells are tricky: BSD and GNU
-  flags that differ (`sed -i ''`, `stat -f` vs `stat -c`, `date -v`),
-  zsh vs bash quoting, macOS-only tools (`launchctl`, `defaults`, `pbcopy`,
-  `diskutil`, `mdfind`), and which of five ways is the idiomatic one.
+- The 27B chat model runs at about 17 tokens a second and needs about 28 GB of memory. A request takes 10 to 40 seconds, and most of that time goes on loading and swapping models.
+- With reasoning on, the same model spends about 70 seconds before it writes `du -sh .`. termite now turns reasoning off, which gives the same answer in 9 seconds.
+- General models are less accurate on the details of each shell: BSD and GNU flags that differ (`sed -i ''`, `stat -f` and `stat -c`, `date -v`), zsh and bash quoting, macOS tools (`launchctl`, `defaults`, `pbcopy`, `diskutil`, `mdfind`), and which of several methods is the usual one.
 
-The goal is two small specialists, each under ~2B parameters, that answer
-in under a second on a laptop and know shells better than a general 27B
-model.
+The goal is two small specialist models, each under about 2B parameters, that answer in under a second on a laptop and know shells better than a general 27B model.
 
 ## The two models
 
 | | Command model | Decision model |
 |---|---|---|
-| Job | request + context → 1–5 candidate commands as JSON | rank candidates; answer `only_reads`, `no_secrets`, `harmful` |
-| Served by | any OpenAI-compatible server (`/v1/chat/completions`) | llama.cpp or Ollama `/v1/systemone` |
-| Output | constrained by the JSON schema in `src/generate.rs` | probabilities over fixed options |
-| Size target | 0.6–1.7B | 0.5–1B (Kev-4B is the bar to beat) |
-| Failure that matters | a wrong but plausible command | calling an unsafe command safe |
+| Job | Takes a request and context, and returns 1 to 5 candidate commands as JSON | Ranks candidates, and answers `only_reads`, `no_secrets` and `harmful` |
+| Served by | Any OpenAI-compatible server (`/v1/chat/completions`) | llama.cpp or Ollama (`/v1/systemone`) |
+| Output | Constrained by the JSON schema in `src/generate.rs` | Probabilities over fixed options |
+| Target size | 0.6B to 1.7B | 0.5B to 1B, and it must score better than Kev-4B |
+| Most serious failure | A wrong command that looks correct | Rating an unsafe command as safe |
 
-The command model is free to be wrong sometimes, because the user confirms
-or picks. The decision model must almost never be wrong in one direction:
-an unsafe command rated safe under `?x` runs without a prompt. (The local
-`read_only` policy runs first and is the real boundary, so the decision
-model can only make things stricter. A bad decision model still makes `?x`
-useless if it is too cautious, or risky if the policy has a gap.)
+The command model can sometimes be wrong, because the user approves or chooses each command. The decision model must almost never rate an unsafe command as safe, because `?x` could then inject it with no question. The local `read_only` policy runs first and is the real boundary, so the decision model can only make an answer stricter. A poor decision model still makes `?x` less useful if it is too cautious, and riskier if the policy has a gap.
 
 ## Data
 
 ### Sources
 
-1. **tldr-pages** (CC BY 4.0): short, idiomatic examples for thousands of
-   commands, already split by platform (`common`, `linux`, `osx`). The best
-   single seed.
-2. **Man pages** from the actual target systems: macOS (BSD userland) and a
-   few Linux distributions (GNU coreutils, busybox). Used to check that
-   flags exist, not as training text.
-3. **NL2Bash** and similar public pairs: useful for volume, but old,
-   Linux-only and noisy. Filter hard.
-4. **Synthetic pairs**: a large model writes requests in many phrasings
-   ("free up space", "what's eating my disk", "du but sorted") for each
-   seed command, plus near-misses and unsafe variants.
-5. **termite's own use (opt-in only, later)**: which candidate the user
-   picked in `??`, and which `?` suggestions they edited or rejected. That
-   is real preference data. It must never be collected without an explicit
-   switch, must be scrubbed of paths, hostnames and secrets, and must stay
-   on the machine unless the user exports it.
+1. **tldr-pages** (CC BY 4.0): short, typical examples for thousands of commands, already split by platform (`common`, `linux`, `osx`). This is the best single starting point.
+2. **Man pages** from the target systems: macOS (BSD tools) and a few Linux distributions (GNU coreutils, busybox). These confirm that flags exist, and they are not training text.
+3. **NL2Bash** and similar public pairs: these add volume, but they are old, Linux-only and inconsistent, so they need strict filtering.
+4. **Generated pairs**: a large model writes requests in many phrasings ("free up space", "what is using my disk", "du but sorted") for each starting command, and it also writes similar commands that are wrong or unsafe.
+5. **termite's own use (opt-in only, later)**: which candidate the user chose in `??`, and which `?` suggestions they edited or rejected. This data must never be collected without an explicit setting. It must have paths, hostnames and secrets removed, and it must stay on the machine unless the user exports it.
 
-### Verify by running, in a sandbox
+### Verify each command in a sandbox
 
-Each generated command should be executed before it becomes training data:
+Each generated command should run in a throwaway sandbox before it becomes training data. It must never run on the host.
 
-- Linux: a throwaway container per platform (Debian, Alpine/busybox, Arch),
-  with a seeded fake home folder, git repo, docker socket stub and so on.
-- macOS: a throwaway macOS VM (Tart or similar) with the same fixture.
-- Record exit status, stdout/stderr, and a **filesystem diff** before and
-  after, plus whether it tried the network.
+- **Linux:** one throwaway container for each platform (Debian, Alpine with busybox, Arch), with a prepared fake home folder, git repository, docker socket stub and similar test files.
+- **macOS:** a throwaway macOS virtual machine (Tart or similar) with the same test files.
+- **Record:** the exit status, the output, a **filesystem diff** from before and after, and whether the command tried to use the network.
 
-That gives labels for free:
+These records provide the labels:
 
-| Label | From |
+| Label | Source |
 |---|---|
-| works | exit 0 and output that matches the request (judged by a large model) |
-| `only_reads` | empty filesystem diff, no process or service changes |
-| `no_secrets` | output does not match secret patterns from the fixture (planted keys and tokens) |
-| `harmful` | diff deletes or overwrites fixture data, or touches outside the folder |
-| platform | which sandboxes it worked in: `common`, `linux`, `osx` |
+| works | Exit status 0, and a large model judges that the output matches the request |
+| `only_reads` | An empty filesystem diff, and no process or service changes |
+| `no_secrets` | The output does not match the secret patterns in the test files, which include planted keys and tokens |
+| `harmful` | The diff deletes or overwrites test data, or changes anything outside the folder |
+| platform | The sandboxes where the command worked: `common`, `linux`, `osx` |
 
-The planted-secret fixture matters: `cat ~/.ssh/id_ed25519` only reads, but
-Kev-4B rated it 0.08 on `no_secrets` because it knows the path. A trained
-model should learn the same from real effects, not just from names.
+The planted secrets are important. `cat ~/.ssh/id_ed25519` only reads, but Kev-4B rated it 0.08 on `no_secrets` because it recognises the path. A trained model should learn this from real effects as well as from names.
 
 ### Balance
 
-- Over-sample BSD/GNU differences and zsh/bash differences.
-- For the decision model, keep many **hard negatives**: commands that look
-  read-only but are not (`find … -delete`, `git checkout .`,
-  `sed -i`, `tee`, `xargs rm`, `curl … | sh`, `docker system prune`).
-- Keep the policy (`src/policy`) in the loop: anything the policy refuses
-  should never be labelled safe, whatever the sandbox saw.
+- Include extra examples of the differences between BSD and GNU, and between zsh and bash.
+- For the decision model, include many **hard negatives**: commands that look read-only but are not (`find … -delete`, `git checkout .`, `sed -i`, `tee`, `xargs rm`, `curl … | sh`, `docker system prune`).
+- Apply the policy (`src/policy`) to the data: a command that the policy blocks must never be labelled safe, whatever the sandbox recorded.
 
 ## Training
 
-1. **Base models** to compare: Qwen3 0.6B / 1.7B, Gemma small, SmolLM2-1.7B.
-   Pick by size of the GGUF at Q8 and by tokenizer handling of shell
-   punctuation.
-2. **Supervised fine-tuning** (LoRA first, full fine-tune if it pays off) on
-   verified pairs, in exactly the prompt format termite sends: the system
-   prompt from `src/generate.rs` with OS, shell and folder, and the JSON
-   schema output.
-3. **Distillation** from the large model for descriptions and for ranking
-   between several working commands.
-4. **Preference tuning** (DPO) from the `??` picks once there is opt-in
-   data: the chosen command beats the others.
-5. For the decision model: train it as a classifier on the three questions
-   and the ranking question. Check how llama.cpp's `/v1/systemone` scores a
-   model (it reads probabilities over fixed options) and how a model is
-   marked as a decision model (the router lists it with a `decision` tag;
-   Ollama reports a `decision` capability). **Open question:** what format
-   Kev-4B and tev1 were trained on, and whether we can fine-tune from Kev
-   instead of from scratch.
-6. Export to **GGUF** (Q8_0 and Q4_K_M), publish on Hugging Face, and add
-   the repos to `src/bin/tmite/setup/hub.rs` so `tmite setup` offers them.
+1. **Base models to compare:** Qwen3 0.6B and 1.7B, a small Gemma, and SmolLM2-1.7B. Choose by the size of the GGUF file at Q8, and by how the tokenizer handles shell punctuation.
+2. **Supervised fine-tuning** on verified pairs, in the exact prompt format that termite sends: the system prompt from `src/generate.rs` with the OS, shell and folder, and the JSON schema output. Start with LoRA, and use a full fine-tune only if it gives better results.
+3. **Distillation** from the large model, for descriptions and for ranking several working commands.
+4. **Preference tuning** (DPO) from `??` choices, when opt-in data exists: the chosen command ranks above the others.
+5. **Decision model:** train it as a classifier on the three questions and the ranking question. Check how llama.cpp's `/v1/systemone` scores a model (it reads probabilities over fixed options) and how a model is marked as a decision model (the router lists it with a `decision` tag, and Ollama reports a `decision` capability). **Open question:** which format Kev-4B and tev1 were trained on, and whether fine-tuning from Kev is possible.
+6. **Export** to GGUF (Q8_0 and Q4_K_M), publish on Hugging Face, and add the repositories to `src/bin/tmite/setup/hub.rs` so that `tmite setup` offers them.
 
 ## Evaluation
 
-A fixed held-out set, never trained on, run against every candidate model
-and against today's pair (Qwen3.8-27B + Kev-4B) as the baseline:
+Use a fixed test set that is never used for training. Run it against each candidate model, and against the current pair (Qwen3.8-27B and Kev-4B) as the baseline.
 
-- **Command model:** share of requests where a top-1 command works in the
-  sandbox (by platform); share where any of the top 5 works; share of
-  commands `check_command` rejects (multi-line, hidden characters).
-- **Decision model:** the calibration table in `src/decide.rs` tests,
-  extended to a few hundred rows. The gate metric is **unsafe rated safe
-  at the current thresholds: must be zero.** Second metric: share of
-  read-only commands passed (how useful `?x` is).
-- **Speed:** time to first answer on an M-series laptop with both models
-  loaded at once. Target: under 1 s for `?`, under 2 s for `?x`.
+- **Command model:** the share of requests where the top command works in the sandbox, for each platform; the share where any of the top 5 works; and the share of commands that `check_command` rejects (multi-line commands and hidden characters).
+- **Decision model:** the calibration table in the `src/decide.rs` tests, extended to a few hundred rows. The main measure is **unsafe commands rated safe at the current thresholds, and this must be zero.** The second measure is the share of read-only commands that pass, which shows how useful `?x` is.
+- **Speed:** the time to the first answer on an M-series laptop with both models loaded. The target is under 1 second for `?`, and under 2 seconds for `?x`.
 
 ## First steps
 
-1. Turn the decision calibration rows into a JSON eval file and a tiny
-   runner, so any model can be scored with one command.
-2. Build the Linux sandbox and the fixture home folder; run tldr `common`
-   and `linux` examples through it to get the first verified set.
+1. Turn the decision calibration rows into a JSON evaluation file and a small runner, so that one command can score any model.
+2. Build the Linux sandbox and the test home folder, then run the tldr `common` and `linux` examples through it to get the first verified set.
 3. Measure the baseline pair on that set.
-4. Try a LoRA on Qwen3-0.6B for the command model and compare.
+4. Try a LoRA on Qwen3-0.6B for the command model, and compare the results.
 
-## Things to keep true
+## Rules for this work
 
-- Training data never includes a user's real history unless they opted in,
-  and never leaves their machine without an export they started.
-- The policy stays the boundary. A trained decision model replaces Kev-4B;
-  it does not replace `read_only`.
-- Models are published with their data sources and eval results.
+- Training data never includes a user's real history unless they opted in, and it never leaves their machine without an export that they started.
+- The policy stays the boundary. A trained decision model replaces Kev-4B, and it does not replace `read_only`.
+- Each published model includes its data sources and evaluation results.

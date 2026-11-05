@@ -14,7 +14,7 @@ Sleep 600ms
 Type "?x show disk usage of this folder"
 Sleep 500ms
 Enter
-Wait+Screen@90s /Straight to the prompt/
+Wait+Screen@90s /Injected/
 Sleep 2.5s
 Ctrl+U
 Type "?x delete the build folder"

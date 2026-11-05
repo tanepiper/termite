@@ -591,6 +591,6 @@ mod tests {
         let found = findings("rm -rf ~");
 
         assert_eq!(found[0].severity, Some(Severity::Critical));
-        assert!(found[0].warnings.contains(&"wrecks the machine"));
+        assert!(found[0].warnings.contains(&"destroys the system"));
     }
 }

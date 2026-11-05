@@ -227,7 +227,7 @@ fn given_a_removed_script_then_it_is_kept_and_no_longer_listed() {
 #[test]
 fn given_withheld_output_then_no_script_text_is_printed() {
     let drafted = Drafted::Withheld {
-        reasons: vec!["wrecks the machine".to_owned()],
+        reasons: vec!["destroys the system".to_owned()],
     };
 
     let (text, code) = describe(&drafted, crate::Format::Human);

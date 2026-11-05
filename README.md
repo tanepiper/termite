@@ -7,8 +7,7 @@
 **Find useful or complex command lines and shell scripts safely, with local models and decision models. termite never runs them, and it can stop agents running destructive ones.**
 
 `tmite` turns `? find files bigger than 100MB here` into `find . -type f -size +100M`,
-using models on your own machine. It explains the command and rates the risk. It never
-runs it: that's your Enter key.
+using models on your own machine. It explains the command and rates the risk, and it never runs the command; only you can do that.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 ![Rust 1.85+](https://img.shields.io/badge/rust-1.85%2B-orange.svg)
@@ -19,15 +18,15 @@ runs it: that's your Enter key.
 
 ---
 
-### `?` — one command, explained first, you say yes
+### `?`: one command, explained first, which needs your approval
 
 <img src="docs/assets/ask.gif" alt="Typing '? find files bigger than 100MB here' at a zsh prompt; termite explains the find command and asks Y or n; pressing y puts it at the prompt, not run">
 
-### `??` — every way to do it, explained: pick one, ask again or cancel
+### `??`: every way to do it, explained, so you can choose one, ask again or cancel
 
 <img src="docs/assets/choose.gif" alt="Typing '?? show what is listening on port 8080'; a numbered list of explained commands appears; pressing 1 puts that command at the prompt, not run">
 
-### `?x` — straight to your prompt, if every check passes
+### `?x`: injected at your prompt if every check passes
 
 <img src="docs/assets/straight.gif" alt="'?x show disk usage of this folder' puts du -sh . at the prompt with no question; '?x delete the build folder' shows rm -rf build in red and asks y or N first">
 
@@ -43,7 +42,7 @@ runs it: that's your Enter key.
 - [Usage](#usage)
 - [How it works](#how-it-works)
 - [Security: what termite guarantees](#security-what-termite-guarantees)
-- [What we test](#what-we-test)
+- [What termite tests](#what-termite-tests)
 - [Configuration](#configuration)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
@@ -51,28 +50,19 @@ runs it: that's your Enter key.
 
 ## Why
 
-You know what you want ("restart the web container", "what's eating my disk") but
-not the exact flags on this machine: BSD or GNU, `ss` or `lsof`. A chat window will
-tell you, and then you paste its answer into a shell on trust.
+You often know what you want ("restart the web container", "show what is using my disk space") but not the exact flags on this machine, such as BSD or GNU options, or `ss` or `lsof`. A chat window can give you the answer, but you then paste it into a shell without checking it.
 
-Small local models make that trust a bad idea. In testing they wrote
-`rm -rf ~/*` when asked, printed SSH keys, and piped strangers' scripts into a
-shell. [The results are public](https://tanepiper.github.io/termite/). So termite
-assumes the model is wrong, or worse, and checks:
+This is not safe with small local models. In testing they wrote `rm -rf ~/*`, printed SSH keys and piped unknown scripts into a shell. [The results are public](https://tanepiper.github.io/termite/). termite therefore treats every model as untrusted:
 
 - **Local.** Your requests, folders and commands go to model servers on your own
   machine (llama.cpp, Ollama, LM Studio), not to a cloud.
-- **Checked.** Every suggested command goes through plain, tested Rust before you
-  see it.
-- **Never run.** termite stops at your prompt. Pressing Enter is the last safety
-  gate, and it's the one a model can't get past.
-- **Rated.** Every command is marked in words and colour, and risky ones go red
-  whatever the model claims.
+- **Checked.** Every suggested command passes through tested Rust code before you see it.
+- **Never run.** termite stops at your prompt, and only you can press Enter.
+- **Rated.** Every command is marked in words and colour, and risky commands turn red whatever the model says.
 
 ## Install
 
-termite is early: install it from source. Signed release binaries and a
-Homebrew tap are planned ([release provenance spec](specs/2026-11-04-release-provenance/spec.md)).
+termite is at an early stage, so install it from source. Signed release binaries and a Homebrew tap are planned ([release provenance spec](specs/2026-11-04-release-provenance/spec.md)).
 
 ```bash
 cargo install --locked --git https://github.com/tanepiper/termite
@@ -84,7 +74,7 @@ cargo install --locked --git https://github.com/tanepiper/termite
 |---|---|---|
 | A chat model server | writes the candidate commands | [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server`, [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), any OpenAI-compatible `/v1/chat/completions` |
 | A decision model | ranks the candidates and judges `?x` safety | a model served on `/v1/systemone`: llama.cpp, or Ollama 0.40+; for example [Kev-4B](https://huggingface.co/ggml-org/Kev-4B-GGUF) |
-| zsh, bash 4+ or fish (optional) | a convenience: the `?` prompt widget saves copying. `tmite` does the same job in any shell | |
+| zsh, bash 4+ or fish (optional) | the `?` prompt widget saves copying. `tmite` does the same work in any shell | |
 
 ## Quick start
 
@@ -117,7 +107,7 @@ $ tmite '? show disk usage of this folder'
 ```bash
 tmite '? list big files'           # one command, explained
 tmite '?? restart docker'          # every option, explained
-tmite '?x show disk usage'         # straight to the prompt if every check passes
+tmite '?x show disk usage'         # injected at the prompt if every check passes
 tmite --json '? list big files'    # one JSON object, for scripts
 tmite check install.sh             # rate every command in a script
 curl -fsSL https://x.test/i.sh | tmite   # rate a pipe as it arrives
@@ -133,15 +123,14 @@ your command line:
 
 | Prefix | You get | Then |
 |---|---|---|
-| `? request` | the best command, explained | `Y/n`; yes puts it at your prompt |
+| `? request` | the best command, explained | `Y/n`; approval puts it at your prompt |
 | `?? request` | every distinct command, explained, best first | a number picks one, `a` asks again, anything else cancels |
-| `?x request` | the best command, straight at your prompt, if every check passes | otherwise it behaves like `?` and says why |
+| `?x request` | the best command, injected at your prompt, if every check passes | otherwise it needs approval, and it says why |
 | `?b request` | a script, saved as a draft | the install command goes at your prompt |
 
-Risky commands show in red, stay red at the prompt, and the question becomes
-`y/N`. Nothing ever runs until you press Enter yourself.
+Risky commands show in red, stay red at the prompt, and the question becomes `y/N`. Nothing runs until you press Enter.
 
-Any line that doesn't start with one of these prefixes runs as normal.
+Any line that does not start with one of these prefixes runs as normal.
 `?xargs` and `?bash` are not prefixes.
 
 ## How it works
@@ -153,16 +142,14 @@ flowchart LR
     C --> D["Merge duplicates<br/>ls -la = ls -al"]
     D --> E["Decision model<br/>ranks them"]
     E --> F{mode}
-    F -- "? / ??" --> G["Shown to you<br/>you confirm"]
+    F -- "? / ??" --> G["Shown to you<br/>needs approval"]
     F -- "?x" --> H["Safety gate"]
-    H -- "every check passes" --> I["Straight to your prompt, not run"]
+    H -- "every check passes" --> I["Injected at your prompt, not run"]
     H -- "any check fails" --> G
 ```
 
-- `tmite` itself **only prints**. The prompt widget puts a command at your
-  prompt. Nothing presses Enter for you.
-- **The `?x` gate** decides whether a command may skip the question. It's six
-  checks, in this order. All must pass, and any error counts as a failure:
+- `tmite` itself **only prints**. The prompt widget puts a command at your prompt, and nothing presses Enter for you.
+- **The `?x` gate** decides whether a command may skip the question. It has six checks, in this order. All must pass, and any error counts as a failure:
   1. The chat model labelled the command `read`.
   2. The **read-only policy** (plain Rust, see below) accepts it.
   3. termite's own **hazard check** finds nothing serious.
@@ -182,11 +169,8 @@ unless marked *manual*.
 
 - **`tmite` only prints.** It contains no code that executes a suggested
   command.
-- **The widget only inserts.** It puts a command at your prompt, and there's no
-  path in it to Enter. Tests prove a command that would leave a mark doesn't.
-- **Any failure means asking first.** A model that is unreachable, times out,
-  returns broken JSON, or gives an unknown answer turns `?x` into `?`. No
-  answer is never taken as yes.
+- **The widget only inserts.** It puts a command at your prompt, and it has no code that presses Enter. Tests confirm that an inserted command does not run.
+- **Any failure means the command needs approval.** If a model is unreachable, times out, returns broken JSON or gives an unknown answer, `?x` behaves like `?`. A missing answer is never treated as approval.
 
 ### `?x` only skips the question for commands that read
 
@@ -224,7 +208,7 @@ Reading a secret is refused even when the command only reads:
 `cat ~/Library/Keychains/login.keychain-db` · `cat terraform.tfstate` · `cat id_rsa` ·
 `cat cert.p12` · `cat ~/.SSH/id_rsa` · `cat .ENV` (file names ignore case on macOS)
 
-Look-alikes that aren't secrets stay allowed: `cat ~/code/sshd.md`,
+Similar names that are not secrets stay allowed: `cat ~/code/sshd.md`,
 `cat docs/environment.md`, `cat src/key.rs`.
 
 ### Model output never reaches your prompt unchecked
@@ -258,8 +242,7 @@ model cannot send escape sequences to your terminal.
 `tmite script` saves a draft, and `tmite scripts install` makes it executable only
 after showing it to you and getting a `y`. termite never runs a script.
 
-termite logs what it installs and what its guards stop, as hashes, in a signed
-chain. See [what termite installed](docs/using-termite.md#see-what-termite-installed).
+termite logs what it installs and what it stops, as hashes, in a signed chain. See [what termite installed](docs/using-termite.md#see-what-termite-installed).
 
 - **termite's folder** (`$TERMITE_HOME`, default `~/.config/termite`) must be
   a real folder, owned by you, and not writable by anyone else, or termite
@@ -278,20 +261,14 @@ chain. See [what termite installed](docs/using-termite.md#see-what-termite-insta
 
 ### What termite does not protect against
 
-Stated plainly, so you can judge it:
-
-- **A warning isn't a block.** `?` and `??` mark a risky command in red and ask
-  twice, but say yes and `sudo` or `rm -rf` still reaches your prompt. The
-  six-level classification on the roadmap closes this; until then, read every
-  command before you press Enter.
+- **A warning does not block a command.** `?` and `??` mark a risky command in red and ask twice, but if you approve it, `sudo` or `rm -rf` still reaches your prompt. The six-level classification on the roadmap will change this; until then, read every command before you press Enter.
 - **The read-only policy matches paths as written.** It does not follow
   symlinks, and with zsh's `GLOB_DOTS` on, `cat *` can reach hidden files.
 - **Malware running as your user** can do anything you can, including
   editing termite's config.
-- **A bad model gives bad suggestions.** The checks stop dangerous ones reaching
-  your prompt unasked. They don't make a wrong `?` answer right.
+- **A poor model gives poor suggestions.** The checks stop dangerous commands from reaching your prompt without approval, but they do not correct a wrong `?` answer.
 
-## What we test
+## What termite tests
 
 ```bash
 cargo test            # Rust: unit, integration and doc tests
@@ -321,13 +298,9 @@ scripts/sandbox.sh cargo test --all-targets
 
 ## Evaluating models
 
-termite is also a red-team kit. Point it at a model before you trust it:
-`scripts/analyse.sh` throws the attack corpus at each local model in a sandbox,
-grades its safety, and writes a private report on what to block or shut down.
-Nothing a model writes is ever run. See [red-teaming a model](docs/red-team.md)
-and [how the testing works](docs/evaluation.md).
+termite is also a red-team tool. Test a model before you trust it: `scripts/analyse.sh` sends the attack corpus to each local model in a sandbox, grades its safety, and writes a private report on what to block or restrict. Nothing a model writes is ever run. See [red-teaming a model](docs/red-team.md) and [how the testing works](docs/evaluation.md).
 
-Still to come: red-team levels 8 to 10 (a hostile model trying to escape a
+Not built yet: red-team levels 8 to 10 (a hostile model trying to escape a
 container or reach a malware server), which need a sealed container and must be
 stopped every time ([spec](specs/2026-11-04-intents-and-confirm-card/spec.md#6-red-team-tests-in-a-sandbox)).
 
@@ -347,10 +320,7 @@ stopped every time ([spec](specs/2026-11-04-intents-and-confirm-card/spec.md#6-r
 }
 ```
 
-`stream` is optional and on by default. With it on, you see the reply being
-written. With it off, the reply arrives in one piece. Either way, a line shows
-what is happening and for how long, and the server is checked every 10
-seconds, so a slow answer never looks frozen.
+`stream` is optional and on by default. When it is on, you see the reply as it is written; when it is off, the reply arrives in one piece. In both cases, a line shows what is happening and for how long, and the server is checked every 10 seconds.
 
 | Variable | Does |
 |---|---|
@@ -365,10 +335,7 @@ seconds, so a slow answer never looks frozen.
 
 ## Agents
 
-Two agents and two skills for people using termite. `termite-blue-team` builds safe
-commands in a sandbox. `termite-red-team` tests dangerous requests in a locked-down
-container. Neither ever runs what a model writes, and the tool refuses to test a model
-anywhere else. See [agent tools](docs/agents.md).
+termite works with any agent service or harness that can run a check before a shell command. It also includes two agent definitions and two skills. `termite-blue-team` builds safe commands in a sandbox, and `termite-red-team` tests dangerous requests in a locked-down container. Neither ever runs what a model writes, and the tool refuses to test a model anywhere else. See [agent tools](docs/agents.md).
 
 ## Roadmap
 
@@ -386,7 +353,7 @@ These are designed and specified, with tickets:
     copied;
   - 5 never is **withheld**;
   - for agents and CI, levels 1, 3, 4 and 5 always fail.
-- **Guards on input and output:**
+- **Checks on input and output:**
   - requests and replies are checked;
   - risky requests are flagged, and each flag adds fixed instructions to
     the model's prompt that nothing can remove;
@@ -412,8 +379,8 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Security issues: please don't open a public issue with the details. Open
-an issue asking for a private contact, and you'll get one.
+Security issues: do not put the details in a public issue. Open
+an issue that asks for a private contact, and I will give you one.
 
 ## License
 

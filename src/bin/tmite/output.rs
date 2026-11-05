@@ -136,8 +136,8 @@ pub(crate) fn exit_code(answer: &Answer) -> u8 {
     }
 }
 
-const ASKING: &str = "Asking first";
-const STRAIGHT: &str = "Straight to the prompt";
+const ASKING: &str = "Needs approval";
+const STRAIGHT: &str = "Injected";
 
 fn human(answer: &Answer, view: &View) -> String {
     match answer {
@@ -364,15 +364,15 @@ mod tests {
     }
 
     const BEST: &str = "✓ reads only  List the code folder\n  ls -la ~/code\n";
-    const LIST: &str = "1. ✓ reads only  List the code folder\n   ls -la ~/code\n2. ✗ risky  Tidy up\n   rm -rf ~\n   termite says: wrecks the machine, deletes data\n";
+    const LIST: &str = "1. ✓ reads only  List the code folder\n   ls -la ~/code\n2. ✗ risky  Tidy up\n   rm -rf ~\n   termite says: destroys the system, deletes data\n";
 
     #[test]
     fn given_each_answer_when_rendered_for_zle_then_the_line_format_is_used() {
         let expected = [
             format!("confirm\nreads\nls -la ~/code\n{BEST}"),
             format!("choose\n2\nreads\tls -la ~/code\nrisky\trm -rf ~\n{LIST}"),
-            format!("straight_in\nreads\nls -la ~/code\n{BEST}  Straight to the prompt: It only lists files.\n"),
-            format!("confirm\nreads\nls -la ~/code\n{BEST}  Asking first: the model labelled it `write`\n"),
+            format!("straight_in\nreads\nls -la ~/code\n{BEST}  Injected: It only lists files.\n"),
+            format!("confirm\nreads\nls -la ~/code\n{BEST}  Needs approval: the model labelled it `write`\n"),
             "refused\n\n\n✗ refused  Do not touch this folder.\n  ls -la ~/code\n".to_owned(),
             "no_command\n\n\nThe model declined: Not this one.  [31m\n".to_owned(),
             "no_command\n\n\nNo usable command: the command spans more than one line\n".to_owned(),
@@ -478,8 +478,8 @@ mod tests {
         let expected = [
             BEST.to_owned(),
             LIST.to_owned(),
-            format!("{BEST}  Straight to the prompt: It only lists files.\n"),
-            format!("{BEST}  Asking first: the model labelled it `write`\n"),
+            format!("{BEST}  Injected: It only lists files.\n"),
+            format!("{BEST}  Needs approval: the model labelled it `write`\n"),
             "✗ refused  Do not touch this folder.\n  ls -la ~/code\n".to_owned(),
             "The model declined: Not this one.  [31m\n".to_owned(),
             "No usable command:\n  - \"ls\\nrm -rf ~\": the command spans more than one line\n".to_owned(),

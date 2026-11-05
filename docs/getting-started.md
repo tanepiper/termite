@@ -1,13 +1,10 @@
 # Getting started
 
-termite is one command: `tmite`. You give it a request in plain English, a model
-on your own machine writes a shell command, and termite tells you what it does and
-how risky it looks. It doesn't run it. Ever. That part's yours.
+termite is one command, `tmite`. You give it a request in plain English, a model on your own machine writes a shell command, and termite tells you what the command does and how risky it looks. termite does not run the command; you decide whether to run it.
 
 ## Install
 
-Pick your platform. You need Rust 1.85 or newer, and something that serves a
-model. These steps use Ollama, because it's the shortest route.
+You need Rust 1.85 or newer and a program that serves a model. These steps use Ollama because it needs the fewest steps.
 
 ### macOS
 
@@ -21,9 +18,7 @@ cargo install --locked --git https://github.com/tanepiper/termite
 
 ### Linux
 
-Install Rust with [rustup](https://rustup.rs). Your distro's `cargo` package may
-well be older than 1.85. Install Ollama from [their download
-page](https://ollama.com/download).
+Install Rust with [rustup](https://rustup.rs), because the `cargo` package in your distribution may be older than 1.85. Install Ollama from the [Ollama download page](https://ollama.com/download).
 
 ```bash
 cargo install --locked --git https://github.com/tanepiper/termite
@@ -31,9 +26,9 @@ cargo install --locked --git https://github.com/tanepiper/termite
 
 ### Windows
 
-Not supported. termite is written for macOS and Linux.
+termite does not support Windows. It is written for macOS and Linux.
 
-Either way, `tmite` lands in `~/.cargo/bin`, so make sure that's on your `PATH`.
+On both systems, `tmite` installs to `~/.cargo/bin`. Make sure that folder is on your `PATH`.
 
 ## Set it up
 
@@ -41,43 +36,34 @@ Either way, `tmite` lands in `~/.cargo/bin`, so make sure that's on your `PATH`.
 tmite setup
 ```
 
-Setup looks for model servers on the usual ports and asks you to pick two models:
-one to write commands, and a decision model to check them. If you're missing one it shows you the
-download, with its size, and only fetches it if you type `y`.
+Setup looks for model servers on the usual ports and asks you to choose two models: one that writes commands, and a decision model that checks them. If a model is missing, setup shows the download and its size, and it downloads the model only if you type `y`.
 
-## Ask it something
+## Ask for a command
 
 ```bash
 tmite '? find files bigger than 100MB here'
 ```
 
-Keep the quotes. `?` means something to your shell.
+Keep the quotes, because `?` has a special meaning in your shell.
 
 ```text
 ✓ reads only  Finds regular files over 100MB below this folder.
   find . -type f -size +100M
 ```
 
-That's the whole deal: what it does, how risky it looks, and the command. Nothing
-has run. If you like it, copy it.
+The answer shows what the command does, how risky it looks, and the command itself. Nothing has run. To use the command, copy it.
 
-The first answer is slow while the model loads. After that it's a few seconds.
+The first answer is slow while the model loads; later answers take a few seconds.
 
-Next: [using termite](using-termite.md). If you're here to test a model rather
-than use one, go to [red-teaming a model](red-team.md).
+To continue, read [using termite](using-termite.md). To test a model, read [red-teaming a model](red-team.md).
 
 ## Optional extras
 
 ### The prompt widget
 
-This is a convenience, nothing more. `tmite` does the same job in any shell, and
-the checks are the same either way. The widget just saves you copying: you type
-requests at your prompt, without `tmite` or the quotes, and the command you pick
-lands on your command line.
+The widget is optional. `tmite` does the same work in any shell, and the checks are the same with or without the widget. With the widget, you type requests at your prompt without `tmite` or quotes, and the command you choose appears on your command line, so you do not need to copy it.
 
-There's one for zsh, bash and fish. `tmite setup` spots your shell and offers to add
-it, and it only touches your startup file if you say yes. To add it by hand, put one
-line in that file:
+There is a widget for zsh, bash and fish. `tmite setup` detects your shell and offers to add the widget, and it changes your startup file only if you agree. To add the widget yourself, put one line in that file:
 
 | Shell | File | Line |
 |---|---|---|
@@ -85,13 +71,10 @@ line in that file:
 | bash | `~/.bashrc` | `eval "$(tmite shell bash)"` |
 | fish | `~/.config/fish/config.fish` | `tmite shell fish \| source` |
 
-The bash one needs bash 4 or later. The `/bin/bash` that ships with macOS is 3.2, so
-get a newer one from Homebrew or use zsh, which is the macOS default.
+The bash widget needs bash 4 or later. The `/bin/bash` included with macOS is version 3.2, so install a newer version with Homebrew or use zsh, which is the default on macOS.
 
-Open a new shell. [Using termite](using-termite.md#the-prompt-widget) shows what you
-get.
+Open a new shell after you add it. [Using termite](using-termite.md#the-prompt-widget) explains what the widget does.
 
 ### A token for the decision model
 
-If your decision server wants a token, put it in `TERMITE_DECISION_TOKEN`. termite
-reads it from there and never stores it. Local servers usually don't need one.
+If your decision server needs a token, set it in `TERMITE_DECISION_TOKEN`. termite reads the token from that variable and never stores it. Local servers usually do not need a token.

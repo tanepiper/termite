@@ -6,13 +6,12 @@ Everything goes through one command:
 tmite '<prefix> your request'
 ```
 
-The prefix says how much you want back. termite never runs what it gives you.
-The last safety check is you, reading it.
+The prefix sets how much you get back. termite never runs what it gives you, so read each command before you use it.
 
 ## `?` gives you one command
 
 ```bash
-tmite '? what is eating my disk'
+tmite '? what is using my disk space'
 ```
 
 ```text
@@ -20,12 +19,11 @@ tmite '? what is eating my disk'
   du -sh ~/* | sort -h
 ```
 
-You get the explanation first, then the command, best guess only.
+You get the explanation first, and then the single best command.
 
 ## `??` gives you the options
 
-Most jobs have more than one answer, and sometimes the best one depends on what's
-installed.
+Most tasks can be done in more than one way, and the best way can depend on what is installed.
 
 ```bash
 tmite '?? what is on port 8080'
@@ -38,7 +36,7 @@ tmite '?? what is on port 8080'
    ss -ltnp | grep 8080
 ```
 
-## `?x` is for when you're sure
+## `?x` gives you a command with no question
 
 ```bash
 tmite '?x show disk usage of this folder'
@@ -47,101 +45,81 @@ tmite '?x show disk usage of this folder'
 ```text
 ✓ reads only  Shows the total size of this folder.
   du -sh .
-  Straight to the prompt: the decision model is confident it only reads (0.99)
+  Injected: the decision model is confident it only reads (0.99)
 ```
 
-`?x` skips the question, not the checks. Ask it for something that changes things
-and it stops being so keen:
+`?x` skips the question, but it does not skip the checks. If the command changes something, it needs approval:
 
 ```text
 ✗ risky  Deletes the build folder.
   rm -rf build
   termite says: deletes data
-  Asking first: the model labelled it `destructive`
+  Needs approval: the model labelled it `destructive`
 ```
 
-Anything that isn't certain ends up here: a slow model, a broken reply, a server
-that's gone away. No answer is never treated as a yes.
+A slow model, a broken reply or a stopped server also leads to this result, because termite never treats a missing answer as approval.
 
-To skip the question a command has to get through all of these, and the first
-three are plain Rust that a model can't argue with:
+To skip the question, a command must pass all of these checks. The first three are fixed rules in Rust, so a model cannot change their result:
 
-- It has to be on the read-only allowlist. `ls` is. `rm` isn't. `ls; rm -rf ~`
-  isn't either, because it chains commands.
-- It won't name secrets. `cat ~/.aws/credentials` is out, `cat prod.env` and
-  `cat *.env` are out, and so is a bare `ls` while you're sitting in `~/.ssh`.
-  A wildcard with nothing to go on is allowed: `cat config/*` would print a
-  `prod.env` in that folder. Read the command before you press Enter.
-- It can't look risky to termite's own hazard check.
-- The model has to have labelled it as reading.
-- The decision model has to agree on three questions: does it only read, does it
-  keep secrets hidden, could it do harm.
+- It must be on the read-only allowlist. `ls` is on the list; `rm` is not, and neither is `ls; rm -rf ~`, because it chains commands.
+- It must not name secrets. This rules out `cat ~/.aws/credentials`, `cat prod.env`, `cat *.env`, and a plain `ls` while you are in `~/.ssh`. A wildcard that names no secret is allowed, so `cat config/*` would print a `prod.env` file in that folder. Read the command before you press Enter.
+- termite's own hazard check must find nothing risky.
+- The model must have labelled it as reading.
+- The decision model must agree on three questions: whether it only reads, whether it keeps secrets hidden, and whether it could do harm.
 
 ## Reading the answer
 
-Every command comes with one of these. The rating is termite's, not the model's.
-A model can make it worse by calling a command destructive, but calling `rm -rf ~`
-a read gets it nowhere.
+Every command has one of these ratings. The rating comes from termite and not from the model. A model can raise a rating by calling a command destructive, but it cannot lower one: calling `rm -rf ~` a read changes nothing.
 
 | You see | Colour | It means |
 |---|---|---|
-| `✓ reads only` | green | Passed the read-only rules, and nothing looks hazardous |
-| `⚠ changes things` | yellow | Not known to be read-only. Read it properly |
-| `✗ risky` | red | Deletes, leaks, escalates or hides something. The command is red too |
+| `✓ reads only` | green | It passed the read-only policy, and no hazard was found |
+| `⚠ changes things` | yellow | It is not known to be read-only. Read it carefully |
+| `✗ risky` | red | It deletes, exposes, raises privileges or hides something. The command is also red |
 
-A risky command also gets a line in termite's own words, because the model's
-description might be wrong, or lying:
+A risky command also gets a line in termite's own words, because the model's description may be wrong or false:
 
 ```text
 ✗ risky  Tidies up your home folder.
   rm -rf ~
-  termite says: wrecks the machine, deletes data
+  termite says: destroys the system, deletes data
 ```
 
-Piped output gets no colour, and neither does anything with `NO_COLOR` set. The
-words and marks are always there.
+Piped output has no colour, and neither does output with `NO_COLOR` set. The words and marks are always shown.
 
 ## In scripts
 
-`--json` prints one object, with the command, its rating and any warnings:
+`--json` prints one object with the command, its rating and any warnings:
 
 ```bash
 tmite --json '? list big files'
 ```
 
-The exit status is 0 if there's a command to use, 2 if there's none or it was
-refused, 1 if something failed, and 64 if you called it wrong.
+The exit status is 0 if there is a command to use, 2 if there is none or it was blocked or declined, 1 if something failed, and 64 if you called it incorrectly.
 
 ## Check a script or a pipe
 
-`tmite check` rates every command in a script. It needs no model, and it runs
-nothing:
+`tmite check` rates every command in a script. It needs no model and runs nothing:
 
 ```bash
 tmite check install.sh
 ```
 
-Pipe text in to check it before it reaches anything else. Each result prints as
-the line arrives, so this works on a stream that's still going. You can leave out
-the word `check` when you pipe:
+Pipe text into it to check the text before it reaches anything else. Each result prints as its line arrives, so this works on a stream that has not finished. When you pipe, you can leave out the word `check`:
 
 ```bash
 curl -fsSL https://example.com/install.sh | tmite
 ```
 
-The word `check` is only optional when you type nothing else. If you pipe text in
-and also type a request, termite answers the request and ignores the pipe:
+The word `check` is optional only when you type nothing else. If you pipe text in and also type a request, termite answers the request and ignores the pipe:
 
 ```bash
 cat install.sh | tmite '? list files'
 ```
 
-That writes a command for "list files". `install.sh` isn't checked. To check a pipe
-and be sure of it, write `tmite check`.
+This writes a command for "list files", and `install.sh` is not checked. To be certain that a pipe is checked, write `tmite check`.
 
-Redirecting a file counts as piping, so `tmite < install.sh` checks it too. Empty
-input from `/dev/null` doesn't: plain `tmite` shows the usage message, as it does
-at a terminal.
+Redirecting a file counts as piping, so `tmite < install.sh` also checks the file. Empty input from `/dev/null` does not count, so plain `tmite` shows the usage message, as it does at a terminal.
 
 ```text
 ✗ stdin:14  critical: runs code from the internet
@@ -149,15 +127,11 @@ at a terminal.
 ✗ 22 commands: 1 risky, 6 change things, 15 read only. Nothing was run.
 ```
 
-It shows risky commands only. Add `--all` to see every command, or `--json` for
-one JSON object per command and a summary at the end.
+It shows risky commands only. Add `--all` to see every command, or `--json` to get one JSON object for each command and a summary at the end.
 
-The exit status is 0 if it found nothing risky, 2 if it found something risky or
-found no commands, 1 if it couldn't read the input, and 64 if you called it wrong.
-No commands counts as a failure, so a failed download doesn't look like a pass.
+The exit status is 0 if it found nothing risky, 2 if it found something risky or found no commands, 1 if it could not read the input, and 64 if you called it incorrectly. Finding no commands counts as a failure, so that a failed download does not look like a pass.
 
-Use the exit status to stop a job. This saves the file first, so what you check
-is what you run:
+Use the exit status to stop a job. This example saves the file first, so that you run the same file that you checked:
 
 ```bash
 curl -fsSL https://example.com/install.sh -o install.sh
@@ -167,21 +141,16 @@ curl -fsSL https://example.com/install.sh -o install.sh
 tmite check install.sh && bash install.sh
 ```
 
-Don't put `tmite` in the middle of a pipe to a shell. It prints results, not the
-script, and it doesn't pass anything on.
+Do not put `tmite` in the middle of a pipe to a shell. It prints results, not the script, and it passes nothing on.
 
-`tmite check` reads text. It follows line continuations, quotes across lines and
-heredocs, and it sees through `r\m` and `"r"m`. It also marks anything it can't
-read as risky: a command built from variables, `eval`, inline Python or Perl,
-hidden characters, and any command over 64 KB.
+`tmite check` reads text. It follows line continuations, quotes across lines and heredocs, and it recognises disguised forms such as `r\m` and `"r"m`. It marks anything it cannot read as risky: a command built from variables, `eval`, inline Python or Perl, hidden characters, and any command over 64 KB.
 
-A clean result does not prove a script is safe. Here's what it misses:
+A clean result does not prove that a script is safe. The check misses these cases:
 
 - **Steps on separate lines:** `curl -o a https://…` then `sh a` is rated as two
   commands that change things.
-- **Harm that depends on a value:** `rm -rf "$folder"` shows as a deletion, but
-  termite can't know what `$folder` holds.
-- **Anything it has no signature for:** `git push --force` or
+- **Harm that depends on a value:** `rm -rf "$folder"` shows as a deletion, but termite cannot know what `$folder` holds.
+- **Anything it has no rule for:** `git push --force` or
   `docker run -v /:/host` only show as changing things.
 - **Files the script fetches or calls:** it reads only the text you give it.
 
@@ -211,15 +180,14 @@ which also adds termite's `bin` folder to the end of your `PATH`. The model is
 your chat model. For a stronger one, set `script_model` in the config, and set
 `script_timeout_secs` to change the 5 minute limit.
 
-termite checks the script, then saves it as a draft. A draft isn't executable and
-isn't on your `PATH`.
+termite checks the script, then saves it as a draft. A draft is not executable and is not on your `PATH`.
 
 | Check | Turned down when |
 |---|---|
-| Name | it's badly formed, or takes the name of something you can already run |
-| Size | it's over 64 KB |
+| Name | it is badly formed, or it uses the name of something you can already run |
+| Size | it is over 64 KB |
 | Text | it holds control or hidden characters |
-| Shape | it has no `usage()`, no `args_parse "$@"`, or doesn't end with `main "$@"` |
+| Shape | it has no `usage()`, no `args_parse "$@"`, or does not end with `main "$@"` |
 | Syntax | `bash -n` fails |
 | Lint | shellcheck reports a warning or an error |
 | Banned | it uses `eval`, backticks or `source`, edits a shell startup file, or makes a file writable by other users |
@@ -227,11 +195,9 @@ isn't on your `PATH`.
 A script that fails goes back to the model once, with the errors. If it fails
 again, nothing is saved.
 
-A script with a critical hazard is withheld. So is one the decision model rates
-as harmful. termite doesn't show it, doesn't save it, and doesn't give the model
-another try. Less serious risky lines stay in the draft and are marked for you.
+A script with a critical hazard is withheld, and so is a script that the decision model rates as harmful. termite does not show it, does not save it and does not give the model another try. Less serious risky lines stay in the draft and are marked for you.
 
-Then do this:
+Then follow these steps:
 
 1. Read the draft and the lines marked as risky.
 
@@ -266,7 +232,7 @@ removed scripts, the bash library and the config that `tmite setup` writes.
 
 Each entry holds the hash of the one before it and a signature. The signing key is
 in the macOS Keychain or the Linux Secret Service. If you set your own
-`TERMITE_HOME`, or neither store is there, it's in `provenance.key`, and `verify`
+`TERMITE_HOME`, or neither store is there, the key is in `provenance.key`, and `verify`
 warns you.
 
 Check the log:
@@ -276,8 +242,7 @@ tmite provenance verify
 ```
 
 This reports the line where an entry was edited, removed from the middle, moved or
-forged. If the log is broken, termite won't add to it and won't install anything.
-Move the file aside to start again, and keep it, because it's your evidence.
+forged. If the log is broken, termite does not add to it and does not install anything. To start again, move the file to another location, and keep it as evidence.
 
 See one file's history:
 
@@ -296,27 +261,17 @@ tmite provenance accept config.json
 `bin` that termite has no record of. Accept a changed script the same way, or
 remove it.
 
-`tmite alerts` lists the last 20 times a guard stopped something: a refused command
-or a withheld script. It shows the verdict and the reason, not the request.
+`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows the verdict and the reason, but not the request.
 
 The log has limits:
 
-- **It doesn't stop a changed script running.** Running a script doesn't touch
-  termite, so only `tmite scripts list` shows the change. Run that before you trust
-  a script.
-- **It can't show that the last entries, or the whole file, were deleted.** It only
-  checks the entries that are there.
-- **It doesn't stop something running as you.** With your Keychain unlocked, a
-  program running as you can do anything you can do. The log shows tampering by
-  anything that doesn't have the key.
+- **It does not stop a changed script from running.** Running a script does not involve termite, so only `tmite scripts list` shows the change. Run that command before you trust a script.
+- **It cannot show that the last entries, or the whole file, were deleted.** It checks only the entries that exist.
+- **It does not stop a program running as you.** With your Keychain unlocked, that program can do anything you can do. The log shows tampering only by something that does not have the key.
 
 ## The prompt widget
 
-A convenience for zsh, bash and fish, and an
-[optional extra](getting-started.md#the-prompt-widget).
-Everything above works without it. With it, you type the request straight at your
-prompt, and the command goes onto your command line instead of the screen. Enter
-stays yours.
+The widget is an [optional extra](getting-started.md#the-prompt-widget) for zsh, bash and fish, and everything above works without it. With the widget, you type the request at your prompt, and the command appears on your command line and not only on the screen. Only you can press Enter.
 
 **`?`** explains the command and asks first. Enter or `y` puts it at your prompt.
 
@@ -330,29 +285,22 @@ Put it at your prompt? [Y/n]
 **`??`** explains them all. Press a number to pick one, `a` to ask the model again,
 or anything else to cancel.
 
-**`?x`** doesn't ask. If the checks pass, the command is at your prompt right away.
-It still doesn't run.
+**`?x`** does not ask. If the checks pass, the command is injected at your prompt immediately. It does not run.
 
-**Risky commands** go red and the question flips to `[y/N]`, so Enter means no. Pick
-one from a `??` list and you get asked again. In zsh the command stays red at your
-prompt too; bash and fish can't do that, so read it before you press Enter.
+**Risky commands** turn red and the question changes to `[y/N]`, so Enter means no. If you choose one from a `??` list, termite asks you again. In zsh the command stays red at your prompt; bash and fish cannot do that, so read it before you press Enter.
 
-If the decision model refuses a command outright, it's shown but it won't go to
-your prompt at all.
+If the decision model refuses a command, termite shows it as blocked, and the command does not reach your prompt.
 
 ## Before you press Enter
 
-termite warns you about a risky command. It does not stop you. If you say yes, the
-command goes to your prompt, even `sudo` or `rm -rf`. It doesn't run until you press
-Enter.
+termite warns you about a risky command, but it does not stop you. If you approve the command, it goes to your prompt, even if it is `sudo` or `rm -rf`. It does not run until you press Enter.
 
 1. Read the command.
-2. Not sure what it does? Press Ctrl+C to clear it.
-3. Press Enter only if you'd type that command yourself.
+2. If you are not sure what it does, press Ctrl+C to clear it.
+3. Press Enter only if you would type that command yourself.
 
-termite can't block a command yet. That's on the [roadmap](safety-ladder.md).
+termite blocks a command only when the decision model refuses it. Blocking by level is on the [roadmap](safety-ladder.md).
 
 ## Slow answers
 
-The first request after a while can take a minute while the model loads. The widget
-tells you what it's up to, so you're not staring at a frozen terminal.
+The first request after a pause can take a minute while the model loads. The widget shows what it is doing during this time.

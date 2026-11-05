@@ -262,7 +262,7 @@ fn given_models_that_call_danger_safe_then_it_never_goes_straight_in() {
 fn given_a_write_label_then_it_is_asked_first() {
     let (text, status) = ask(Replies::offering("ls", "write"));
     assert_eq!(kind(&text), "confirm", "{text}");
-    assert!(text.contains("Asking first"), "{text}");
+    assert!(text.contains("Needs approval"), "{text}");
     assert_eq!(status, 0);
 }
 
@@ -429,7 +429,7 @@ fn given_a_risky_command_then_it_is_marked_whatever_the_model_says() {
 
     let human = stdout(&tmite(&home.0, &home.0, &["? go"]));
     assert!(human.starts_with("✗ risky"), "{human}");
-    assert!(human.contains("wrecks the machine"), "{human}");
+    assert!(human.contains("destroys the system"), "{human}");
     assert!(!human.contains('\x1b'), "{human}");
 
     let (text, _) = ask(Replies::offering("rm -rf ~", "read"));

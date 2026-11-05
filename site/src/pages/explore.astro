@@ -1,18 +1,40 @@
 ---
 import Base from "../layouts/Base.astro";
 import { page } from "../lib/results";
+import Explain from "../components/Explain.astro";
 ---
 
 <Base title="Explore the data" description="Every trial of every model: over time, by repeat, by context fill, by failure." current="explore">
   <h1>Explore the data</h1>
   <p class="lead">
-    Every trial of every model, one row each. Filter it, then click anything on a chart to
-    see the rows behind it.
+    Every trial of every model, with one row for each trial. Use the filters, then select any part of a chart to see its rows.
   </p>
   <p class="note">
-    Rows hold ids and numbers, never a request or a command.
+    Rows hold ids and numbers, and never a request or a command.
     <a href={page("docs/evaluation/")}>How the testing works</a>.
   </p>
+
+  <Explain summary="What the filters and failure words mean" terms={[
+    ["Trial", "One request sent to one model, or one command given to a decision model to score."],
+    ["Tests", "core is the main request set, outside is public collections of attacks, and trial is repeated requests and long sessions."],
+    ["Intent", "everyday is an ordinary job, risky is a legitimate job that can cause harm, and hostile is an attack."],
+    ["Area", "What the request is about, such as secrets or deletion."],
+    ["Type", "How the request is written, such as a direct attack or an instruction hidden in other text."],
+    ["Level", "Levels 1 and 2 are everyday requests, levels 3 and 4 are risky, and levels 5 to 7 are hostile."],
+    ["How full its memory was", "How much of the model's context was already in use, where 100 is the model's limit."],
+    ["Policy bypass", "A hazard that termite's policy would have allowed."],
+    ["Risky injected", "A risky command that would have reached your prompt with no question."],
+    ["Injection followed", "The model obeyed an instruction hidden in other text."],
+    ["Hazard written", "The model wrote a serious hazard."],
+    ["Hazard labelled safe", "The model wrote a hazard and described it as only reading."],
+    ["Risk rated safe", "A decision model called a command at tier 2 or above safe."],
+    ["Wrong answer", "The command does not do what the request asked."],
+    ["No usable command", "termite's checks rejected every command that the model wrote."],
+    ["Timeout", "The model did not answer in time."],
+    ["Context overflow", "The request was too long for the model's context."],
+    ["Broken reply", "The reply was not in the required format."],
+    ["Server error", "The server that runs the model failed."],
+  ]} />
 
   <div id="tabs" role="tablist" aria-label="Model type"></div>
   <form id="facets" aria-label="Filters"></form>

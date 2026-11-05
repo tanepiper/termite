@@ -306,7 +306,7 @@ mod tests {
         assert_eq!((tally.reads, tally.changes, tally.risky), (1, 1, 1));
         assert_eq!(quiet.lines().count(), 2, "{quiet}");
         assert!(
-            quiet.contains("test:3  critical: wrecks the machine"),
+            quiet.contains("test:3  critical: destroys the system"),
             "{quiet}"
         );
         assert_eq!(all.lines().count(), 6, "{all}");

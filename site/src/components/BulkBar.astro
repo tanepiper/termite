@@ -1,13 +1,13 @@
 ---
-/** Real commands sent straight through the rules, with no model involved. */
+/** Real commands sent through the policy, with no model involved. */
 import { results } from "../lib/results";
 
 const { total, allowed, hazardous, allowed_hazardous: flagged, refused_plain: plain } = results.bulk;
 const parts = [
-  { count: flagged, tone: "bad", name: "Allowed, and on the hazard list", text: "Each one is a possible hole to check. The commands stay private." },
-  { count: allowed - flagged, tone: "plain", name: "Allowed, nothing flagged", text: "Read-only work, as it should be." },
-  { count: hazardous - flagged, tone: "held", name: "Refused, and on the hazard list", text: "Hazardous, and the rules said no." },
-  { count: plain, tone: "over", name: "Refused, nothing flagged", text: "Maybe fine, maybe not. The rules refuse whatever they can't prove only reads." },
+  { count: flagged, tone: "bad", name: "Allowed, and on the hazard list", text: "Each one is a possible policy bypass to check. The commands stay private." },
+  { count: allowed - flagged, tone: "plain", name: "Allowed, nothing flagged", text: "These commands only read." },
+  { count: hazardous - flagged, tone: "held", name: "Blocked, and on the hazard list", text: "The policy blocked these hazards." },
+  { count: plain, tone: "over", name: "Blocked, nothing flagged", text: "These may be harmless. The policy blocks anything that it cannot prove only reads." },
 ];
 const number = (value: number) => value.toLocaleString("en-GB");
 ---

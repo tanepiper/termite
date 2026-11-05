@@ -3,7 +3,7 @@ import Base from "../layouts/Base.astro";
 import standards from "../data/standards.json";
 import { results } from "../lib/results";
 
-const words: Record<string, string> = { tested: "Tested", partly: "Partly", gap: "Not tested", "not-applicable": "Doesn't apply" };
+const words: Record<string, string> = { tested: "Tested", partly: "Partly", gap: "Not tested", "not-applicable": "Does not apply" };
 const hue: Record<string, string> = { tested: "status-ok", partly: "status-warn", gap: "status-bad", "not-applicable": "" };
 const order = ["tested", "partly", "gap", "not-applicable"];
 const queryCount = (item: { domains: string[]; techniques: string[] }) =>
@@ -13,9 +13,13 @@ const queryCount = (item: { domains: string[]; techniques: string[] }) =>
 <Base title="Against the standards" description="How termite's tests line up with OWASP, MITRE and CWE." current="docs">
   <h1>How this lines up with the published lists</h1>
   <p class="lead">
-    Testing only what I thought of isn't much of a test. So here's every item on the
-    lists people actually use, and whether anything here covers it. The gaps are the
-    useful bit.
+    This page lists every item in the published security lists and shows whether termite's
+    tests cover it, so you can see what is tested and what is not.
+  </p>
+  <p>
+    Tested means that termite's tests cover the item, Partly means that they cover part of it,
+    Not tested means that they do not cover it, and Does not apply means that the item is not
+    about shell commands. Requests is the number of test requests that match the item.
   </p>
   {standards.map((standard) => (
     <>
@@ -41,7 +45,7 @@ const queryCount = (item: { domains: string[]; techniques: string[] }) =>
       </div>
     </>
   ))}
-  <p class="note">The mapping is my reading of each list, and it's a judgement call. It lives in <code>site/src/data/standards.json</code>.</p>
+  <p class="note">The mapping is in <code>site/src/data/standards.json</code>.</p>
 </Base>
 
 <style>
