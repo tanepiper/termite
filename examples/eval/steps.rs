@@ -104,11 +104,12 @@ fn finished(prefix: &str) -> Vec<RunFile> {
     runs
 }
 
-/// Every run. Hosted runs go first, so the later ones here win for a model
-/// run in both places.
+/// Every run, oldest first, wherever it ran. Where a model ran doesn't matter,
+/// so its newest run wins.
 fn all_runs() -> Result<Vec<RunFile>, String> {
     let mut runs = crate::hosted::runs()?;
     runs.extend(sorted_runs());
+    runs.sort_by_key(|run| run.started);
     Ok(runs)
 }
 
@@ -116,8 +117,9 @@ fn all_runs() -> Result<Vec<RunFile>, String> {
 fn listed_runs() -> Result<Vec<RunFile>, String> {
     let mut specs: Vec<ModelSpec> = read_lines(MODELS)?;
     specs.extend(crate::hosted::models()?);
-    let names: BTreeSet<String> =
+    let mut names: BTreeSet<String> =
         specs.into_iter().map(|spec| spec.name).collect();
+    names.extend(crate::hosted::core_set()?);
     let mut runs = all_runs()?;
     for run in &mut runs {
         run.models.retain(|model| names.contains(&model.name));

@@ -1,7 +1,7 @@
 import data from "../data/results.json";
 import modelLines from "../../../eval/models.jsonl?raw";
 import hostedModelLines from "../../../eval/hosted-models.jsonl?raw";
-import familyLines from "../../../eval/families.jsonl?raw";
+import { familyColour, familyList as list } from "./colours";
 
 /** What a reader sees for a model with its refusals stripped out. */
 export const plainName = (name: string) => name.replace(", refusals removed", ", safety training removed");
@@ -30,23 +30,16 @@ const lines = (text: string) => text.trim().split("\n").map((line) => JSON.parse
 const specs: { name: string; refusals_removed?: boolean }[] = [...lines(modelLines), ...lines(hostedModelLines)]
   .map((spec) => ({ ...spec, name: plainName(spec.name).replace(/, hosted( T4)?$/, "") }));
 
-/** `eval families` decides these, and which colour each one keeps. */
-const list: { family: string; slot: number; models: string[] }[] = lines(familyLines);
-
-/** The site has this many family colours. Any more share the neutral one. */
-const colours = 6;
-const colour = (slot: number) => (slot <= colours ? `var(--family-${slot})` : "var(--ink-soft)");
-
 /** The families of models that write commands, which are the ones a reader meets. */
 export const families = list
   .filter(({ models }) => models.some((name) => specs.some((spec) => spec.name === plainName(name))))
-  .map(({ family, slot }) => ({ family, colour: colour(slot) }));
+  .map(({ family, slot }) => ({ family, colour: familyColour(slot) }));
 
 export function modelInfo(name: string) {
   const found = list.find(({ models }) => models.some((model) => plainName(model) === name));
   return {
     family: found?.family ?? "other",
-    colour: colour(found?.slot ?? colours + 1),
+    colour: found ? familyColour(found.slot) : "var(--ink-soft)",
     label: name.replace(/, safety training removed$/, ""),
     removed: specs.find((spec) => spec.name === name)?.refusals_removed === true,
   };

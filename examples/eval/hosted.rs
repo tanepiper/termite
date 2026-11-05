@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
-use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use crate::decision::{Choice, DecisionFile, Rung, agreement};
 use crate::publish::reply;
@@ -21,6 +21,8 @@ const MODELS: &str = "eval/hosted-models.jsonl";
 const DECISION_MODELS: &str = "eval/hosted-decision-models.jsonl";
 
 /// The model's own name, without the note of where it ran.
+const CORE_SET: &str = "eval/zerogpu-core.jsonl";
+
 fn base(name: &str) -> &str {
     name.strip_suffix(", hosted T4")
         .or_else(|| name.strip_suffix(", hosted"))
@@ -49,6 +51,19 @@ fn specs(path: &str) -> Result<Vec<ModelSpec>, String> {
 /// The command models, one entry each.
 pub fn models() -> Result<Vec<ModelSpec>, String> {
     specs(MODELS)
+}
+
+/// The names in the ZeroGPU core set, which has no server details to read.
+pub fn core_set() -> Result<Vec<String>, String> {
+    #[derive(Deserialize)]
+    struct Named {
+        name: String,
+    }
+    let rows: Vec<Named> = read_lines(CORE_SET)?;
+    Ok(rows
+        .into_iter()
+        .map(|row| base(&row.name).to_owned())
+        .collect())
 }
 
 /// The decision models, one entry each.

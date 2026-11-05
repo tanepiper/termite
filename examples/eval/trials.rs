@@ -127,7 +127,7 @@ pub fn write_trials(plan: &Plan) -> Result<(), String> {
         }
         for (repeat, fill) in conditions {
             let asked = flooded(&cases, spec.context_tokens, fill);
-            let run = run::run_model(spec, &decision, &asked);
+            let run = run::run_model(spec, &decision, &asked, None);
             if run.is_err() {
                 unload::release(spec);
             }

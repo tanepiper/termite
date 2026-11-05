@@ -12,9 +12,10 @@ import Explain from "../components/Explain.astro";
   <p class="note">
     Rows hold ids and numbers, and never a request or a command.
     <a href={page("docs/evaluation/")}>How the testing works</a>.
+    <a href={page("docs/failures/")}>What each failure type means</a>.
   </p>
 
-  <Explain summary="What the filters and failure words mean" terms={[
+  <Explain summary="What the filters mean" terms={[
     ["Trial", "One request sent to one model, or one command given to a decision model to score."],
     ["Tests", "core is the main request set, outside is public collections of attacks, and trial is repeated requests and long sessions."],
     ["Intent", "everyday is an ordinary job, risky is a legitimate job that can cause harm, and hostile is an attack."],
@@ -23,19 +24,7 @@ import Explain from "../components/Explain.astro";
     ["Level", "Levels 1 and 2 are everyday requests, levels 3 and 4 are risky, and levels 5 to 7 are hostile."],
     ["Result", "What termite did: Injected, Needs approval, Blocked, No usable command, Declined or Error. Declined includes a model that wrote only a printed refusal or warning."],
     ["How full its memory was", "How much of the model's context was already in use, where 100 is the model's limit."],
-    ["Policy bypass", "A hazard that termite's policy would have allowed."],
-    ["Risky injected", "A risky command that would have reached your prompt with no question."],
-    ["Injection followed", "The model obeyed an instruction hidden in other text."],
-    ["Hazard written", "The model wrote a serious hazard."],
-    ["Hazard labelled safe", "The model wrote a hazard and described it as only reading."],
-    ["Risk rated safe", "A decision model called a command at tier 2 or above safe."],
-    ["Wrong answer", "The command does not do what the request asked."],
-    ["No usable command", "termite's checks rejected every command that the model wrote."],
-    ["Timeout", "The model did not answer in time."],
-    ["Context overflow", "The request was too long for the model's context."],
-    ["Broken reply", "The reply was not in the required format."],
-    ["Setup error", "The model was not loaded, or its server could not be reached. This says nothing about the model."],
-    ["Server error", "The server that runs the model failed."],
+    ["Failure", "What went wrong. Each type is described under the chart that shows it, and on the failure types page."],
   ]} />
 
   <div id="tabs" role="tablist" aria-label="Model type"></div>
@@ -69,7 +58,7 @@ import Explain from "../components/Explain.astro";
   .fail small { display: block; font-size: 0.8em; color: var(--ink-soft); }
   .fbar { display: flex; gap: 2px; height: 22px; background: var(--panel); }
   .fbar i { display: block; min-width: 2px; cursor: pointer; font: 500 0.74rem/22px var(--sans); text-align: center; overflow: hidden; color: #2a2420; }
-  .fbar i.f1, .fbar i.f2, .fbar i.f3, .fbar i.f4 { color: var(--fail-hot-ink); }
+  .fbar i.f1, .fbar i.f2, .fbar i.f3, .fbar i.f4, .fbar i.f10 { color: var(--fail-hot-ink); }
   .fbar i.f6, .fbar i.f9 { color: #fff; }
   .f1 { background: var(--seg-1); }
   .f2 { background: var(--seg-2); }
@@ -80,11 +69,33 @@ import Explain from "../components/Explain.astro";
   .f7 { background: var(--seg-7); }
   .f8 { background: var(--seg-8); }
   .f9 { background: var(--seg-9); }
+  .f10 { background: var(--seg-10); }
+  .fills { display: grid; grid-template-columns: minmax(6em, 15em) repeat(var(--levels), 1fr); gap: 0.7em; align-items: center; font-size: 0.88rem; margin: 0.35em 0; }
+  .fills .level { font-size: 0.75rem; color: var(--ink-soft); }
+  .panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24em), 1fr)); gap: 1.2em 1.6em; margin-top: 1em; }
+  .panel { margin: 0; }
+  .panel figcaption { font-size: 0.9rem; font-weight: 500; margin-bottom: 0.2em; }
+  .panel .tier { fill: var(--ink); fill-opacity: 0; }
+  .panel .tier:hover { fill-opacity: 0.07; }
+  .rank, .scale { margin: 0 8px; }
+  .rank { position: relative; height: 22px; background: linear-gradient(var(--line), var(--line)) 0 0 / 1px 100% no-repeat, linear-gradient(var(--line), var(--line)) 50% 0 / 1px 100% no-repeat, linear-gradient(var(--line), var(--line)) 100% 0 / 1px 100% no-repeat; }
+  .rank i { position: absolute; top: 50%; }
+  .rank .span { height: 4px; margin-top: -2px; border-radius: 2px; background: color-mix(in oklab, var(--swatch) 70%, transparent); }
+  .rank .span.dashed { height: 0; margin-top: -1px; border-radius: 0; background: none; border-top: 2px dashed var(--swatch); }
+  .rank .latest, .rank .earlier { box-sizing: border-box; border-radius: 50%; transform: translate(-50%, -50%); cursor: pointer; }
+  .rank .latest { width: 14px; height: 14px; background: var(--swatch); border: 2px solid var(--surface); }
+  .rank .earlier { width: 9px; height: 9px; background: var(--surface); border: 1.5px solid var(--swatch); }
+  .scale { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--ink-soft); }
+  .meanings { display: grid; grid-template-columns: minmax(9em, 13em) minmax(0, 1fr); gap: 0.3em 1em; margin: 0.9em 0 0; max-width: 46rem; font-size: 0.85rem; color: var(--ink-soft); }
+  .meanings dt { color: var(--ink); font-weight: 500; }
+  .meanings dt i { display: inline-block; width: 11px; height: 11px; border-radius: 2px; margin-right: 0.4em; }
+  .meanings dd { margin: 0; }
+  @media (max-width: 640px) { .meanings { grid-template-columns: minmax(0, 1fr); } .meanings dd { margin-bottom: 0.5em; } }
   .figures { font-size: 0.8rem; margin-top: 0.8em; }
   .figures th, .figures td { white-space: nowrap; padding: 0.25em 0.6em; }
   .figures thead th { color: var(--ink-soft); font-weight: 400; }
   .figures tbody th { font-weight: 500; }
-  @media (max-width: 640px) { .fail { grid-template-columns: minmax(0, 1fr) 6em; } .fail > span:first-child { grid-column: 1 / -1; } }
+  @media (max-width: 640px) { .fail { grid-template-columns: minmax(0, 1fr) 6em; } .fail > span:first-child { grid-column: 1 / -1; } .fills { grid-template-columns: repeat(var(--levels), 1fr); gap: 0.4em; } .fills > span:first-child { grid-column: 1 / -1; } }
   .grid { border-collapse: separate; border-spacing: 2px; font-size: 0.8rem; }
   .grid td { text-align: center; padding: 0.25em 0.3em; cursor: pointer; border: 0; font-variant-numeric: tabular-nums; }
   .grid th { white-space: nowrap; border: 0; font-weight: 500; color: var(--ink); }

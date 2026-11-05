@@ -1,5 +1,6 @@
 ---
 import Base from "../../layouts/Base.astro";
+import Explain from "../../components/Explain.astro";
 import ModelChip from "../../components/ModelChip.astro";
 import { bySafetyTraining, capitalise, families, results } from "../../lib/results";
 
@@ -39,6 +40,11 @@ const ending: Record<string, string> = {
   straight_in: "Injected", asked: "Needs approval", stopped: "Blocked",
   no_answer: "No usable command", declined: "Declined", failed: "Error",
 };
+// One mark for each model on a request's row, worst first.
+const marks = ["reached", "held", "declined", "clean", "failed"];
+const markOf = (reply: { wrote_hazard: boolean; ending: string }) =>
+  reply.wrote_hazard ? (reply.ending === "straight_in" ? "reached" : "held")
+    : reply.ending === "declined" ? "declined" : reply.ending === "failed" ? "failed" : "clean";
 const queries = results.queries
   .map((query) => {
     const replies = Object.entries(query.replies);
@@ -58,10 +64,12 @@ const queries = results.queries
     }
     return {
       ...query, hazard: replies.some(([, reply]) => reply.wrote_hazard), withheld: query.request === null,
+      wrote: replies.filter(([, reply]) => reply.wrote_hazard).length, asked: replies.length,
+      tally: replies.map(([, reply]) => markOf(reply)).sort((a, b) => marks.indexOf(a) - marks.indexOf(b)),
       answers: [...answers.values()].sort((a, b) => Number(b.hazard) - Number(a.hazard) || b.models.length - a.models.length),
     };
   })
-  .sort((a, b) => Number(b.hazard) - Number(a.hazard) || b.level - a.level);
+  .sort((a, b) => b.wrote / b.asked - a.wrote / a.asked || b.level - a.level);
 const hidden = queries.filter((query) => query.withheld).length;
 const unprinted = results.queries
   .flatMap((query) => Object.values(query.replies))
@@ -87,17 +95,17 @@ const unprinted = results.queries
     </p>
   </aside>
 
-  <p class="note families">
-    Each answer lists the models that gave it, in two groups. Safety training teaches a model
-    to refuse harmful requests. Some of these copies have had that training removed, and I
-    test them to see the worst case. The dot shows the model's family: {families.map(({ family, colour }) => <span class="family" style={`--dot: ${colour}`}>{capitalise(family)}</span>)}
-  </p>
+  <Explain summary="How to read this page" terms={[
+    ["Area", "What a request is about."],
+    ["Type", "How a request is written."],
+    ["Level", "How hostile a request is. Levels 1 and 2 are everyday, levels 3 and 4 are risky, and levels 5 to 7 are hostile."],
+    ["Needs approval", "termite waited for your answer."],
+    ["Injected", "termite placed the command at your prompt with no question."],
+    ["Safety training", "Training that teaches a model to refuse harmful requests. Some copies have had it removed, and I test them to see the worst case."],
+  ]} />
 
-  <p class="note">
-    Area is what a request is about, Type is how it is written, and Level is how hostile it is:
-    levels 1 and 2 are everyday, levels 3 and 4 are risky, and levels 5 to 7 are hostile. The result beside each answer is what termite did:
-    Needs approval means that it waited for your answer, and Injected means that it placed the
-    command at your prompt with no question.
+  <p class="note families">
+    The dot beside a model shows its family: {families.map(({ family, colour }) => <span class="family" style={`--dot: ${colour}`}>{capitalise(family)}</span>)}
   </p>
 
   <form class="controls" aria-label="Group and filter requests">
@@ -116,15 +124,29 @@ const unprinted = results.queries
         <option value="withheld">Requests described in general</option>
       </select>
     </label>
+    <label>Find <input type="search" id="find" placeholder="Request or model" /></label>
+    <button type="button" id="toggle" aria-pressed="false">Open all</button>
   </form>
   <p class="note" id="count" role="status"></p>
+  <p class="key">
+    Each mark is one model:
+    <span><i class="mark reached"></i>Hazard injected</span>
+    <span><i class="mark held"></i>Hazard stopped</span>
+    <span><i class="mark declined"></i>Declined</span>
+    <span><i class="mark clean"></i>No hazard</span>
+    <span><i class="mark failed"></i>Error</span>
+  </p>
   <div id="groups"></div>
 
   <div id="list">
     {queries.map((query) => (
-      <article class="query" data-domain={capitalise(query.domain)} data-technique={capitalise(query.technique)}
+      <details class="query" data-domain={capitalise(query.domain)} data-technique={capitalise(query.technique)}
         data-level={`Level ${query.level}`} data-hazard={String(query.hazard)} data-withheld={String(query.withheld)}>
-        <h3>{query.request ?? `${aim[query.domain] ?? capitalise(query.domain)}, ${manner[query.technique] ?? query.technique}`}</h3>
+        <summary>
+          <h3>{query.request ?? `${aim[query.domain] ?? capitalise(query.domain)}, ${manner[query.technique] ?? query.technique}`}</h3>
+          <span class="tally" aria-hidden="true">{query.tally.map((mark) => <i class:list={["mark", mark]}></i>)}</span>
+          <span class="wrote">{query.wrote ? `${query.wrote} of ${query.asked} wrote a hazard` : "No hazard"}</span>
+        </summary>
         <ul class="answers">
           {query.answers.map((answer) => (
             <li class:list={[{ hazard: answer.hazard, refused: answer.ending === "no_answer" }]}>
@@ -149,7 +171,7 @@ const unprinted = results.queries
             </li>
           ))}
         </ul>
-      </article>
+      </details>
     ))}
   </div>
 </Base>
@@ -160,7 +182,10 @@ const unprinted = results.queries
   const group = document.querySelector("#group") as HTMLSelectElement;
   const filter = document.querySelector("#filter") as HTMLSelectElement;
   const count = document.querySelector("#count") as HTMLElement;
-  const queries = [...list.querySelectorAll<HTMLElement>(".query")];
+  const find = document.querySelector("#find") as HTMLInputElement;
+  const toggle = document.querySelector("#toggle") as HTMLButtonElement;
+  const queries = [...list.querySelectorAll<HTMLDetailsElement>(".query")];
+  const words = new Map(queries.map((query) => [query, (query.textContent ?? "").toLowerCase()]));
   const wanted: Record<string, (query: HTMLElement) => boolean> = {
     all: () => true,
     hazard: (query) => query.dataset.hazard === "true",
@@ -168,7 +193,8 @@ const unprinted = results.queries
     withheld: (query) => query.dataset.withheld === "true",
   };
   function draw() {
-    const visible = queries.filter(wanted[filter.value]);
+    const term = find.value.trim().toLowerCase();
+    const visible = queries.filter(wanted[filter.value]).filter((query) => words.get(query)?.includes(term));
     const names = [...new Set(visible.map((query) => query.dataset[group.value] ?? ""))].sort();
     groups.replaceChildren(...names.map((name) => {
       const section = document.createElement("section");
@@ -183,6 +209,13 @@ const unprinted = results.queries
   }
   group.addEventListener("change", draw);
   filter.addEventListener("change", draw);
+  find.addEventListener("input", draw);
+  toggle.addEventListener("click", () => {
+    const open = toggle.getAttribute("aria-pressed") !== "true";
+    toggle.setAttribute("aria-pressed", String(open));
+    toggle.textContent = open ? "Close all" : "Open all";
+    for (const query of queries) query.open = open;
+  });
   draw();
 </script>
 
@@ -190,8 +223,31 @@ const unprinted = results.queries
   .controls { display: flex; flex-wrap: wrap; gap: 0.6em 1.6em; margin: 1.4em 0 0.4em; }
   label { font-size: 0.92rem; color: var(--ink-soft); }
   select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.25em 0.4em; margin-left: 0.3em; }
-  .query { padding: 0.4em 0 1.2em; }
-  h3 { font-size: 1.3rem; margin: 0.8em 0 0.5em; overflow-wrap: anywhere; }
+  input, #toggle { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.25em 0.5em; }
+  input { margin-left: 0.3em; width: 15em; max-width: 100%; }
+  #toggle { cursor: pointer; font-size: 0.92rem; }
+  #toggle:hover { border-color: var(--ink); }
+  .key { display: flex; flex-wrap: wrap; gap: 0.2em 1em; font-size: 0.85rem; color: var(--ink-soft); }
+  .key span { display: inline-flex; align-items: center; gap: 0.4em; }
+  .key .mark { width: 5px; height: 14px; }
+  .mark { display: block; border-radius: 1px; }
+  .mark.reached { background: var(--seg-1); }
+  .mark.held { background: var(--seg-4); }
+  .mark.declined { background: var(--seg-6); }
+  .mark.clean { background: var(--line); }
+  .mark.failed { background: var(--seg-9); }
+  .query { border-bottom: 1px solid var(--line); }
+  summary { display: grid; grid-template-columns: 1em minmax(0, 1fr) minmax(5em, 11em) 11em; gap: 0 0.9em; align-items: center; padding: 0.55em 0.3em; cursor: pointer; list-style: none; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "›"; font-size: 1.2rem; line-height: 1; color: var(--ink-soft); transition: transform 0.12s; }
+  .query[open] summary::before { transform: rotate(90deg); }
+  summary:hover { background: var(--panel); }
+  summary:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+  h3 { font: 500 1rem/1.35 var(--sans); margin: 0; overflow-wrap: anywhere; }
+  .tally { display: flex; gap: 1px; height: 16px; }
+  .tally .mark { flex: 1 1 0; min-width: 1px; }
+  .wrote { font-size: 0.85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; text-align: right; }
+  @media (prefers-reduced-motion: reduce) { summary::before { transition: none; } }
   .unpublished { background: var(--panel); border-left: 4px solid var(--gallery); border-radius: 0 6px 6px 0; padding: 1.1em 1.4em; margin: 1.6em 0 2em; max-width: 46rem; scroll-margin-top: 1em; }
   .unpublished h2 { font-size: 1.35rem; margin: 0 0 0.4em; }
   .unpublished p { margin: 0.5em 0 0; }
@@ -199,15 +255,15 @@ const unprinted = results.queries
   .tag { display: inline-block; font: 700 0.82rem/1.3 var(--sans); color: var(--ink); text-decoration: none; padding: 0.25em 0.6em; border-radius: 3px; border: 1px solid var(--gallery); background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--gallery) 22%, transparent) 6px 12px); vertical-align: 0.12em; white-space: nowrap; }
   a.tag { justify-self: start; align-self: start; }
   a.tag:hover { border-color: var(--ink); }
-  .answers { list-style: none; margin: 0; padding: 0; }
+  .answers { list-style: none; margin: 0; padding: 0.3em 0 1em 1.9em; }
   .answers > li { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); grid-template-rows: auto 1fr; gap: 0.2em 2em; padding: 0.7em 0 0.7em 0.9em; border-left: 3px solid var(--line); max-width: none; }
   .answers > li + li { margin-top: 0.4em; }
   .answers > li.hazard { border-left-color: var(--gallery); }
   .cmd { font-size: 0.95rem; background: none; padding: 0; }
   .by { grid-column: 1; align-self: start; margin-top: 0.35em; }
-  .group { margin-top: 0.6em; }
-  .group h4 { font: 500 0.82rem/1.3 var(--sans); color: var(--ink-soft); margin: 0 0 0.3em; }
-  .group ul { list-style: none; margin: 0; padding: 0; display: grid; justify-items: start; gap: 0.25em; }
+  .group { margin-top: 0.4em; }
+  .group h4 { font: 500 0.82rem/1.3 var(--sans); color: var(--ink-soft); margin: 0 0 0.2em; }
+  .group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.15em 0.7em; }
   .group li { margin: 0; }
   .answers > li.refused { border-left-color: var(--good); }
   .family { display: inline-flex; align-items: center; gap: 0.35em; margin-right: 0.8em; color: var(--ink); }
@@ -217,6 +273,11 @@ const unprinted = results.queries
   .harm { display: block; margin-top: 0.3em; }
   .harm strong { color: var(--ink); font-weight: 500; }
   @media (max-width: 640px) {
+    summary { grid-template-columns: 1em minmax(0, 1fr) auto; }
+    h3 { grid-column: 2 / -1; }
+    .tally { grid-column: 2; margin-top: 0.3em; }
+    .wrote { margin-top: 0.3em; }
+    .answers { padding-left: 0; }
     .answers > li { grid-template-columns: minmax(0, 1fr); }
     .what { grid-column: 1; grid-row: auto; }
   }

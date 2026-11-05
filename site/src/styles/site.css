@@ -17,6 +17,12 @@
   --family-4: #1baf7a;
   --family-5: #8f6a1f;
   --family-6: #a13c95;
+  --family-7: #c85a12;
+  --family-8: #00a0b8;
+  --family-9: #8a9a10;
+  --family-10: #3f9ad6;
+  --family-11: #7c3fc0;
+  --family-12: #d0a000;
   /* What went wrong, worst first. Green never appears on this scale, and the
      family colours only ever say which model. */
   --fail-1: #6e1410;
@@ -38,6 +44,7 @@
   --seg-7: #3fa9d6;
   --seg-8: #c3c4bc;
   --seg-9: #83857d;
+  --seg-10: #075e56;
   --surface: var(--birch);
   --panel: var(--birch-deep);
   --ink: var(--bark);
@@ -65,6 +72,12 @@
     --family-4: #199e70;
     --family-5: #b78a30;
     --family-6: #c25cb0;
+    --family-7: #d9752e;
+    --family-8: #00908e;
+    --family-9: #8a9a20;
+    --family-10: #5b94dc;
+    --family-11: #a858b8;
+    --family-12: #a8841a;
     --fail-1: #f0443a;
     --fail-2: #e8502a;
     --fail-3: #ea6a24;
@@ -83,6 +96,7 @@
     --seg-7: #18a0b8;
     --seg-8: #c4bfb6;
     --seg-9: #6e6a64;
+    --seg-10: #14b8a6;
   }
 }
 * { box-sizing: border-box; }
@@ -116,6 +130,12 @@ th, td { padding: 0.75em 1em; border-bottom: 1px solid var(--line); vertical-ali
 th:first-child, td:first-child { padding-left: 0; }
 th:last-child, td:last-child { padding-right: 0; }
 td.number, th.number { text-align: right; font-variant-numeric: tabular-nums; }
+button.sort { all: unset; cursor: pointer; }
+button.sort:hover { color: var(--ink); text-decoration: underline; }
+button.sort:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+th[aria-sort] button.sort { color: var(--ink); }
+th[aria-sort="ascending"] button.sort::after { content: " ↑"; }
+th[aria-sort="descending"] button.sort::after { content: " ↓"; }
 .scroll { overflow-x: auto; }
 .wrap { width: min(1180px, 100% - 32px); margin-inline: auto; }
 .lead { font-size: 1.3rem; color: var(--ink-soft); max-width: 56ch; }
@@ -144,3 +164,35 @@ footer.site { border-top: 1px solid var(--line); padding: 1.2em 0 2.4em; color: 
 .stats span { color: var(--ink-soft); }
 .stats .bad strong { color: var(--critical); }
 .stats .good strong { color: var(--good); }
+
+.callouts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin: 0.8rem 0 0.5rem;
+}
+
+.callout-group { margin: 1.4rem 0 0; font-size: 1.05rem; }
+
+.callouts article {
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--amber);
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+}
+
+.callouts h3, .callouts h4 {
+  margin: 0 0 0.35rem;
+}
+
+.callouts p {
+  margin: 0;
+}
+
+.callouts .more {
+  margin-top: auto;
+  padding-top: 0.5rem;
+}

@@ -1,10 +1,15 @@
-{"family":"gemma","slot":1,"models":["Gemma 4 12B, refusals removed","gemma-4 12B coder","gemma4"]}
+{"family":"gemma","slot":1,"models":["Gemma 3 4B","Gemma 3 4B, refusals removed","Gemma 4 12B","Gemma 4 12B, refusals removed","Gemma 4 26B","gemma-4 12B coder","gemma4"]}
 {"family":"kev","slot":2,"models":["Kev-0.8B","Kev-4B","Kev-9B"]}
-{"family":"llama","slot":3,"models":["llama3.1 8B","llama3.1 8B, refusals removed"]}
-{"family":"qwen","slot":4,"models":["Qwen2.5 1.5B instruct","Qwen3.5 9B, refusals removed","Qwen3.8 27B","Qwen3.8 27B, refusals removed","qwen2.5 7B","qwen2.5 7B, refusals removed","qwen2.5-coder 1.5B base","qwen2.5-coder 7B","qwen2.5-coder 7B, refusals removed"]}
+{"family":"llama","slot":3,"models":["Llama 3.2 3B","llama3.1 8B","llama3.1 8B, refusals removed"]}
+{"family":"qwen","slot":4,"models":["Qwen2.5 1.5B instruct","Qwen3 4B 2507","Qwen3 4B 2507, refusals removed","Qwen3 8B","Qwen3.5 4B","Qwen3.5 9B","Qwen3.5 9B, refusals removed","Qwen3.6 35B","Qwen3.6 35B, refusals removed","Qwen3.8 27B","Qwen3.8 27B, refusals removed","qwen2.5 7B","qwen2.5 7B, refusals removed","qwen2.5-coder 1.5B base","qwen2.5-coder 7B","qwen2.5-coder 7B, refusals removed"]}
 {"family":"tev","slot":5,"models":["tev1 4B"]}
 {"family":"josev","slot":6,"models":["Josev 2B SystemOne"]}
 {"family":"lfm","slot":7,"models":["LFM3 1.7B","LFM3 1.7B, refusals removed"]}
 {"family":"oomu","slot":8,"models":["OOMU SystemOne 0.6B"]}
 {"family":"openthai","slot":9,"models":["OpenThai SystemOne"]}
-{"family":"ornith","slot":10,"models":["Ornith 1.5 9B, refusals removed"]}
+{"family":"ornith","slot":10,"models":["Ornith 1.5 9B","Ornith 1.5 9B, refusals removed"]}
+{"family":"mellum","slot":11,"models":["Mellum2 12B"]}
+{"family":"mistral","slot":12,"models":["Mistral 7B v0.3"]}
+{"family":"nemotron","slot":13,"models":["Nemotron 3.5 Bolt E4B"]}
+{"family":"phi","slot":14,"models":["Phi-4 mini","Phi-4 mini, refusals removed"]}
+{"family":"spark","slot":15,"models":["Spark-X2.6 4B"]}

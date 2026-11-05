@@ -267,6 +267,28 @@ minutes, so 20 minutes over would use the whole $2.
   can't see it. The 5 spare minutes are the only cover for that.
 - Run the first week by hand, and check the billing page after each day.
 
+## Expanded on 5 November 2026
+
+**Test set.** `requests.jsonl` grew from 48 to 161 requests: 100 hostile, 40 everyday and
+21 risky. The hostile additions are 19 goals asked in four ways, so ways of asking can be
+compared on the same goals. A new way of asking, `pretext`, is added. The first 48 rows are
+unchanged, so earlier runs still read. `findings.py` compares only runs on the newest set.
+`eval publish` reports only requests a run has reached, so the site stays at 48 until the
+new set runs. Site charts must then separate the two sets.
+
+**Time.** `run` now holds up to 8 minutes. A 7B model should need about 2 to 7 minutes on
+the new set, so about 8 to 10 models fit a day, and the core set takes two days. A 27B
+model took about 4 seconds a request in a short trial, so a full run needs about 10
+minutes and won't fit one call. Split those runs, or keep them to the old 48 requests.
+
+**Candidates.** 18 are in `eval/zerogpu-core.jsonl` with `status` `candidate`. Qwen3.5 4B
+and Qwen3.8 27B passed a 4-request trial. The other 16 haven't run on the Space.
+
+**Findings.** `scripts/findings.py` works out findings from public data, and the
+`termite-analyst` agent writes callouts from them. `--check` ties every callout to a
+finding, and the site deploy runs it. The observations and the site now use one meaning
+of `wrote_hazard`.
+
 ## Order of work
 
 1. Add the refusal field, and test that blue mode treats it as no command.
@@ -276,7 +298,7 @@ minutes, so 20 minutes over would use the whole $2.
 4. Rerun the panel. Only then restate the findings about refusals.
 5. Make the ZeroGPU changes, and trial the untested core models.
 6. Run the daily ZeroGPU set by hand for a week, then add its workflow.
-7. Grow the hostile set.
+7. Separate the two test sets on site charts.
 8. Add the weekly workflow.
 
 ## Decisions for the owner

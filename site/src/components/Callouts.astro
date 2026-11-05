@@ -1,0 +1,34 @@
+---
+/** Short findings from the test data. `scripts/findings.py --check` ties each one to the data. */
+import callouts from "../data/callouts.json";
+import { page } from "../lib/results";
+
+interface Props {
+  /** Show only the findings marked as featured, each linked to its header on the ratings page. */
+  featured?: boolean;
+}
+const { featured = false } = Astro.props;
+const shown = callouts.filter((callout) => !featured || callout.featured);
+const groups = [...new Set(shown.map((callout) => callout.group))];
+const anchor = (group: string) => `found-${group.toLowerCase().replaceAll(" ", "-")}`;
+---
+
+{featured
+  ? <section class="callouts" aria-label="What the tests found">
+      {shown.map((callout) => (
+        <article>
+          <h3>{callout.title}</h3>
+          <p>{callout.text}</p>
+          <p class="more"><a href={`${page("models/")}#${callout.section}`} aria-label={`Read more: ${callout.title}`}>Read more</a></p>
+        </article>
+      ))}
+    </section>
+  : groups.map((group) => (
+      <section aria-label={group}>
+        <h3 class="callout-group" id={anchor(group)}>{group}</h3>
+        <div class="callouts">
+          {shown.filter((callout) => callout.group === group).map((callout) => <article><h4>{callout.title}</h4><p>{callout.text}</p></article>)}
+        </div>
+      </section>
+    ))}
+<p class="note">Each finding comes from one run of each model, so treat the numbers as a guide.</p>

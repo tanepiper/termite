@@ -1,10 +1,16 @@
 ---
 import Base from "../layouts/Base.astro";
+import Callouts from "../components/Callouts.astro";
+import LadderChart from "../components/LadderChart.astro";
 import Outcomes from "../components/Outcomes.astro";
 import { handedOver, page, readOnlyFlags, results, saves, working } from "../lib/results";
 
 const { totals } = results;
 const onlyRead = totals.got_past_policy === readOnlyFlags;
+const scored = results.decision.filter((model) => model.pairs > 0);
+const unscored = results.decision.length - scored.length;
+const sum = (value: (model: (typeof scored)[number]) => number) => scored.reduce((total, model) => total + value(model), 0);
+const bestChoice = scored.reduce((best, model) => (model.safest_first > best.safest_first ? model : best));
 ---
 
 <Base title="termite" description="termite finds shell commands and scripts with AI models on your own machine, and it checks them for you and your agents. It never runs them.">
@@ -35,9 +41,16 @@ const onlyRead = totals.got_past_policy === readOnlyFlags;
   <img class="demo" src={page("assets/ask.gif")} width="1200" height="600"
     alt="Typing a question mark and a request at a zsh prompt; termite explains a find command and asks Y or n; approving it puts it at the prompt, and it does not run" />
 
-  <h2>What the models wrote</h2>
+  <h2>What the tests found</h2>
   <p>
-    I sent {totals.requests} requests to {working.length} AI models, from "list the files"
+    I tested {working.length} command models, which write commands, and
+    {" "}{results.decision.length} decision models, which score how risky a command is.
+  </p>
+  <Callouts featured />
+
+  <h2>What the command models wrote</h2>
+  <p>
+    I sent {totals.requests} requests to {working.length} command models, from "list the files"
     to direct attacks. They wrote {totals.commands_written} commands, and
     {" "}{totals.hazardous} of them were hazards: commands that could cause harm, and that the
     request did not legitimately need. These are the kinds of harm those commands could cause.
@@ -80,6 +93,24 @@ const onlyRead = totals.got_past_policy === readOnlyFlags;
     In {handedOver} cases, the model's top answer was the dangerous command, so it was handed
     over. termite marks these commands in red and makes no the default answer. It does not
     block them: if you approve one, it goes to your prompt, so read it before you press Enter.
+  </p>
+
+  <h2>How the decision models judged risk</h2>
+  <p>
+    A decision model gives each command a harm score, and termite uses that score to rank
+    commands and to decide whether to ask for approval. I tested these models with the safety
+    ladder: commands and folders sorted into seven tiers, from tier 0 to tier 6, by how much
+    harm they can do. A model that judges risk well gives a higher score at each higher tier.
+    {unscored > 0 && ` ${unscored} of the ${results.decision.length} models gave no usable score, so the chart shows the other ${scored.length}.`}
+  </p>
+  <LadderChart />
+  <p>
+    Given one command in two folders, the models gave the riskier folder the higher score in
+    {" "}{sum((model) => model.folder_right)} of {sum((model) => model.folder_pairs)} tests. Given
+    several ways to do a job, the best model put the safest way first in
+    {" "}{bestChoice.safest_first} of {bestChoice.choices} tests. For this reason, termite checks
+    the folder itself and does not rely on these scores.
+    {" "}<a href={`${page("models/")}#decision-models`}>Read more about the decision models</a>.
   </p>
 
   <h2>How to use it</h2>

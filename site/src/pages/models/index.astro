@@ -6,6 +6,7 @@ import LadderChart from "../../components/LadderChart.astro";
 import Scorecards from "../../components/Scorecards.astro";
 import WhereItGives from "../../components/WhereItGives.astro";
 import BulkBar from "../../components/BulkBar.astro";
+import Callouts from "../../components/Callouts.astro";
 import { page, results, safety, ungraded, working } from "../../lib/results";
 
 /** A model that answered nothing has no score to show. Its run stays in the table below. */
@@ -45,7 +46,10 @@ const noOriginal = removed.filter((model) => !originalOf(model.name)).map((model
     <p><strong>{working.length}</strong><span>command models, {decision.length} decision models</span></p>
   </div>
 
-  <h2>Command models</h2>
+  <h2>What the tests found</h2>
+  <Callouts />
+
+  <h2 id="command-models">Command models</h2>
   <p>
     The grade shows how often a model wrote a hazard for a hostile request. A model gets an F
     if any hazard passes termite's policy. Each grade comes from 24 hostile requests, and the
@@ -81,7 +85,7 @@ const noOriginal = removed.filter((model) => !originalOf(model.name)).map((model
 
   {removed.length > 0 && (
     <>
-      <h2>The same model with safety training removed</h2>
+      <h2 id="safety-training-removed">The same model with safety training removed</h2>
       <p>
         Most AI models are trained to refuse harmful requests. People can remove that
         training and share the changed copies publicly, so this chart compares each model
@@ -103,12 +107,12 @@ const noOriginal = removed.filter((model) => !originalOf(model.name)).map((model
       <p>I also tested the models with public collections of attacks on AI models. This table shows only the counts, and it does not quote the requests.</p>
       <div class="scroll"><table>
         <thead><tr><th scope="col">Model</th><th scope="col" class="number">Requests</th><th scope="col" class="number">Hazards written</th><th scope="col" class="number">Injected</th></tr></thead>
-        <tbody>{results.outside.map((row) => <tr><th scope="row">{row.name}</th><td class="number">{row.requests}</td><td class="number">{row.complied}</td><td class="number">{row.straight_in}</td></tr>)}</tbody>
+        <tbody>{[...results.outside].sort((a, b) => b.complied - a.complied).map((row) => <tr><th scope="row">{row.name}</th><td class="number">{row.requests}</td><td class="number">{row.complied}</td><td class="number">{row.straight_in}</td></tr>)}</tbody>
       </table></div>
     </>
   )}
 
-  <h2>Decision models</h2>
+  <h2 id="decision-models">Decision models</h2>
   <p>
     A decision model gives each command a harm score, and termite uses that score to rank
     commands and to decide whether to ask for approval. The same command can be safe in one
@@ -147,7 +151,7 @@ const noOriginal = removed.filter((model) => !originalOf(model.name)).map((model
     ["Questions that got no answer", "Questions where the model or its server failed to give a score."],
   ]} />
   <div class="scroll">
-    <table>
+    <table data-no-sort>
       <thead><tr><th scope="col"></th>{decision.map((score) => <th scope="col" class="number">{score.name}</th>)}</tr></thead>
       <tbody>
         <tr><th scope="row">Order matches the ladder (1 is perfect, 0 is random)</th>{decision.map((s) => <td class="number">{s.tau.toFixed(2)}</td>)}</tr>

@@ -12,7 +12,7 @@ use crate::decision::{DecisionRun, Rated, Rung};
 use crate::families::family_of;
 use crate::history::fingerprint;
 use crate::label::{NOT_CLASSIFIED, error_mode, printed_refusal};
-use crate::score::{Flag, flags};
+use crate::score::{Flag, flags, wrote_unasked};
 use crate::types::{Case, CaseRun, Kind, ModelRun, ModelSpec, RunFile};
 
 /// What kind of model was under test. Each has its own views.
@@ -197,7 +197,7 @@ fn from_case(
     run: &CaseRun,
 ) -> Observation {
     let (failure, stage) = failure(case, run);
-    let wrote = wrote_hazard(&flags(case, run));
+    let wrote = wrote_unasked(case, run);
     Observation {
         started: file.started,
         commit: file.commit.clone(),

@@ -1,0 +1,1 @@
+../../agents/termite-analyst.md

@@ -30,8 +30,6 @@ using models on your own machine. It explains the command and rates the risk, an
 
 <img src="docs/assets/straight.gif" alt="'?x show disk usage of this folder' puts du -sh . at the prompt with no question; '?x delete the build folder' shows rm -rf build in red and asks y or N first">
 
-<sub>Recorded with the real tool and real local models (Qwen2.5-Coder on Ollama for commands, Kev-4B on llama.cpp for decisions). Re-record with <code>docs/tapes/record.sh</code>.</sub>
-
 ---
 
 ## Contents
@@ -335,7 +333,7 @@ stopped every time ([spec](specs/2026-11-04-intents-and-confirm-card/spec.md#6-r
 
 ## Agents
 
-termite works with any agent service or harness that can run a check before a shell command. It also includes two agent definitions and two skills. `termite-blue-team` builds safe commands in a sandbox, and `termite-red-team` tests dangerous requests in a locked-down container. Neither ever runs what a model writes, and the tool refuses to test a model anywhere else. See [agent tools](docs/agents.md).
+termite works with any agent service or harness that can run a check before a shell command. It also includes three agent definitions and three skills. `termite-analyst` finds what the test results show, `termite-blue-team` builds safe commands in a sandbox, and `termite-red-team` tests dangerous requests in a locked-down container. Neither ever runs what a model writes, and the tool refuses to test a model anywhere else. See [agent tools](docs/agents.md).
 
 ## Roadmap
 

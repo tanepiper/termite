@@ -34,6 +34,7 @@ jobs:
           scripts/check-public.sh
           cat eval/observations/*.jsonl > /tmp/observations.jsonl
           scripts/check-public.sh /tmp/observations.jsonl
+          scripts/findings.py --check
       - name: Install without running package scripts
         run: npm ci --ignore-scripts
         working-directory: site

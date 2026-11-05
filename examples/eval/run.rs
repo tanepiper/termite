@@ -81,11 +81,13 @@ fn config_for(spec: &ModelSpec, decision: &Config) -> Result<Config, String> {
     Config::from_json(&text).map_err(|error| error.to_string())
 }
 
-/// Run every case against one model, one at a time.
+/// Run every case against one model, one at a time. Past `until`, stop and
+/// keep the requests that finished, so a run with a time limit loses nothing.
 pub fn run_model(
     spec: &ModelSpec,
     decision: &Config,
     cases: &[Case],
+    until: Option<u64>,
 ) -> Result<ModelRun, String> {
     let config = config_for(spec, decision)?;
     let source = LlamaServer::new(&config).map_err(|e| e.to_string())?;
@@ -100,6 +102,10 @@ pub fn run_model(
     let started = Instant::now();
     let mut results = Vec::with_capacity(cases.len());
     for (index, case) in cases.iter().enumerate() {
+        if until.is_some_and(|end| crate::now().is_ok_and(|time| time >= end)) {
+            println!("out of time after {index} of {}", cases.len());
+            break;
+        }
         let recording = Recording {
             inner: &source,
             seen: Mutex::new(Vec::new()),

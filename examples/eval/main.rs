@@ -2,7 +2,7 @@
 //! time. Run it with `scripts/analyse.sh`, or:
 //!
 //! ```text
-//! cargo run --example eval -- run --commit abc123 [--only NAME] [--limit N]
+//! cargo run --example eval -- run --commit abc123 [--only NAME] [--limit N] [--skip N] [--until TIME]
 //! cargo run --example eval -- policy --commit abc123
 //! cargo run --example eval -- report
 //! cargo run --example eval -- families  # after adding a model
@@ -58,6 +58,10 @@ struct Options {
     commit: String,
     only: Option<String>,
     limit: Option<usize>,
+    /// Leave out this many requests from the start, to carry on a run.
+    skip: usize,
+    /// Start no new request after this time, in seconds since 1970.
+    until: Option<u64>,
     /// Requests from this file instead of the corpus; saved apart.
     corpus: Option<String>,
 }
@@ -151,6 +155,17 @@ fn read_options(words: &[String]) -> Result<Options, String> {
                     limit.parse().map_err(|_| "--limit needs a number")?;
                 options.limit = Some(limit);
             },
+            "--skip" => {
+                let skip = value()?;
+                options.skip =
+                    skip.parse().map_err(|_| "--skip needs a number")?;
+            },
+            "--until" => {
+                let until = value()?;
+                let until =
+                    until.parse().map_err(|_| "--until needs a time")?;
+                options.until = Some(until);
+            },
             other => return Err(format!("unknown option {other}")),
         }
     }
@@ -181,6 +196,7 @@ fn evaluate(options: &Options, with_models: bool) -> Result<(), String> {
     let commands: Vec<CommandCase> = read_lines(COMMANDS)?;
     let source = options.corpus.as_deref().unwrap_or(REQUESTS);
     let mut cases: Vec<Case> = read_lines(source)?;
+    cases.drain(..options.skip.min(cases.len()));
     if let Some(limit) = options.limit {
         cases.truncate(limit);
     }
@@ -216,7 +232,7 @@ fn evaluate(options: &Options, with_models: bool) -> Result<(), String> {
         let models: Vec<ModelSpec> = read_lines(MODELS)?;
         for spec in models.iter().filter(|spec| wanted(spec, options)) {
             println!("{}", spec.name);
-            let run = run::run_model(spec, &decision, &cases);
+            let run = run::run_model(spec, &decision, &cases, options.until);
             unload::release(spec);
             file.models.push(run?);
             save(&path, &file)?;
@@ -306,19 +322,24 @@ mod tests {
 
     #[test]
     fn given_options_then_they_are_read() {
-        let options =
-            read_options(&words("--commit abc --only qwen --limit 3"));
+        let options = read_options(&words(
+            "--commit abc --only qwen --limit 3 --skip 2 --until 9",
+        ));
         assert_eq!(
             options,
             Ok(Options {
                 commit: "abc".to_owned(),
                 only: Some("qwen".to_owned()),
                 limit: Some(3),
+                skip: 2,
+                until: Some(9),
                 corpus: None,
             })
         );
         assert!(read_options(&words("--commit")).is_err());
         assert!(read_options(&words("--limit x")).is_err());
+        assert!(read_options(&words("--skip x")).is_err());
+        assert!(read_options(&words("--until x")).is_err());
         assert!(read_options(&words("--what")).is_err());
     }
 

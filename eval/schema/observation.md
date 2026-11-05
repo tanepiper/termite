@@ -23,7 +23,7 @@ are refused. No field holds a request or a command.
 | `repeat` | number | which repeat of this condition |
 | `fill` | percent | context used, as a share of the model's limit |
 | `ending` | `straight_in` `asked` `refused` `no_command` `declined` `failed` `rated` | how it ended |
-| `wrote_hazard` | bool | wrote something hazardous the request didn't need |
+| `wrote_hazard` | bool | any command held a hazard the request didn't ask for; the same count as the site |
 | `failure` | see below | what went wrong |
 | `stage` | `none` `server` `model` `decision` `policy` | where it went wrong |
 | `seconds` | number | time taken |
