@@ -7,8 +7,8 @@ use std::path::{Component, Path};
 use std::process::ExitCode;
 
 use termite::{
-    Entry, Event, FileStatus, Home, Log, ProvenanceError, Record, flags,
-    sha256_hex, to_printable,
+    Answer, Caller, Entry, Event, FileStatus, Home, Log, ProvenanceError,
+    Record, flags, sha256_hex, to_printable,
 };
 
 use crate::provenance_key::{KeyPlace, key};
@@ -136,6 +136,26 @@ pub(crate) fn manage(arguments: &[String]) -> ExitCode {
 }
 
 /// `tmite alerts`.
+/// Log an answer that stopped a command. A model's refusal counts only for an
+/// agent: a person can see it, and an agent asking for this is worth knowing.
+pub(crate) fn record_stop(answer: &Answer, request: &str, caller: Caller) {
+    let (verdict, flags) = match answer {
+        Answer::Refused { .. } => ("refused", Vec::new()),
+        Answer::Held(held) => ("held", vec![held.message()]),
+        Answer::Declined { .. } if caller == Caller::Agent => {
+            ("declined", vec!["the model declined".to_owned()])
+        },
+        _ => return,
+    };
+    let _ = alert(request, flags, verdict, caller.as_str());
+}
+
+/// Log that `tmite check` stopped an agent. Hashes the file names only.
+pub(crate) fn record_check(files: &[String]) {
+    let flags = vec!["risky, or no commands found".to_owned()];
+    let _ = alert(&files.join(" "), flags, "check", Caller::Agent.as_str());
+}
+
 pub(crate) fn alerts() -> ExitCode {
     let found = Home::from_env()
         .map_err(|error| error.to_string())
@@ -173,8 +193,9 @@ fn recent_alerts(home: &Home) -> Result<String, String> {
         .map(|entry| {
             let verdict = entry.verdict.as_deref().unwrap_or("alert");
             format!(
-                "{}  {}  {}\n",
+                "{}  {}  {}  {}\n",
                 entry.time,
+                to_printable(&entry.by),
                 to_printable(verdict),
                 to_printable(&entry.flags.join(", "))
             )

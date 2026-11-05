@@ -33,7 +33,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use termite::{
-    Answer, Config, Context, Home, LlamaServer, Session, SystemOne, answer,
+    Caller, Config, Context, Home, LlamaServer, Session, SystemOne, answer,
     decision_token, gate, parse_query, script_request, unattended,
 };
 
@@ -182,7 +182,12 @@ fn check_input(arguments: &[String]) -> ExitCode {
             _ => files.push(word.clone()),
         }
     }
-    ExitCode::from(check::run(&files, style))
+    let code = check::run(&files, style);
+    if code == 2 && caller_from_environment() == Caller::Agent {
+        // A hook has stopped an agent. `tmite alerts` shows what this logs.
+        provenance::record_check(&files);
+    }
+    ExitCode::from(code)
 }
 
 /// Print the widget for `name`, or for the shell in use.
@@ -273,10 +278,7 @@ pub(crate) fn run(format: Format, input: &str) -> (String, u8) {
 
     let answer = gate(answer, &context);
 
-    if matches!(answer, Answer::Refused { .. } | Answer::Held(_)) {
-        // The command is already stopped. `tmite alerts` shows what this logs.
-        let _ = provenance::alert(input, Vec::new(), "refused", "tmite");
-    }
+    provenance::record_stop(&answer, input, context.caller());
 
     let view = view_of(Path::new(context.cwd()), wants_colour(format));
     (render(&answer, format, &view), exit_code(&answer, &view))
@@ -314,10 +316,20 @@ fn context_from_environment() -> Context {
         .map(|cwd| cwd.display().to_string())
         .unwrap_or_else(|_| ".".to_owned());
 
+    Context::new(env::consts::OS, shell, cwd, session_from_environment())
+        .with_caller(caller_from_environment())
+}
+
+/// The harness sets these variables, not the model. An agent with no known
+/// variable still has no terminal.
+fn caller_from_environment() -> Caller {
     let names =
         env::vars_os().map(|(name, _)| name.to_string_lossy().into_owned());
-    Context::new(env::consts::OS, shell, cwd, session_from_environment())
-        .with_unattended(unattended(names, has_terminal()))
+    if unattended(names, has_terminal()) {
+        Caller::Agent
+    } else {
+        Caller::Person
+    }
 }
 
 /// A person can answer on the standard input or on `/dev/tty`. The widgets

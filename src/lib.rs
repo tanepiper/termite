@@ -41,7 +41,7 @@ pub use command::{
     CommandRejected, MAX_COMMAND_CHARS, check_command, to_printable,
 };
 pub use config::{Config, DECISION_TOKEN_VAR, decision_token};
-pub use context::{Context, Session};
+pub use context::{Caller, Context, Session};
 pub use decide::{
     DecisionClient, MAX_HARMFUL, MIN_NO_SECRETS, MIN_ONLY_READS,
     REFUSE_HARMFUL, Ranked, SafetyVerdict, SystemOne, Verdict,

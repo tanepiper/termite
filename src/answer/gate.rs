@@ -143,14 +143,19 @@ mod tests {
     use super::{Answer, Held, gate};
     use crate::candidate::{Candidate, Risk};
     use crate::classify::Level;
-    use crate::context::{Context, Session};
+    use crate::context::{Caller, Context, Session};
     use crate::decide::Ranked;
 
     const CWD: &str = "/tmp/termite-gate-project";
 
     fn context(unattended: bool) -> Context {
-        Context::new("macos", "zsh", CWD, Session::Local)
-            .with_unattended(unattended)
+        Context::new("macos", "zsh", CWD, Session::Local).with_caller(
+            if unattended {
+                Caller::Agent
+            } else {
+                Caller::Person
+            },
+        )
     }
 
     fn ranked(command: &str) -> Ranked {

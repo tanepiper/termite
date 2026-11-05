@@ -44,6 +44,17 @@ fn candidate(command: &str, description: &str, risk: &str) -> Value {
 }
 
 impl Replies {
+    fn declining(reason: &str) -> Self {
+        let content =
+            json!({ "candidates": [], "refusal": reason }).to_string();
+        let reply =
+            json!({ "choices": [{ "message": { "content": content } }] });
+        Self {
+            chat: (200, reply.to_string()),
+            ..Self::offering("ls", "read")
+        }
+    }
+
     fn offering(command: &str, risk: &str) -> Self {
         let candidates = json!([candidate(command, "Does it", risk)]);
         Self {
@@ -566,6 +577,60 @@ fn given_an_agent_then_levels_1_3_4_and_5_fail_with_no_command_anywhere() {
     }
 }
 
+fn alerts_after(replies: Replies) -> String {
+    let server = FakeServer::start(replies);
+    let home = Folder::with_config(&server.url, &server.url);
+    let run = |arguments: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_tmite"))
+            .args(arguments)
+            .current_dir(&home.0)
+            .env("TERMITE_HOME", &home.0)
+            .env("TERMITE_DECISION_TOKEN", TOKEN)
+            .env("HOME", &home.0)
+            .env("TERMITE_AGENT", "1")
+            .stdin(Stdio::null())
+            .output()
+            .expect("tmite runs")
+    };
+    run(&["--json", "? become root"]);
+    stdout(&run(&["alerts"]))
+}
+
+#[test]
+fn given_an_agent_stopped_at_a_level_then_the_alert_names_it() {
+    let text = alerts_after(Replies::offering("sudo -i", "read"));
+    assert!(text.contains("agent  held  level 4"), "{text}");
+    assert!(!text.contains("become root"), "{text}");
+}
+
+#[test]
+fn given_an_agent_that_a_model_declines_then_the_alert_names_it() {
+    let text = alerts_after(Replies::declining("I can't do that."));
+    assert!(text.contains("agent  declined"), "{text}");
+}
+
+#[test]
+fn given_an_agent_stopped_by_a_check_then_the_alert_names_it() {
+    let home = Folder::new();
+    let mut child = Command::new(env!("CARGO_BIN_EXE_tmite"))
+        .arg("check")
+        .env("TERMITE_HOME", &home.0)
+        .env("HOME", &home.0)
+        .env("TERMITE_AGENT", "1")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .spawn()
+        .expect("tmite runs");
+    let mut input = child.stdin.take().expect("stdin");
+    input.write_all(b"sudo ls\n").expect("written");
+    drop(input);
+    assert_eq!(child.wait().expect("ends").code(), Some(2));
+
+    let text = stdout(&tmite(&home.0, &home.0, &["alerts"]));
+
+    assert!(text.contains("agent  check"), "{text}");
+}
+
 #[test]
 fn given_an_agent_then_a_change_still_comes_back() {
     let output = as_agent("TERMITE_AGENT", "mkdir out", "--json", "? go");
@@ -579,6 +644,11 @@ fn given_an_agent_then_a_change_still_comes_back() {
 #[cfg(target_os = "macos")]
 fn at_a_terminal(command: &str) -> String {
     let server = FakeServer::start(Replies::offering(command, "read"));
+    at_a_terminal_with(&server)
+}
+
+#[cfg(target_os = "macos")]
+fn at_a_terminal_with(server: &FakeServer) -> String {
     let home = Folder::with_config(&server.url, &server.url);
     let project = home.0.join("app");
     fs::create_dir(&project).expect("project");
@@ -624,6 +694,35 @@ fn given_a_person_at_a_terminal_then_level_4_is_shown_and_level_5_is_not() {
     let withheld = at_a_terminal(hostile);
     assert!(withheld.contains("\"level\":5"), "{withheld}");
     assert!(!withheld.contains("example.test"), "{withheld}");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn given_a_person_then_the_model_is_told_and_an_agent_gets_the_plain_prompt() {
+    let person = FakeServer::start(Replies::offering("ls", "read"));
+    at_a_terminal_with(&person);
+    let told = |server: &FakeServer| {
+        server
+            .requests_to("")
+            .iter()
+            .any(|request| request.contains("A person reads every command"))
+    };
+    assert!(told(&person));
+
+    let agent = FakeServer::start(Replies::offering("ls", "read"));
+    let home = Folder::with_config(&agent.url, &agent.url);
+    Command::new(env!("CARGO_BIN_EXE_tmite"))
+        .args(["--json", "? go"])
+        .current_dir(&home.0)
+        .env("TERMITE_HOME", &home.0)
+        .env("TERMITE_DECISION_TOKEN", TOKEN)
+        .env("HOME", &home.0)
+        .env("TERMITE_AGENT", "1")
+        .stdin(Stdio::null())
+        .output()
+        .expect("tmite runs");
+    assert!(!agent.requests_to("").is_empty());
+    assert!(!told(&agent));
 }
 
 #[cfg(target_os = "macos")]

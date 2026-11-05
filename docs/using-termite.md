@@ -104,6 +104,10 @@ A glob, a variable, or code inside `$(...)` raises the level, because the comman
 
 In an agent or CI, or with no terminal, nobody can answer a question. Levels 1, 3, 4 and 5 then fail with exit status 2 and no command in the output.
 
+termite knows an agent from the variables its harness sets, or from the missing terminal. The model has no part in this. An unknown harness that runs commands in a real terminal looks like a person, so it can see level 4 commands as text.
+
+At a terminal, termite tells the model that a person reads every command, so that it will suggest a root command when you ask for one. Small models may still decline.
+
 Piped output has no colour, and neither does output with `NO_COLOR` set. The words and marks are always shown.
 
 ## In scripts
@@ -280,7 +284,7 @@ tmite provenance accept config.json
 `bin` that termite has no record of. Accept a changed script the same way, or
 remove it.
 
-`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows the verdict and the reason, but not the request.
+`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows who asked, the verdict and the reason, but not the request. For an agent, it also lists requests that the model declined, and commands that `tmite check` stopped.
 
 The log has limits:
 

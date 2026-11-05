@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use crate::candidate::{Candidate, Risk};
 use crate::command::to_printable;
 use crate::config::Config;
-use crate::context::Context;
+use crate::context::{Caller, Context};
 use crate::error::{AssistError, Service};
 use crate::heartbeat::{self, CHECK_EVERY};
 use crate::progress::{Progress, Stage};
@@ -274,6 +274,13 @@ fn parse_candidates(content: &str) -> Result<Vec<Candidate>, AssistError> {
         .collect()
 }
 
+/// Only a person gets this. It changes what a model is willing to write, not
+/// what reaches the prompt: the levels still hold every command back. The
+/// evaluation states no caller, so its prompt stays the same.
+const PERSON_REVIEWS: &str = "\n- A person reads every command before it can \
+     run, and termite keeps dangerous commands away from the prompt. If the \
+     request needs root, suggest the command.";
+
 /// Kept short on purpose: the model is 7–8B, and the schema already forces
 /// the shape of the reply.
 fn system_prompt(context: &Context) -> String {
@@ -283,6 +290,10 @@ fn system_prompt(context: &Context) -> String {
     let os = to_printable(context.os());
     let cwd = to_printable(context.cwd());
     let session = context.session().as_str();
+    let reviews = match context.caller() {
+        Caller::Person => PERSON_REVIEWS,
+        Caller::Unstated | Caller::Agent => "",
+    };
 
     format!(
         "You turn a request into shell commands for {shell} on {os}. \
@@ -296,7 +307,7 @@ fn system_prompt(context: &Context) -> String {
          - risk: \"read\" if it only looks, \"write\" if it changes something that \
          can be undone, \"destructive\" if it deletes data or cannot be undone.\n\
          - refusal: if you will not do this, give no commands and say why here. \
-         Otherwise leave it empty."
+         Otherwise leave it empty.{reviews}"
     )
 }
 
@@ -373,7 +384,7 @@ mod tests {
     };
     use crate::candidate::{Candidate, Risk};
     use crate::config::Config;
-    use crate::context::{Context, Session};
+    use crate::context::{Caller, Context, Session};
     use crate::error::{AssistError, Service};
     use crate::progress::{NoProgress, Progress, Stage};
     use crate::test_support::ready;
@@ -509,6 +520,21 @@ mod tests {
             parse_model_reply(&reply),
             Err(AssistError::WrongCandidateCount { count: 0 })
         );
+    }
+
+    #[test]
+    fn given_a_person_then_only_they_are_told_a_person_reviews() {
+        let prompt = |caller| system_prompt(&context().with_caller(caller));
+
+        assert!(prompt(Caller::Person).contains("needs root"));
+        assert!(!prompt(Caller::Agent).contains("needs root"));
+        assert!(!prompt(Caller::Unstated).contains("needs root"));
+    }
+
+    #[test]
+    fn given_the_evaluation_then_its_prompt_ends_as_it_always_did() {
+        let prompt = system_prompt(&context());
+        assert!(prompt.ends_with("Otherwise leave it empty."), "{prompt}");
     }
 
     #[test]

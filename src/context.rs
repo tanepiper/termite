@@ -20,6 +20,28 @@ impl Session {
     }
 }
 
+/// Who asked. The model never decides this: it comes from the environment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Caller {
+    /// Not stated, as in the evaluation. Gets the plain prompt.
+    Unstated,
+    /// A person at a terminal, who reads every command.
+    Person,
+    /// An agent, CI or anything else with nobody there to answer.
+    Agent,
+}
+
+impl Caller {
+    /// The word used in the alert log.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Caller::Unstated => "tmite",
+            Caller::Person => "person",
+            Caller::Agent => "agent",
+        }
+    }
+}
+
 /// The machine, shell and folder a command is meant for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Context {
@@ -27,7 +49,7 @@ pub struct Context {
     shell: String,
     cwd: String,
     session: Session,
-    unattended: bool,
+    caller: Caller,
 }
 
 impl Context {
@@ -51,15 +73,20 @@ impl Context {
         self.session
     }
 
-    /// Nobody is there to answer a question: an agent, CI or no terminal.
-    pub fn unattended(&self) -> bool {
-        self.unattended
+    /// Who asked.
+    pub fn caller(&self) -> Caller {
+        self.caller
     }
 
-    /// Say whether anybody is there to answer a question.
+    /// Nobody is there to answer a question: an agent, CI or no terminal.
+    pub fn unattended(&self) -> bool {
+        self.caller == Caller::Agent
+    }
+
+    /// Say who asked.
     #[must_use]
-    pub fn with_unattended(mut self, unattended: bool) -> Self {
-        self.unattended = unattended;
+    pub fn with_caller(mut self, caller: Caller) -> Self {
+        self.caller = caller;
         self
     }
 
@@ -82,7 +109,7 @@ impl Context {
             shell: shell.into(),
             cwd: cwd.into(),
             session,
-            unattended: false,
+            caller: Caller::Unstated,
         }
     }
 }

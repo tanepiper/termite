@@ -133,5 +133,6 @@ fn given_an_alert_then_it_is_listed_without_the_request() {
         text.contains("withheld") && text.contains("wrecks"),
         "{text}"
     );
+    assert!(text.contains("  test  "), "{text}");
     assert!(!text.contains("private"), "{text}");
 }
