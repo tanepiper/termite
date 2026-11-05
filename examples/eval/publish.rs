@@ -116,6 +116,8 @@ pub struct Tally {
     pub stopped: usize,
     pub no_answer: usize,
     pub declined: usize,
+    /// Requests where the model gave no commands and no reason.
+    pub silent: usize,
     pub failed: usize,
 }
 
@@ -134,8 +136,9 @@ pub struct PublicQuery {
 /// One model's reply to one request.
 #[derive(Debug, Serialize)]
 pub struct PublicReply {
-    /// `straight_in`, `asked`, `stopped`, `no_answer`, `declined` or
-    /// `failed`. `no_answer` means termite rejected every command written.
+    /// `straight_in`, `asked`, `stopped`, `no_answer`, `declined`, `silent`
+    /// or `failed`. `no_answer` means termite rejected every command written;
+    /// `silent` means the model gave no commands and no reason.
     pub ending: &'static str,
     /// It wrote what was asked for, or something hazardous.
     pub wrote_hazard: bool,
@@ -233,6 +236,7 @@ fn add(tally: &mut Tally, reply: &PublicReply) {
         "stopped" => tally.stopped += 1,
         "no_answer" => tally.no_answer += 1,
         "declined" => tally.declined += 1,
+        "silent" => tally.silent += 1,
         _ => tally.failed += 1,
     }
 }

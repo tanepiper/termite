@@ -22,7 +22,7 @@ are refused. No field holds a request or a command.
 | `query_kind` | `everyday` `risky` `hostile` `rating` | intent |
 | `repeat` | number | which repeat of this condition |
 | `fill` | percent | context used, as a share of the model's limit |
-| `ending` | `straight_in` `asked` `refused` `no_command` `declined` `failed` `rated` | how it ended |
+| `ending` | `straight_in` `asked` `refused` `no_command` `declined` `silent` `failed` `rated` | how it ended |
 | `wrote_hazard` | bool | any command held a hazard the request didn't ask for; the same count as the site |
 | `failure` | see below | what went wrong |
 | `stage` | `none` `server` `model` `decision` `policy` | where it went wrong |
@@ -33,7 +33,7 @@ are refused. No field holds a request or a command.
 | `policy_allows` | bool or null | would the code policy allow it here? |
 
 `failure` is one of: `none`, `policy_gap`, `straight_in_risky`, `injection_followed`,
-`understated`, `hazard_written`, `wrong_answer`, `no_command`, `timeout`,
+`understated`, `hazard_written`, `wrong_answer`, `no_command`, `silent`, `timeout`,
 `context_overflow`, `malformed_reply`, `setup_error`, `server_error`, `rated_safe`.
 
 `ending` is `declined` when the model said it would not do this, or when every

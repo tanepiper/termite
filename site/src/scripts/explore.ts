@@ -16,7 +16,7 @@ type Row = {
 const FAILURE_WORDS = Object.fromEntries(FAILURES.map(({ mode, word }) => [mode, word]));
 const ENDING_WORDS: Record<string, string> = {
   straight_in: "Injected", asked: "Needs approval", refused: "Blocked", no_command: "No usable command",
-  declined: "Declined", failed: "Error", rated: "Rated",
+  declined: "Declined", silent: "Silent", failed: "Error", rated: "Rated",
 };
 /** What went wrong, worst first. Position in this list picks the colour, `--seg-N`. */
 const SEVERITY: { label: string; modes: string[] }[] = [
@@ -26,7 +26,7 @@ const SEVERITY: { label: string; modes: string[] }[] = [
   { label: "Hazard written", modes: ["hazard_written"] },
   { label: "Hazard labelled safe", modes: ["understated", "rated_safe"] },
   { label: "Wrong answer", modes: ["wrong_answer"] },
-  { label: "No usable command", modes: ["no_command"] },
+  { label: "No command", modes: ["no_command", "silent"] },
   { label: "Timeout", modes: ["timeout"] },
   { label: "Error", modes: ["malformed_reply", "setup_error", "server_error"] },
   { label: "Context overflow", modes: ["context_overflow"] },

@@ -40,7 +40,7 @@ INNER = SERVE + r"""
 serve "$DECISION_WEIGHTS" "$DECISION" /tmp/run/decision.sock
 serve "$MODEL" model /tmp/run/model.sock
 grep -h offloaded /tmp/run/*.log || true
-/tmp/eval run --only "$NAME" --commit "$COMMIT-zerogpu" --skip "$SKIP" --until "$UNTIL" $LIMIT
+/tmp/eval $COMMAND --only "$NAME" --commit "$COMMIT-zerogpu" --skip "$SKIP" --until "$UNTIL" $OPTIONS
 """
 JUDGE = SERVE + r"""
 if [ -n "$LETTERS" ]; then
@@ -121,8 +121,8 @@ def confined(script, extra):
     return json.dumps({"code": code, "log": log[-3000:], "files": files})
 
 
-@spaces.GPU(duration=480)
-def run(weights, decision_weights, spec, limit, skip):
+def test(weights, decision_weights, spec, command, options, skip):
+    """Run one model through `eval` with its server and the decision model."""
     until = int(time.time()) + STOP_AFTER
     prepare()
     model = json.loads(spec)
@@ -133,8 +133,20 @@ def run(weights, decision_weights, spec, limit, skip):
         "decision_url": "http://127.0.0.1:9931", "decision_model": DECISION,
         "model_socket": SOCKET, "decision_socket": DECISION_SOCKET}))
     return confined(INNER, {"MODEL": weights, "DECISION_WEIGHTS": decision_weights, "DECISION": DECISION,
-                            "NAME": model["name"], "LIMIT": f"--limit {int(limit)}" if int(limit) else "",
+                            "NAME": model["name"], "COMMAND": command, "OPTIONS": options,
                             "SKIP": str(int(skip)), "UNTIL": str(until)})
+
+
+@spaces.GPU(duration=480)
+def run(weights, decision_weights, spec, limit, skip):
+    return test(weights, decision_weights, spec, "run", f"--limit {int(limit)}" if int(limit) else "", skip)
+
+
+@spaces.GPU(duration=480)
+def trial(weights, decision_weights, spec, fills, skip):
+    """Long session trials at these levels, as percentages of the context."""
+    levels = ",".join(str(int(fill)) for fill in fills.split(","))
+    return test(weights, decision_weights, spec, "trials", f"--repeats 0 --fills {levels}", skip)
 
 
 @spaces.GPU(duration=480)
@@ -149,9 +161,10 @@ def judge(weights, spec):
 
 with gr.Blocks() as demo:
     repo, file, revision, out = gr.Text(), gr.Text(), gr.Text(), gr.Text()
-    weights, decision_weights, spec = gr.Text(), gr.Text(), gr.Text()
+    weights, decision_weights, spec, fills = gr.Text(), gr.Text(), gr.Text(), gr.Text()
     limit, skip = gr.Number(value=0), gr.Number(value=0)
     gr.Button("fetch").click(fetch, [repo, file, revision], out, api_name="fetch")
     gr.Button("run").click(run, [weights, decision_weights, spec, limit, skip], out, api_name="run")
+    gr.Button("trial").click(trial, [weights, decision_weights, spec, fills, skip], out, api_name="trial")
     gr.Button("judge").click(judge, [weights, spec], out, api_name="judge")
 demo.launch()

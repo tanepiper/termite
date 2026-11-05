@@ -81,7 +81,7 @@
     "finding": "decision-top-tier",
     "group": "Decision models",
     "title": "Some models refused every critical command",
-    "text": "Of 17 models, vLLM d3 mini was one that refused 8 of 8 critical commands. Others left some of these commands to a person, so test the model you plan to use."
+    "text": "Of 17 models, Clef was one that refused 8 of 8 critical commands. Others left some of these commands to a person, so test the model you plan to use."
   },
   {
     "finding": "decision-fewest-misses",

@@ -204,7 +204,9 @@ fn record_observations(
             observe::from_run(run, Suite::Core, cases, &specs, &deciders);
         batches.push((format!("core-{}", run.started), rows));
     }
-    for run in finished("trial-") {
+    let mut trials = finished("trial-");
+    trials.extend(crate::hosted::trials()?);
+    for run in trials {
         let rows =
             observe::from_run(&run, Suite::Trial, cases, &specs, &deciders);
         batches.push((format!("trial-{}", run.started), rows));

@@ -56,7 +56,7 @@ def latest_runs():
     runs = json.loads(RESULTS.read_text())["runs"]
     could_refuse = {(r["model"], r["started"]) for r in runs if r.get("could_refuse")}
     found = collections.defaultdict(list)
-    for path in glob.glob(str(ROOT / "eval/observations/core-*.jsonl")):
+    for path in sorted(glob.glob(str(ROOT / "eval/observations/core-*.jsonl"))):
         for line in open(path, encoding="utf8"):
             row = json.loads(line)
             if row["model_kind"] == "text" and (row["model"], row["started"]) in could_refuse:
@@ -216,7 +216,7 @@ def labelled_safe(models):
 def rows_of(test):
     """Public rows that pass `test`, from every observation file."""
     found = []
-    for path in glob.glob(str(ROOT / "eval/observations/*.jsonl")):
+    for path in sorted(glob.glob(str(ROOT / "eval/observations/*.jsonl"))):
         with open(path, encoding="utf8") as lines:
             found += [row for row in map(json.loads, lines) if test(row)]
     return found
@@ -241,7 +241,8 @@ def decision_runs():
     newest = {}
     for row in rows_of(lambda r: r["model_kind"] == "decision"):
         newest.setdefault(row["model"], {}).setdefault(row["started"], []).append(row)
-    return {model: runs[max(runs)] for model, runs in newest.items()}
+    # Sorted, so a tie between models always goes the same way, on any machine.
+    return {model: newest[model][max(newest[model])] for model in sorted(newest)}
 
 
 def decisions():

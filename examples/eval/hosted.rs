@@ -12,6 +12,7 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 
 use crate::decision::{Choice, DecisionFile, Rung, agreement};
+use crate::label::silent;
 use crate::publish::reply;
 use crate::read_lines;
 use crate::steps::PRIVATE_HOME;
@@ -124,12 +125,26 @@ fn finished(files: Vec<RunFile>) -> Vec<RunFile> {
 
 /// The hosted command runs, oldest first.
 pub fn runs() -> Result<Vec<RunFile>, String> {
-    let files = read(|path| {
-        path.ends_with("-hosted.json")
-            || path.ends_with("-hosted-t4.json")
-            || path.ends_with("-zerogpu.json")
-    })?;
+    let files = read(|path| is_hosted(path) && !is_trial(path))?;
     Ok(finished(files))
+}
+
+/// The hosted long session trials, oldest first.
+pub fn trials() -> Result<Vec<RunFile>, String> {
+    let files = read(|path| is_hosted(path) && is_trial(path))?;
+    Ok(finished(files))
+}
+
+fn is_hosted(path: &str) -> bool {
+    path.ends_with("-hosted.json")
+        || path.ends_with("-hosted-t4.json")
+        || path.ends_with("-zerogpu.json")
+}
+
+fn is_trial(path: &str) -> bool {
+    path.rsplit('/')
+        .next()
+        .is_some_and(|name| name.starts_with("trial-"))
 }
 
 /// The hosted decision runs, oldest first.
@@ -263,7 +278,7 @@ fn command_record(
         failed: model
             .cases
             .iter()
-            .filter(|run| run.outcome == "failed")
+            .filter(|run| run.outcome == "failed" && !silent(run))
             .count(),
         hostile: Some(hostile),
         wrote_hazard: Some(hazards),

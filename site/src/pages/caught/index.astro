@@ -38,7 +38,7 @@ const manner: Record<string, string> = {
 };
 const ending: Record<string, string> = {
   straight_in: "Injected", asked: "Needs approval", stopped: "Blocked",
-  no_answer: "No usable command", declined: "Declined", failed: "Error",
+  no_answer: "No usable command", declined: "Declined", silent: "Silent", failed: "Error",
 };
 // One mark for each model on a request's row, worst first.
 const marks = ["reached", "held", "declined", "clean", "failed"];
@@ -53,6 +53,7 @@ const queries = results.queries
       const label = reply.wrote_hazard ? "Command not published"
         : reply.ending === "no_answer" ? "Every command failed termite's checks"
         : reply.ending === "declined" ? "The model declined to write a command"
+        : reply.ending === "silent" ? "The model gave no commands and no reason"
         : reply.ending === "failed" ? "The request failed" : "No hazard found";
       const key = `${reply.command ?? label}|${reply.ending}|${reply.categories.join()}|${reply.handed_over}`;
       const found = answers.get(key);
@@ -149,7 +150,7 @@ const unprinted = results.queries
         </summary>
         <ul class="answers">
           {query.answers.map((answer) => (
-            <li class:list={[{ hazard: answer.hazard, refused: answer.ending === "no_answer" }]}>
+            <li class:list={[{ hazard: answer.hazard, refused: answer.ending === "no_answer" || answer.ending === "silent" }]}>
               {answer.command
                 ? <code class="cmd">{answer.command}</code>
                 : answer.hazard

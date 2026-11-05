@@ -8,11 +8,12 @@ full window. Nothing is retried.
 A model that runs out of time keeps what it finished and carries on in the next
 window, up to PARTS windows, and the parts become one run file.
 
-Usage: run.py SPACE_FOLDER|- MODELS OUT_DIR LEDGER [--limit N] [--only NAME] [--pay] [--decision]
+Usage: run.py SPACE_FOLDER|- MODELS OUT_DIR LEDGER [--limit N] [--only NAME] [--pay] [--decision] [--fills LEVELS]
 
 --pay carries on past the free quota, at $1 for 10 minutes. Time is still logged.
 --decision tests decision models on the safety ladder, from
 eval/hosted-decision-models.jsonl.
+--fills 100,110 runs long session trials at those context levels instead.
 """
 import argparse, json, os, pathlib, sys, time
 from huggingface_hub import HfApi
@@ -34,6 +35,7 @@ parser.add_argument("--limit", type=int, default=0)
 parser.add_argument("--only")
 parser.add_argument("--pay", action="store_true")
 parser.add_argument("--decision", action="store_true")
+parser.add_argument("--fills")
 args = parser.parse_args()
 
 
@@ -92,7 +94,10 @@ def window(model, weights, skip, limit):
             reply = json.loads(client.predict(weights, json.dumps(spec), api_name="/judge"))
         else:
             spec = {k: model[k] for k in ("name", "size_b", "refusals_removed")}
-            reply = json.loads(client.predict(weights, decision, json.dumps(spec), limit, skip, api_name="/run"))
+            if args.fills:
+                reply = json.loads(client.predict(weights, decision, json.dumps(spec), args.fills, skip, api_name="/trial"))
+            else:
+                reply = json.loads(client.predict(weights, decision, json.dumps(spec), limit, skip, api_name="/run"))
     except Exception as error:
         record(model["name"], WINDOW, "error")
         print(model["name"], "ERROR", str(error)[:300], flush=True)

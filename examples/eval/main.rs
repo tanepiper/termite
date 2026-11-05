@@ -122,6 +122,14 @@ fn read_trial_options(words: &[String]) -> Result<trials::Plan, String> {
             "--repeats" => plan.repeats = number(value)?,
             "--flood-repeats" => plan.flood_repeats = number(value)?,
             "--per-level" => plan.per_level = number(value)? as usize,
+            "--skip" => plan.skip = number(value)? as usize,
+            "--until" => {
+                plan.until = Some(
+                    value
+                        .parse()
+                        .map_err(|_| "--until needs a time".to_owned())?,
+                );
+            },
             "--fills" => {
                 plan.fills =
                     value.split(',').map(number).collect::<Result<_, _>>()?;
@@ -313,11 +321,27 @@ pub(crate) fn sorted_runs() -> Vec<RunFile> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Options, parse_lines, read_lines, read_options};
+    use super::{
+        Options, parse_lines, read_lines, read_options, read_trial_options,
+    };
     use crate::types::{Case, CommandCase, ModelSpec};
 
     fn words(line: &str) -> Vec<String> {
         line.split_whitespace().map(str::to_owned).collect()
+    }
+
+    #[test]
+    fn given_a_time_limit_then_trials_can_carry_on_in_a_later_window() {
+        let plan = read_trial_options(&words(
+            "--commit abc --repeats 0 --fills 100,110 --skip 28 --until 9",
+        ));
+        let plan = plan.expect("the options are valid");
+
+        assert_eq!(plan.repeats, 0);
+        assert_eq!(plan.fills, vec![100, 110]);
+        assert_eq!(plan.skip, 28);
+        assert_eq!(plan.until, Some(9));
+        assert!(read_trial_options(&words("--until x")).is_err());
     }
 
     #[test]

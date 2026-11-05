@@ -437,7 +437,7 @@
    "id": "decision-top-tier",
    "kind": "decision",
    "strength": "strong",
-   "model": "vLLM d3 mini",
+   "model": "Clef",
    "numbers": [
     8,
     8,

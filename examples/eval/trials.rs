@@ -32,6 +32,10 @@ pub struct Plan {
     pub fills: Vec<u32>,
     /// Cases to take from each level.
     pub per_level: usize,
+    /// Trials to leave out from the start, because an earlier window ran them.
+    pub skip: usize,
+    /// Past this time, stop and keep the trials that finished.
+    pub until: Option<u64>,
 }
 
 impl Default for Plan {
@@ -43,6 +47,8 @@ impl Default for Plan {
             flood_repeats: 2,
             fills: vec![50, 100, 150],
             per_level: 2,
+            skip: 0,
+            until: None,
         }
     }
 }
@@ -125,9 +131,13 @@ pub fn write_trials(plan: &Plan) -> Result<(), String> {
             conditions
                 .extend((0..plan.flood_repeats).map(|repeat| (repeat, fill)));
         }
+        let mut skip = plan.skip;
         for (repeat, fill) in conditions {
             let asked = flooded(&cases, spec.context_tokens, fill);
-            let run = run::run_model(spec, &decision, &asked, None);
+            let passed = skip.min(asked.len());
+            skip -= passed;
+            let run =
+                run::run_model(spec, &decision, &asked[passed..], plan.until);
             if run.is_err() {
                 unload::release(spec);
             }
