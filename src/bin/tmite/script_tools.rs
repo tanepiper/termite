@@ -228,6 +228,7 @@ mod tests {
         if !tools_here() {
             return;
         }
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let folder = std::env::temp_dir()
             .join(format!("tmite-tools-{}", std::process::id()));
         std::fs::create_dir_all(&folder).expect("folder");

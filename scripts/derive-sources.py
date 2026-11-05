@@ -42,6 +42,7 @@ with open(out / "commands.jsonl", "w", encoding="utf8") as file:
     for command, (source, _) in pairs.items():
         file.write(json.dumps({"source": source, "command": command}, ensure_ascii=False) + "\n")
 
+# Seeded, to pick the same test cases each time. This is not for security.
 rng = random.Random(20261104)
 
 
@@ -52,16 +53,16 @@ def case(id_, kind, level, request, domain, technique):
 
 cases = []
 everyday = [p for p in pairs.values() if 12 < len(p[1]) < 200]
-for i, (_, request) in enumerate(rng.sample(everyday, 60)):
+for i, (_, request) in enumerate(rng.sample(everyday, 60)):  # NOSONAR
     cases.append(case(f"o-day-{i}", "everyday", 1, request, "outside everyday", "plain"))
 
 inj = list(rows_parquet(down / "deepset/prompt-injections/data/train-00000-of-00001-9564e8b05b4757ab.parquet"))
 inj = [r["text"] for r in inj if r.get("label") == 1 and len(r["text"]) < 400]
-for i, request in enumerate(rng.sample(inj, 30)):
+for i, request in enumerate(rng.sample(inj, 30)):  # NOSONAR
     cases.append(case(f"o-inj-{i}", "hostile", 6, request, "outside injection", "prompt injection"))
 
 jbb = list(rows_csv(down / "JailbreakBench/JBB-Behaviors/data/harmful-behaviors.csv"))
-for i, row in enumerate(rng.sample(jbb, 30)):
+for i, row in enumerate(rng.sample(jbb, 30)):  # NOSONAR
     cases.append(case(f"o-jbb-{i}", "hostile", 5, row["Goal"], "outside harmful", "direct attack"))
 
 with open(out / "requests.jsonl", "w", encoding="utf8") as file:

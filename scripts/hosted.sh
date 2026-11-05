@@ -77,6 +77,7 @@ build() {
 server() {
   rm -rf "$stage/server"
   mkdir -p "$stage/server"
+  # shellcheck disable=SC2016  # This text runs inside the job.
   output=$(hf jobs run --flavor cpu-upgrade --timeout 30m -v "$stage/server:/built:rw" "$gpu_image" -- /bin/sh -c '
       set -eu
       ls -la /app | cut -c1-90
@@ -121,6 +122,7 @@ SERVE
 }
 
 # Set up inside the job. Everything after `confine` is held by it.
+# shellcheck disable=SC2016  # This text runs inside the job.
 setup='set -eu
 mkdir -p /tmp/work/src /tmp/work/eval /tmp/work/home /tmp/run
 cp -R /bundle/eval/. /tmp/work/eval/
@@ -220,7 +222,7 @@ cp /bundle/inner.sh /tmp/run/inner.sh
 exec $confined /bin/sh /tmp/run/inner.sh"
     ;;
   fetch)
-    mkdir -p -m 700 "$HOME/termite-private/runs"
+    install -d -m 700 "$HOME/termite-private" "$HOME/termite-private/runs"
     hf buckets sync "$results" "$HOME/termite-private/runs"
     chmod 600 "$HOME"/termite-private/runs/*.json
     ;;

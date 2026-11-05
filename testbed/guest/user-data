@@ -1,0 +1,12 @@
+#cloud-config
+hostname: testbed
+users:
+  - name: dev
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+ssh_pwauth: false
+package_update: false
+package_upgrade: false
+runcmd:
+  - [sh, -c, "mkdir -p /mnt/seed && mount -o ro LABEL=cidata /mnt/seed && sh /mnt/seed/install.sh /mnt/seed; umount /mnt/seed"]

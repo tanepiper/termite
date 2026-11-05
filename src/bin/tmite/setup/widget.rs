@@ -74,6 +74,7 @@ mod tests {
     use crate::shell::Shell;
 
     fn folder(name: &str) -> std::path::PathBuf {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let path = std::env::temp_dir()
             .join(format!("termite-offer-{}-{name}", std::process::id()));
         fs::create_dir_all(&path).expect("folder");

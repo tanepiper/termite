@@ -6,6 +6,7 @@ struct Temp(PathBuf);
 
 impl Temp {
     fn new(tag: &str) -> Self {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let root = std::env::temp_dir()
             .join(format!("tmite-profile-{tag}-{}", std::process::id()));
         // Left over from an earlier failed run.

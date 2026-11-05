@@ -186,7 +186,9 @@ fn report(
             "warnings": finding.warnings,
         });
         writeln!(out, "{line}")?;
-    } else if finding.rating == Rating::Risky || style.all {
+        return out.flush();
+    }
+    if finding.rating == Rating::Risky || style.all {
         writeln!(out, "{}", human_line(&finding, source, style.colour))?;
     }
     out.flush()

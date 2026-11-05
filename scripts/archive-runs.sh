@@ -11,11 +11,11 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 home=$HOME/termite-private
 dataset=termite-eval-runs
-mkdir -p -m 700 "$home" "$home/runs" "$home/observations"
+install -d -m 700 "$home" "$home/runs" "$home/observations"
 cp -n "$root"/eval/results/*.json "$root"/eval/results/team/*.json "$home/runs/" 2>/dev/null || true
 cp -n "$root"/eval/observations/*.jsonl "$home/observations/" 2>/dev/null || true
 chmod 600 "$home"/runs/*.json "$home"/observations/*.jsonl
-printf 'archive-runs.sh: %s raw runs in %s\n' "$(ls "$home/runs" | wc -l | tr -d ' ')" "$home/runs" >&2
+printf 'archive-runs.sh: %s raw runs in %s\n' "$(find "$home/runs" -type f | wc -l | tr -d ' ')" "$home/runs" >&2
 [[ ${1:-} == --local ]] && exit 0
 
 export HF_TOKEN_VALUE

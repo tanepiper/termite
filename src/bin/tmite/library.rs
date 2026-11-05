@@ -67,6 +67,7 @@ mod tests {
     use super::*;
 
     fn temp_home(tag: &str) -> Home {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let root = std::env::temp_dir()
             .join(format!("tmite-lib-{tag}-{}", std::process::id()));
         // Left over from an earlier failed run.

@@ -158,6 +158,7 @@ mod tests {
     #[test]
     fn given_a_custom_home_then_the_key_is_a_private_file_and_stays_the_same() {
         use std::os::unix::fs::PermissionsExt;
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let root = std::env::temp_dir()
             .join(format!("tmite-key-{}", std::process::id()));
         // Left over from an earlier failed run.

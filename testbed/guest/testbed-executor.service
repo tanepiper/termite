@@ -1,0 +1,11 @@
+[Unit]
+Description=termite test machine executor
+
+[Service]
+ExecStart=/opt/testbed/executor.py
+Restart=no
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target

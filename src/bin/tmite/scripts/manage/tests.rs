@@ -18,6 +18,7 @@ struct Temp(Home);
 
 impl Temp {
     fn new(tag: &str) -> Self {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let root = std::env::temp_dir()
             .join(format!("tmite-scripts-{tag}-{}", std::process::id()));
         // Left over from an earlier failed run.

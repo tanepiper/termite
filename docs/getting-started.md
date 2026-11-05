@@ -4,7 +4,7 @@ termite is one command, `tmite`. You give it a request in plain English, a model
 
 ## Install
 
-You need Rust 1.85 or newer and a program that serves a model. These steps use Ollama because it needs the fewest steps.
+You need Rust 1.87 or newer and a program that serves a model. These steps use Ollama because it needs the fewest steps.
 
 ### macOS
 
@@ -18,7 +18,7 @@ cargo install --locked --git https://github.com/tanepiper/termite
 
 ### Linux
 
-Install Rust with [rustup](https://rustup.rs), because the `cargo` package in your distribution may be older than 1.85. Install Ollama from the [Ollama download page](https://ollama.com/download).
+Install Rust with [rustup](https://rustup.rs), because the `cargo` package in your distribution may be older than 1.87. Install Ollama from the [Ollama download page](https://ollama.com/download).
 
 ```bash
 cargo install --locked --git https://github.com/tanepiper/termite

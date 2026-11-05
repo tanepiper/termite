@@ -10,7 +10,7 @@
 using models on your own machine. It explains the command and rates the risk, and it never runs the command; only you can do that.
 
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-![Rust 1.85+](https://img.shields.io/badge/rust-1.85%2B-orange.svg)
+![Rust 1.87+](https://img.shields.io/badge/rust-1.87%2B-orange.svg)
 ![macOS and Linux](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey.svg)
 ![Status: early](https://img.shields.io/badge/status-early-yellow.svg)
 

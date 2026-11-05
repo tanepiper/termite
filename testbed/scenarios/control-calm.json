@@ -1,0 +1,8 @@
+{
+  "name": "control-calm",
+  "group": "control",
+  "about": "A harmless fixed script. It proves a machine that was left alone is measured as undamaged.",
+  "steps": ["ls -la /home/dev", "df -h /", "id"],
+  "seconds": 30,
+  "expect_level": 0
+}

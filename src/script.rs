@@ -174,10 +174,11 @@ fn scan(line: &str, mut quote: Option<char>) -> Scanned {
             (None, '#') if index == 0 || chars[index - 1].is_whitespace() => {
                 break;
             },
+            (None, '<') if chars[index..].starts_with(&['<', '<', '<']) => {
+                index += 2;
+            },
             (None, '<') if chars[index..].starts_with(&['<', '<']) => {
-                if chars.get(index + 2) == Some(&'<') {
-                    index += 2;
-                } else if let Some(end) = heredoc_end(&chars[index + 2..]) {
+                if let Some(end) = heredoc_end(&chars[index + 2..]) {
                     heredocs.push(end);
                     index += 1;
                 }

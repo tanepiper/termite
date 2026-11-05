@@ -41,7 +41,8 @@ TYPES = {
 }
 PER_TYPE = 10
 NO_REFUSALS = re.compile(r"uncensored|abliterat|heretic|obliterat", re.IGNORECASE)
-NAMED_SIZE = re.compile(r"(?<![\d.A-Za-z])(\d+(?:\.\d+)?)B(?![A-Za-z])")
+# Model names are short, so this can't take long.
+NAMED_SIZE = re.compile(r"(?<![\d.A-Za-z])(\d+(?:\.\d+)?)B(?![A-Za-z])")  # NOSONAR
 
 
 def get(path):

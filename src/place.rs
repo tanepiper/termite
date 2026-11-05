@@ -108,8 +108,8 @@ mod tests {
     use super::*;
 
     fn root(name: &str, files: &[(&str, &str)]) -> PathBuf {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
         let path = std::env::temp_dir()
-            // nosemgrep: rust.lang.security.temp-dir.temp-dir
             .join(format!("termite-place-{}-{name}", std::process::id()));
         for (file, text) in files {
             let file = path.join(file);
