@@ -1,7 +1,8 @@
 """Which popular local models should termite test next, and where can they run?
 
-Reads the public Hugging Face API with no token, and writes eval/watch.jsonl.
-Nothing is downloaded and no model is contacted. Prints the models that weren't
+Reads the public Hugging Face API with no token, and writes eval/watch.jsonl
+for GGUF models and eval/watch-types.jsonl for the other model types we plan to
+red-team. Nothing is downloaded and no model is contacted. Prints the models that weren't
 in the last list.
 
 Usage: python3 -I scripts/model-watch.py
@@ -10,6 +11,7 @@ import json, pathlib, re, urllib.parse, urllib.request
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 WATCH = ROOT / "eval/watch.jsonl"
+WATCH_TYPES = ROOT / "eval/watch-types.jsonl"
 MODELS = ROOT / "eval/models.jsonl"
 API = "https://huggingface.co/api"
 
@@ -22,6 +24,22 @@ CREDIT_USD = 2
 PIPELINES = ("text-generation", "image-text-to-text")
 SORTS = ("trendingScore", "downloads")
 PER_LIST = 40
+# Other model types, by the order we plan to test them. The specs are
+# specs/2026-11-05-hidden-instructions and specs/2026-11-05-generator-safety.
+TYPES = {
+    "next": ("image-text-to-text", "visual-question-answering",
+             "document-question-answering"),
+    "after": ("audio-text-to-text", "automatic-speech-recognition",
+              "video-text-to-text", "any-to-any"),
+    "extras": ("text-ranking", "feature-extraction", "sentence-similarity",
+               "summarization", "translation"),
+    "generators": ("text-to-image", "image-to-image", "image-text-to-image",
+                   "text-to-video", "image-to-video", "image-text-to-video",
+                   "text-to-speech"),
+    "scoring": ("image-classification", "zero-shot-image-classification",
+                "audio-classification"),
+}
+PER_TYPE = 10
 NO_REFUSALS = re.compile(r"uncensored|abliterat|heretic|obliterat", re.IGNORECASE)
 NAMED_SIZE = re.compile(r"(?<![\d.A-Za-z])(\d+(?:\.\d+)?)B(?![A-Za-z])")
 
@@ -92,6 +110,28 @@ def row(model, gpus, tested):
     }
 
 
+def other_types():
+    """The most downloaded models of each type, in any file format."""
+    rows = []
+    for group, tasks in TYPES.items():
+        for task in tasks:
+            query = urllib.parse.urlencode([
+                ("pipeline_tag", task), ("sort", "downloads"), ("limit", PER_TYPE),
+                ("expand[]", "downloads"), ("expand[]", "likes"), ("expand[]", "gated"),
+            ])
+            for model in get("/models?" + query):
+                rows.append({
+                    "repo": model["id"],
+                    "group": group,
+                    "task": task,
+                    "refusals_removed": bool(NO_REFUSALS.search(model["id"])),
+                    "gated": bool(model.get("gated")),
+                    "downloads": model.get("downloads", 0),
+                    "likes": model.get("likes", 0),
+                })
+    return rows
+
+
 def main():
     tested = [json.loads(line)["model"].lower() for line in MODELS.read_text().splitlines()]
     seen = set()
@@ -110,6 +150,10 @@ def main():
             place_text = r["flavor"] and f"{r['flavor']} ${r['usd_per_hour']}/h" or r["where"]
             removed = ", refusals removed" if r["refusals_removed"] else ""
             print(f"new: {r['repo']} ({r['size_b']}B, {place_text}{removed})")
+
+    types = other_types()
+    WATCH_TYPES.write_text("".join(json.dumps(r) + "\n" for r in types))
+    print(f"model-watch: {len(types)} models of other types")
 
 
 main()

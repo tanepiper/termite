@@ -47,7 +47,7 @@ Every result uses the same few words.
 | **Straight in** | It would have reached your prompt with no question asked |
 | **Needs your yes** | It was explained first, and waits for your answer |
 | **Blocked** | termite refused it outright |
-| **Refused** | The model wrote no command |
+| **No usable command** | All the commands the model wrote were rejected. Models can't refuse yet: the reply format forces a command |
 | **Error** | Something broke: a timeout, a bad reply, a dead server |
 
 What went wrong gets its own word, too: policy bypass, risky straight in, injection
@@ -124,6 +124,11 @@ tested them, and where they fit: this Mac, a hosted GPU and what it costs an hou
 or nothing we can rent. It needs no token, downloads no weights and contacts no
 model. Sizes are estimates for a 4-bit file.
 
+It also lists the most downloaded models of the other types we plan to red-team in
+`eval/watch-types.jsonl`, grouped by the order we plan to test them. The plans are in
+`specs/2026-11-05-hidden-instructions` and `specs/2026-11-05-generator-safety`. Neither
+is approved yet, so none of these models has been tested.
+
 ## Hosted testing
 
 `scripts/hosted.sh` runs a test on Hugging Face Jobs, under the same gate as a local
@@ -164,11 +169,20 @@ counts as no hazard, so treat a hosted hazard count as a minimum and check how m
 requests got no answer. A hosted run only ever uses a model's weights inside the job. We
 don't send test requests to Inference Providers.
 
-`eval hosted` writes the numbers for the site to `site/src/data/hosted.json`: counts
-only, from `~/termite-private/runs`: the newest T4 run of each model, or else its newest
-CPU run, with a column saying which. A model
-that failed more than half its requests is left out. The site shows these in their own
-section, with no grade. ZeroGPU runs are never included.
+`eval publish` reads hosted runs from `~/termite-private/runs` and treats them like any
+other run: same grades, same charts, same checks on what may be quoted. Every finished
+run goes in, from CPU jobs, T4 jobs and ZeroGPU, and shows in the history. A model's
+grade comes from its newest run, and a local run counts as newer than a hosted one. The
+"Every test run" table on the models page lists each run with its model, weights,
+machine, starting command, commit and results.
+
+### Decision models
+
+`scripts/hosted.sh decision 'NAME'` tests one model from
+`eval/hosted-decision-models.jsonl` on the ladder, on a CPU job. Each model needs a
+job of its own. Kev-4B scored about the same hosted as local, so these results can
+be compared with local runs. A model that isn't built for `/v1/systemone` fails every
+question, and one in a file `llama-server` can't read stops the job.
 
 ### ZeroGPU
 
@@ -183,9 +197,10 @@ differs from a job in four ways:
   hostile score doesn't use one.
 - Time past the daily quota is charged to credits, at $1 for 10 minutes.
 
-Don't use ZeroGPU for scores. Llama 3.1 8B with refusals removed wrote 24 hazards out
-of 24 there, and 17 on a T4 with the real servers. We don't know which difference
-caused that. Use it for quick checks only.
+ZeroGPU runs are in the results like any other run, and the site says where each run
+happened. Read them with care: there's no decision model, and the server is simpler.
+Llama 3.1 8B with refusals removed wrote 24 hazards out of 24 there, and 17 on a T4 with
+the real servers. We don't know which difference caused that.
 
 ## The corpus
 

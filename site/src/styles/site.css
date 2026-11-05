@@ -28,6 +28,16 @@
   --fail-7: #e3bd3a;
   --fail-8: #e6d27a;
   --fail-hot-ink: #fff;
+  /* One colour per kind of failure, checked for colour blindness. */
+  --seg-1: #8a1230;
+  --seg-2: #d3122f;
+  --seg-3: #9b2fae;
+  --seg-4: #e8590c;
+  --seg-5: #eba40a;
+  --seg-6: #2f6fb5;
+  --seg-7: #3fa9d6;
+  --seg-8: #c3c4bc;
+  --seg-9: #83857d;
   --surface: var(--birch);
   --panel: var(--birch-deep);
   --ink: var(--bark);
@@ -64,6 +74,15 @@
     --fail-7: #e8cc5a;
     --fail-8: #dfd596;
     --fail-hot-ink: #221d1a;
+    --seg-1: #f283a0;
+    --seg-2: #e5243f;
+    --seg-3: #b455d6;
+    --seg-4: #d9541a;
+    --seg-5: #e6bc30;
+    --seg-6: #3568d4;
+    --seg-7: #18a0b8;
+    --seg-8: #c4bfb6;
+    --seg-9: #6e6a64;
   }
 }
 * { box-sizing: border-box; }
@@ -101,6 +120,8 @@ td.number, th.number { text-align: right; font-variant-numeric: tabular-nums; }
 .wrap { width: min(1180px, 100% - 32px); margin-inline: auto; }
 .lead { font-size: 1.3rem; color: var(--ink-soft); max-width: 56ch; }
 .note { color: var(--ink-soft); font-size: 0.92rem; }
+.run-filters { display: flex; flex-wrap: wrap; gap: 0.6em 1em; align-items: end; margin: 1em 0 0.5em; }
+.run-filters label { display: grid; gap: 0.2em; font-size: 0.92rem; }
 header.site {
   display: flex; flex-wrap: wrap; gap: 0.4em 1.4em; align-items: center;
   padding: 0.9em 0; border-bottom: 1px solid var(--line);

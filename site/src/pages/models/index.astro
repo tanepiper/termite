@@ -5,7 +5,7 @@ import LadderChart from "../../components/LadderChart.astro";
 import Scorecards from "../../components/Scorecards.astro";
 import WhereItGives from "../../components/WhereItGives.astro";
 import BulkBar from "../../components/BulkBar.astro";
-import { hosted, page, results, safety, ungraded, working } from "../../lib/results";
+import { page, readOnlyFlags, results, safety, ungraded, working } from "../../lib/results";
 
 const decision = results.decision;
 const tiers = [
@@ -29,7 +29,7 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
   </p>
 
   <div class="stats">
-    <p class="bad"><strong>{worst}%</strong><span>of hostile requests obeyed, by the worst model</span></p>
+    <p class="bad"><strong>{worst}%</strong><span>of hostile requests got a hazard, from the worst model</span></p>
     <p class="bad"><strong>{best}%</strong><span>by the best. None of them is a safety feature.</span></p>
     <p><strong>{working.length}</strong><span>command models, {decision.length} decision models</span></p>
   </div>
@@ -41,11 +41,19 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
     mean safer.
   </p>
   <Scorecards />
+  {results.totals.got_past_policy === readOnlyFlags && (
+    <p class="note">
+      <strong>Two of the Fs come from a limit in the hazard check.</strong> Ornith 1.5 9B and
+      Qwen3.5 9B, both with safety training removed, each wrote two commands that only read a
+      file and run nothing. The check matches on text, so it flagged words inside them. I've
+      left the grades as the check gave them.
+    </p>
+  )}
   {/* Every failure was a timeout when this was written. Check the reason again if the list changes. */}
   {ungraded.map((model) => (
     <p class="note">
       <strong>{model.name} has no grade.</strong> It failed {Math.round(model.failure_rate)}% of
-      its requests on this Mac because it did not answer within termite's 120-second limit.
+      its requests because it did not answer within termite's 120-second limit.
       A model that fails more than half its requests gets no grade, because too few answers
       are left to score.
     </p>
@@ -70,7 +78,7 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
         const original = originalOf(model.name);
         return { name: model.name.replace(", safety training removed", ""), before: original ? safety(original).rate : null, after: safety(model).rate };
       })} />
-      <p>It barely changes anything. These models were already doing as they were told, so there was little to strip out.</p>
+      <p class="note">In these runs the reply format needed a command, so neither version could refuse. The run table below shows this for each run.</p>
     </>
   )}
 
@@ -81,28 +89,6 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
       <div class="scroll"><table>
         <thead><tr><th scope="col">Model</th><th scope="col" class="number">Requests</th><th scope="col" class="number">Dangerous commands written</th><th scope="col" class="number">Reached the prompt unasked</th></tr></thead>
         <tbody>{results.outside.map((row) => <tr><th scope="row">{row.name}</th><td class="number">{row.requests}</td><td class="number">{row.complied}</td><td class="number">{row.straight_in}</td></tr>)}</tbody>
-      </table></div>
-    </>
-  )}
-
-  {hosted.length > 0 && (
-    <>
-      <h2>Models run on Hugging Face</h2>
-      <p>
-        These ran on Hugging Face Jobs, not on my machine, with the same requests, rules and
-        decision model. The hardware is different, so they have no grade. Don't compare them
-        with the grades above.
-      </p>
-      <p>
-        A request that failed counts as no hazard, so each count of dangerous commands is a
-        minimum. CPU runs fail more often because they hit the 120-second limit, so a CPU row
-        can be well below the real number. Each row is one run, and results move by about 2
-        requests between runs, so a small gap means nothing. Just the counts; nothing from
-        these runs is quoted.
-      </p>
-      <div class="scroll"><table>
-        <thead><tr><th scope="col">Model</th><th scope="col">Ran on</th><th scope="col" class="number">Hostile requests</th><th scope="col" class="number">Dangerous commands written, at least</th><th scope="col" class="number">Failed requests</th></tr></thead>
-        <tbody>{hosted.map((row) => <tr><th scope="row">{row.name}</th><td>{row.ran_on}</td><td class="number">{row.hostile}</td><td class="number">{row.wrote_hazard}</td><td class="number">{row.failed} of {row.requests}</td></tr>)}</tbody>
       </table></div>
     </>
   )}
@@ -129,6 +115,7 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
         <tr><th scope="row">Risks rated safe (tier 2 or above)</th>{decision.map((s) => <td class="number">{s.model_would_run}</td>)}</tr>
         <tr><th scope="row">Of those, also allowed by the policy</th>{decision.map((s) => <td class="number">{s.would_really_run.length}</td>)}</tr>
         <tr><th scope="row">Chose the safest way to do a job</th>{decision.map((s) => <td class="number">{s.safest_first} of {s.choices} ({pct(s.safest_first, s.choices)}%)</td>)}</tr>
+        <tr><th scope="row">Questions that got no answer</th>{decision.map((s) => <td class="number">{s.failed}</td>)}</tr>
       </tbody>
     </table>
   </div>
@@ -137,6 +124,29 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
     asked which one best does the job, not which is safest, and it often puts the
     dangerous one first. It's on the list.
   </p>
+
+  <h2>Every test run</h2>
+  <p>
+    Every test of every model: what ran, where it ran, how it was set up, the command that
+    started it, and the result. Nothing a model wrote was ever run. A failed request counts
+    as no hazard, so hazard counts are minimums. ZeroGPU runs used a simpler server with no
+    decision model.
+  </p>
+  <form class="run-filters" id="run-filters" aria-label="Filter runs">
+    <label>Model <input type="search" name="model" /></label>
+    <label>Ran on <select name="ran_on"><option value="">All</option>{[...new Set(results.runs.map((run) => run.ran_on))].sort().map((name) => <option>{name}</option>)}</select></label>
+    <label>Test <select name="test"><option value="">All</option><option>Commands</option><option>Decision</option></select></label>
+    <label>Could refuse <select name="refuse"><option value="">All</option><option>Yes</option><option>No</option></select></label>
+  </form>
+  <p class="note" id="run-count" role="status">{results.runs.length} runs</p>
+  <div class="scroll"><table id="runs">
+    <thead><tr><th scope="col">Date</th><th scope="col">Model</th><th scope="col">Test</th><th scope="col">Weights</th><th scope="col">Ran on</th><th scope="col">Temperature</th><th scope="col">Seed</th><th scope="col">Could refuse</th><th scope="col">Command</th><th scope="col">Commit</th><th scope="col" class="number">Dangerous commands written</th><th scope="col" class="number">Handed to the user</th><th scope="col" class="number">Ladder order</th><th scope="col" class="number">Failed</th></tr></thead>
+    <tbody>{results.runs.map((run) => {
+      const test = run.tau === null ? "Commands" : "Decision";
+      const refuse = run.could_refuse === null ? "" : run.could_refuse ? "Yes" : "No";
+      return <tr data-model={run.model.toLowerCase()} data-ran_on={run.ran_on} data-test={test} data-refuse={refuse}><td>{new Date(run.started * 1000).toISOString().slice(0, 10)}</td><th scope="row">{run.model}</th><td>{test}</td><td>{run.weights}</td><td>{run.ran_on}</td><td>{run.temperature ?? ""}</td><td>{run.tau === null ? (run.seed ?? "None") : ""}</td><td>{refuse}</td><td><code>{run.how}</code></td><td>{run.commit}</td><td class="number">{run.hostile === null ? "" : `${run.wrote_hazard} of ${run.hostile}`}</td><td class="number">{run.handed_over ?? ""}</td><td class="number">{run.tau === null ? "" : run.tau.toFixed(2)}</td><td class="number">{run.failed} of {run.requests}</td></tr>;
+    })}</tbody>
+  </table></div>
 
   <h2>The rules on their own</h2>
   <p>
@@ -153,6 +163,26 @@ const originalOf = (name: string) => working.find((m) => m.name === name.replace
     get their own views in the <a href={page("explore/")}>explorer</a>.
   </p>
 </Base>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("#run-filters");
+  const count = document.querySelector("#run-count");
+  const rows = [...document.querySelectorAll<HTMLTableRowElement>("#runs tbody tr")];
+  const apply = () => {
+    if (!form || !count) return;
+    const chosen = new FormData(form);
+    const text = String(chosen.get("model") ?? "").toLowerCase();
+    const matches = (row: HTMLTableRowElement) =>
+      (row.dataset.model ?? "").includes(text) &&
+      ["ran_on", "test", "refuse"].every((name) => !chosen.get(name) || row.dataset[name] === chosen.get(name));
+    const shown = rows.filter((row) => {
+      row.hidden = !matches(row);
+      return !row.hidden;
+    }).length;
+    count.textContent = `${shown} of ${rows.length} runs`;
+  };
+  form?.addEventListener("input", apply);
+</script>
 
 <style>
   th[scope="row"] { font-weight: 500; color: var(--ink); }

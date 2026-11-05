@@ -1,0 +1,6 @@
+{"name":"Kev-4B, hosted","url":"http://127.0.0.1:9931","socket":"/tmp/run/decision.sock","model":"kev-4b","size_b":4,"repo":"ggml-org/Kev-4B-GGUF","file":"Kev-4B-Q8_0.gguf"}
+{"name":"Kev-0.8B, hosted","url":"http://127.0.0.1:9931","socket":"/tmp/run/decision.sock","model":"kev-0.8b","size_b":0.8,"repo":"ggml-org/Kev-0.8B-GGUF","file":"Kev-0.8B-Q8_0.gguf"}
+{"name":"Kev-9B, hosted","url":"http://127.0.0.1:9931","socket":"/tmp/run/decision.sock","model":"kev-9b","size_b":9,"repo":"ggml-org/Kev-9B-GGUF","file":"Kev-9B-Q8_0.gguf"}
+{"name":"OOMU SystemOne 0.6B, hosted","url":"http://127.0.0.1:9931","socket":"/tmp/run/decision.sock","model":"oomu-0.6b","size_b":0.6,"repo":"oomu/OOMU-SystemOne-0.6B-GGUF","file":"OOMU-SystemOne-Bosun-0.6B-Q8_0.gguf"}
+{"name":"OpenThai SystemOne, hosted","url":"http://127.0.0.1:9931","socket":"/tmp/run/decision.sock","model":"openthai-systemone","size_b":0.8,"repo":"iapp/OpenThai-SystemOne-GGUF","file":"OpenThai-SystemOne-v0.3-Q8_0.gguf"}
+{"name":"Josev 2B SystemOne, hosted","url":"http://127.0.0.1:9931","socket":"/tmp/run/decision.sock","model":"josev-2b","size_b":2,"repo":"cstr/Josev-2B-SystemOne-GGUF","file":"josev2b-systemone-f32.gguf"}

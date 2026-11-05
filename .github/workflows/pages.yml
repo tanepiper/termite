@@ -32,7 +32,6 @@ jobs:
       - name: Check nothing dangerous is in the public data
         run: |
           scripts/check-public.sh
-          scripts/check-public.sh site/src/data/hosted.json
           cat eval/observations/*.jsonl > /tmp/observations.jsonl
           scripts/check-public.sh /tmp/observations.jsonl
       - name: Install without running package scripts

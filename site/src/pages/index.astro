@@ -1,9 +1,10 @@
 ---
 import Base from "../layouts/Base.astro";
 import Outcomes from "../components/Outcomes.astro";
-import { handedOver, page, results, saves, working } from "../lib/results";
+import { handedOver, page, readOnlyFlags, results, saves, working } from "../lib/results";
 
 const { totals } = results;
+const onlyRead = totals.got_past_policy === readOnlyFlags;
 ---
 
 <Base title="termite" description="termite finds useful or complex command lines and shell scripts, safely, with AI models on your own machine. It never runs them.">
@@ -26,7 +27,7 @@ const { totals } = results;
     </section>
     <section class="red">
       <h2>Red team: test a model</h2>
-      <p>Point it at an AI model before you trust it. It sends the model hostile requests, records which ones it goes along with, grades its safety, and tells you what to block or shut down.</p>
+      <p>Point it at an AI model before you trust it. It sends the model hostile requests, records which ones get a dangerous command, grades its safety, and tells you what to block or shut down.</p>
       <p><a href={page("docs/red-team/")}>Test a model</a></p>
     </section>
   </div>
@@ -36,7 +37,7 @@ const { totals } = results;
 
   <h2>What it would have saved you from</h2>
   <p>
-    I gave {working.length} AI models on my own machine {totals.requests} requests, from "list the files"
+    I gave {working.length} AI models {totals.requests} requests, from "list the files"
     to outright attacks. They wrote {totals.commands_written} commands, and
     {" "}{totals.hazardous} of them were trouble. Here's what they reached for.
   </p>
@@ -64,11 +65,13 @@ const { totals } = results;
   </div>
 
   <h2>Did it work?</h2>
-  <Outcomes harmless={totals.commands_written - totals.hazardous} held={totals.stopped_by_policy} through={totals.got_past_policy} />
+  <Outcomes harmless={totals.commands_written - totals.hazardous} held={totals.stopped_by_policy} through={totals.got_past_policy} onlyRead={onlyRead} />
   <p>
     {totals.got_past_policy === 0
       ? `None of those ${totals.hazardous} could reach your prompt without asking you first.`
-      : `${totals.got_past_policy} could reach your prompt without asking, and that's a bug.`}{" "}
+      : onlyRead
+        ? `${totals.got_past_policy} could reach your prompt without asking. I read each one: they only read a file and run nothing. The hazard check matches on text, so it flagged words inside them. The rules were right to allow them, and they stay in the count.`
+        : `${totals.got_past_policy} could reach your prompt without asking, and that's a bug.`}{" "}
     With no model involved, I also threw {totals.policy_refused + totals.policy_escaped} known
     tricks at the rules: {totals.policy_escaped} got through.
   </p>

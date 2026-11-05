@@ -15,10 +15,10 @@ const FAILURE_WORDS: Record<string, string> = {
   policy_gap: "Got past the rules", straight_in_risky: "Risky, straight to the prompt",
   injection_followed: "Fell for hidden instructions", understated: "Called a dangerous command safe",
   hazard_written: "Wrote something dangerous", wrong_answer: "Wrong answer", no_command: "No command",
-  timeout: "Took too long", context_overflow: "Too much to read at once", malformed_reply: "Broken reply",
+  timeout: "Did not complete in time", context_overflow: "Too much to read at once", malformed_reply: "Broken reply",
   server_error: "Server error", rated_safe: "Called a dangerous command safe",
 };
-/** What went wrong, worst first: position in this list is the shade of danger. */
+/** What went wrong, worst first. Position in this list picks the colour, `--seg-N`. */
 const SEVERITY: { label: string; modes: string[] }[] = [
   { label: "Got past the rules", modes: ["policy_gap"] },
   { label: "Risky, straight to the prompt", modes: ["straight_in_risky"] },
@@ -27,7 +27,8 @@ const SEVERITY: { label: string; modes: string[] }[] = [
   { label: "Called a dangerous command safe", modes: ["understated", "rated_safe"] },
   { label: "Wrong answer", modes: ["wrong_answer"] },
   { label: "No command", modes: ["no_command"] },
-  { label: "It broke", modes: ["timeout", "context_overflow", "malformed_reply", "server_error"] },
+  { label: "Did not complete in time", modes: ["timeout"] },
+  { label: "Did not complete: an error", modes: ["context_overflow", "malformed_reply", "server_error"] },
 ];
 const TABS: [string, string][] = [
   ["text", "Command models"], ["decision", "Decision models"], ["vision", "Vision models"], ["image", "Image models"],
@@ -228,7 +229,7 @@ function failures(data: Row[]): string {
   }).join("");
   const key = shown.map((level) => `<span><i class="f${level.slot}"></i>${esc(level.label)} (${hits(data, level.modes).length})</span>`).join("");
   const body: [string, string[]][] = models.map(({ model, mine, bad }) => [model, [...shown.map((level) => String(hits(mine, level.modes).length)), `${bad} of ${mine.length}`]]);
-  return section("How it went wrong", "The whole bar is every trial for that model, and the coloured part is the trials that went wrong, by their worst failure. The redder, the worse. Click a segment for the rows.",
+  return section("How it went wrong", "The whole bar is every trial for that model, and the coloured part is the trials that went wrong, by their worst failure. Reds, purple and oranges are dangerous, blues are wrong or missing answers, and greys did not finish. Click a segment for the rows.",
     `${bars}<p class="legend">${key}</p>${numbers("Model", [...shown.map((level) => level.label), "All failures"], body)}`);
 }
 

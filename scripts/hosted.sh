@@ -8,6 +8,7 @@
 #   scripts/hosted.sh build        build the Linux tools, in a job
 #   scripts/hosted.sh gate         check the gate in a job, with no model
 #   scripts/hosted.sh run 'NAME'   test a model from eval/hosted-models.jsonl
+#   scripts/hosted.sh decision 'NAME'   test one from eval/hosted-decision-models.jsonl
 #   scripts/hosted.sh fetch        copy finished runs to ~/termite-private/runs
 #
 # Set HOSTED_GPU=1 to use a T4 for gate and run. CUDA needs /proc writable, and
@@ -78,6 +79,22 @@ stage_bundle() {
   cp eval/hosted-models.jsonl "$bundle/eval/models.jsonl"
 }
 
+# Start a model server and wait for it, inside the job.
+serve_function() {
+  cat <<SERVE
+serve() {
+  /app/llama-server --model "\$1" --alias "\$2" --host "\$3" --ctx-size $context --threads \$CPU_CORES --n-gpu-layers $layers >"\$3.log" 2>&1 &
+  server=\$!
+  tries=0
+  until grep -q 'listening on' "\$3.log" 2>/dev/null; do
+    tries=\$((tries + 1))
+    if [ \$tries -ge 900 ] || ! kill -0 \$server 2>/dev/null; then tail -5 "\$3.log"; exit 1; fi
+    sleep 1
+  done
+}
+SERVE
+}
+
 # Set up inside the job. Everything after `confine` is held by it.
 setup='set -eu
 mkdir -p /tmp/work/src /tmp/work/eval /tmp/work/home /tmp/run
@@ -116,16 +133,7 @@ exec $confined /tmp/eval gate red"
     bundle=$stage/bundle-$(shasum <<<"$2" | cut -c1-8)
     stage_bundle
     cat >"$bundle/inner.sh" <<INNER
-serve() {
-  /app/llama-server --model "\$1" --alias "\$2" --host "\$3" --ctx-size $context --threads \$CPU_CORES --n-gpu-layers $layers >"\$3.log" 2>&1 &
-  server=\$!
-  tries=0
-  until grep -q 'listening on' "\$3.log" 2>/dev/null; do
-    tries=\$((tries + 1))
-    if [ \$tries -ge 900 ] || ! kill -0 \$server 2>/dev/null; then tail -5 "\$3.log"; exit 1; fi
-    sleep 1
-  done
-}
+$(serve_function)
 serve /decision/Kev-4B-Q8_0.gguf ggml-org/Kev-4B-GGUF:Q8_0 /tmp/run/decision.sock
 serve "\$(ls /model/*.gguf | grep -iv mmproj | grep -i q4_k_m | head -1)" $alias $socket
 grep -h "offloaded" /tmp/run/*.log || true
@@ -139,13 +147,36 @@ cp /bundle/config.json /tmp/work/home/config.json
 cp /bundle/inner.sh /tmp/run/inner.sh
 exec $confined /bin/sh /tmp/run/inner.sh"
     ;;
+  decision)
+    [[ $# -eq 2 ]] || { printf 'usage: hosted.sh decision NAME\n' >&2; exit 64; }
+    row=$(jq -c --arg name "$2" 'select(.name == $name)' eval/hosted-decision-models.jsonl)
+    [[ -n $row ]] || { printf 'hosted.sh: no decision model called %s\n' "$2" >&2; exit 1; }
+    repo=$(jq -r .repo <<<"$row")
+    file=$(jq -r .file <<<"$row")
+    alias=$(jq -r .model <<<"$row")
+    socket=$(jq -r .socket <<<"$row")
+    context=4096
+    hours=1
+    commit=$(git rev-parse --short HEAD)-$suffix-decision-$alias
+    bundle=$stage/bundle-$(shasum <<<"$2" | cut -c1-8)
+    stage_bundle
+    printf '%s\n' "$row" >"$bundle/eval/decision-models.jsonl"
+    cat >"$bundle/inner.sh" <<INNER
+$(serve_function)
+serve "/model/$file" $alias $socket
+TMPDIR=/tmp/run /tmp/eval decision --commit $commit
+INNER
+    in_job -v "hf://$repo:/model" -v "$bundle:/bundle" -v "$results:/out" "$image" -- /bin/sh -c "$setup
+cp /bundle/inner.sh /tmp/run/inner.sh
+exec $confined /bin/sh /tmp/run/inner.sh"
+    ;;
   fetch)
     mkdir -p -m 700 "$HOME/termite-private/runs"
     hf buckets sync "$results" "$HOME/termite-private/runs"
     chmod 600 "$HOME"/termite-private/runs/*.json
     ;;
   *)
-    sed -n '8,11p' "$0" | cut -c3- >&2
+    sed -n '8,12p' "$0" | cut -c3- >&2
     exit 64
     ;;
 esac

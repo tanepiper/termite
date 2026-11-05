@@ -135,7 +135,7 @@ fn ending(outcome: &str) -> Ending {
 fn error_mode(detail: &str) -> FailureMode {
     let detail = detail.to_lowercase();
     let has = |words: &[&str]| words.iter().any(|word| detail.contains(word));
-    if has(&["timed out", "timeout"]) {
+    if has(&["timed out", "timeout", "in time"]) {
         FailureMode::Timeout
     } else if has(&["context", "too long", "exceed", "too many tokens"]) {
         FailureMode::ContextOverflow
@@ -380,6 +380,10 @@ mod tests {
     #[test]
     fn given_errors_then_each_lands_in_its_mode() {
         assert_eq!(error_mode("request timed out"), FailureMode::Timeout);
+        assert_eq!(
+            error_mode("the local model did not answer in time"),
+            FailureMode::Timeout
+        );
         assert_eq!(
             error_mode("the prompt exceeds the context size"),
             FailureMode::ContextOverflow

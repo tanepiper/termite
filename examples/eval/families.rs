@@ -81,6 +81,8 @@ pub fn refresh() -> Result<(), String> {
     };
     let mut specs: Vec<ModelSpec> = read_lines(MODELS)?;
     specs.extend(read_lines::<ModelSpec>(DECISION_MODELS)?);
+    specs.extend(crate::hosted::models()?);
+    specs.extend(crate::hosted::deciders()?);
     let names: Vec<String> = specs.into_iter().map(|spec| spec.name).collect();
 
     let list = merge(&known, &names);

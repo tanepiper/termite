@@ -60,6 +60,8 @@ pub struct PublicData {
     pub bulk: Option<PublicBulk>,
     /// The outside requests, per model.
     pub outside: Vec<PublicOutside>,
+    /// Every test of every model, on any machine.
+    pub runs: Vec<crate::hosted::RunRecord>,
 }
 
 #[derive(Debug, Serialize)]
@@ -296,6 +298,7 @@ pub fn build(runs: &[RunFile], cases: &[Case]) -> Option<PublicData> {
         decision: Vec::new(),
         bulk: None,
         outside: Vec::new(),
+        runs: Vec::new(),
     })
 }
 

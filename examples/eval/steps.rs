@@ -23,8 +23,8 @@ use crate::{
     sorted_runs,
 };
 
-const LADDER: &str = "eval/corpus/ladder.jsonl";
-const CHOICES: &str = "eval/corpus/choices.jsonl";
+pub(crate) const LADDER: &str = "eval/corpus/ladder.jsonl";
+pub(crate) const CHOICES: &str = "eval/corpus/choices.jsonl";
 pub(crate) const DECISION_MODELS: &str = "eval/decision-models.jsonl";
 const OUTSIDE_COMMANDS: &str = "eval/downloads/derived/commands.jsonl";
 const OBSERVATIONS: &str = "eval/observations";
@@ -105,12 +105,21 @@ fn finished(prefix: &str) -> Vec<RunFile> {
     runs
 }
 
+/// Every run. Hosted runs go first, so the later ones here win for a model
+/// run in both places.
+fn all_runs() -> Result<Vec<RunFile>, String> {
+    let mut runs = crate::hosted::runs()?;
+    runs.extend(sorted_runs());
+    Ok(runs)
+}
+
 /// Runs, holding only the models still listed for commands.
 fn listed_runs() -> Result<Vec<RunFile>, String> {
-    let specs: Vec<ModelSpec> = read_lines(MODELS)?;
+    let mut specs: Vec<ModelSpec> = read_lines(MODELS)?;
+    specs.extend(crate::hosted::models()?);
     let names: BTreeSet<String> =
         specs.into_iter().map(|spec| spec.name).collect();
-    let mut runs = sorted_runs();
+    let mut runs = all_runs()?;
     for run in &mut runs {
         run.models.retain(|model| names.contains(&model.name));
     }
@@ -194,9 +203,11 @@ fn record_observations(
     rungs: &[Rung],
 ) -> Result<(), String> {
     let mut specs: Vec<ModelSpec> = read_lines(MODELS)?;
-    let decision: Vec<ModelSpec> = read_lines(DECISION_MODELS)?;
+    let mut decision: Vec<ModelSpec> = read_lines(DECISION_MODELS)?;
+    decision.extend(crate::hosted::deciders()?);
     let deciders: Vec<String> =
         decision.iter().map(|spec| spec.name.clone()).collect();
+    specs.extend(crate::hosted::models()?);
     specs.extend(decision);
     fs::create_dir_all(OBSERVATIONS).map_err(|error| error.to_string())?;
 
@@ -253,22 +264,32 @@ pub fn write_public() -> Result<(), String> {
     let cases: Vec<Case> = read_lines(REQUESTS)?;
     let rungs: Vec<Rung> = read_lines(LADDER)?;
     let choices: Vec<Choice> = read_lines(CHOICES)?;
-    let decisions = sorted_decisions();
+    let local = sorted_decisions();
+    let hosted = crate::hosted::decisions()?;
+    let decisions: Vec<DecisionFile> =
+        hosted.iter().chain(&local).cloned().collect();
     let mut bulks: Vec<BulkFile> = read_results("bulk-");
     bulks.sort_by_key(|file| file.started);
 
-    record_observations(&sorted_runs(), &cases, &decisions, &rungs)?;
+    record_observations(&all_runs()?, &cases, &decisions, &rungs)?;
     let mut data = publish::build(&runs, &cases)
         .ok_or("no model results yet: run `eval run` first")?;
     data.trend =
         update_history(&runs, &cases, &decisions, &rungs, &choices, &bulks)?;
-    data.decision = scores(&decisions, &rungs, &choices);
+    data.decision = scores(&local, &rungs, &choices);
+    for run in hosted.iter().rev().flat_map(|file| &file.models) {
+        if !data.decision.iter().any(|score| score.name == run.name) {
+            data.decision.push(agreement(run, &rungs, &choices));
+        }
+    }
     data.bulk = bulks.last().map(PublicBulk::from);
     let outside = finished("outside-");
     if let Some(run) = newest_by(outside, |run| run.started) {
         // Outside requests are never quoted, so only counts go out.
         data.outside = bulk::outside(&run, &outside_cases(&run)?);
     }
+    data.runs =
+        crate::hosted::ledger(&sorted_runs(), &local, &cases, &rungs, &choices)?;
     crate::roster::write(&data)?;
     let text = publish::render(&data, &runs, &cases)?;
     fs::write(PUBLIC_DATA, text).map_err(|error| error.to_string())?;

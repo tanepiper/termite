@@ -262,6 +262,7 @@ pub fn run_model(
             "decision_model": spec.model,
             "generation_timeout_secs": 120,
             "decision_timeout_secs": 120,
+            "decision_socket": spec.socket,
         })
         .to_string(),
     )

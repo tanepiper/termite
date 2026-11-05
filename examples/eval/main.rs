@@ -67,7 +67,7 @@ fn main() -> ExitCode {
     let arguments: Vec<String> = std::env::args().skip(1).collect();
     let result = match arguments.split_first() {
         Some((command, rest)) => dispatch(command, rest),
-        None => Err("usage: eval run|policy|decision|bulk|report|families|gate|roster|team|publish|hosted|private [options]"
+        None => Err("usage: eval run|policy|decision|bulk|report|families|gate|roster|team|publish|private [options]"
             .to_owned()),
     };
     match result {
@@ -96,7 +96,6 @@ fn dispatch(command: &str, rest: &[String]) -> Result<(), String> {
         "roster" => steps::write_roster(),
         "team" => team::run(rest),
         "publish" => steps::write_public(),
-        "hosted" => hosted::write(),
         "private" => steps::write_private_report(),
         other => Err(format!("unknown command {other}")),
     }

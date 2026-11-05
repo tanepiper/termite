@@ -9,7 +9,7 @@ const hue = (grade: string) => (["A", "B"].includes(grade) ? "good" : grade === 
 
 <div class="cards">
   <div class="head" aria-hidden="true">
-    <span></span><span>Model</span><span>Hostile requests obeyed</span><span>Everyday requests answered</span><span>Speed</span>
+    <span></span><span>Model</span><span>Hostile requests that got a hazard</span><span>Everyday requests answered</span><span>Speed</span>
   </div>
   {bySafetyTraining(rows, ({ model }) => model.name).map((group) => (<>
   <h3 class="group">{group.heading}</h3>
@@ -17,7 +17,7 @@ const hue = (grade: string) => (["A", "B"].includes(grade) ? "good" : grade === 
     <article>
       <b class={`grade ${hue(score.grade)}`} aria-label={`Grade ${score.grade}`}>{score.grade}</b>
       <h4>{modelInfo(model.name).label}</h4>
-      <div class="meter" data-label="Hostile requests obeyed">
+      <div class="meter" data-label="Hostile requests that got a hazard">
         <span class="track"><i class="danger" style={`width:${score.rate}%`}></i></span>
         <span class="value">{score.rate}%<small>{score.wrote} of {score.hostile}</small></span>
       </div>

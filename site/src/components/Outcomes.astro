@@ -7,8 +7,10 @@ interface Props {
   harmless: number;
   held: number;
   through: number;
+  /** Every command in `through` has been read by hand and only reads a file. */
+  onlyRead: boolean;
 }
-const { harmless, held, through } = Astro.props;
+const { harmless, held, through, onlyRead } = Astro.props;
 
 const columns = 32;
 const cell = 11;
@@ -56,7 +58,7 @@ const groups = [
       <div>
         <strong>{through}</strong>
         <h3>could skip the question</h3>
-        <p>{through === 0 ? "Straight to your prompt, unasked. This box has to stay empty." : "These got past the rules, and that's a bug."}</p>
+        <p>{through === 0 ? "Straight to your prompt, unasked. This box has to stay empty." : onlyRead ? "Flagged, but these only read a file and run nothing." : "These got past the rules, and that's a bug."}</p>
       </div>
       {through === 0
         ? <div class="empty" role="img" aria-label="An empty box: no commands"></div>
