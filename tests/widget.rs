@@ -270,6 +270,22 @@ fn given_a_risky_pick_from_a_list_then_it_needs_a_second_yes() {
 
 /// An ordinary line still runs, and that's the shell doing it.
 #[test]
+fn given_an_older_tmite_then_nothing_reaches_the_prompt_and_it_says_why() {
+    in_each_shell(|shell| {
+        for kind in ["confirm", "straight_in"] {
+            let answer =
+                format!("{kind}\n{COMMAND}\nMake a file (read, score 0.68)");
+            let seen = drive(shell, kind, "? go", "", &answer);
+
+            assert!(seen.screen.contains("does not match"), "{}", seen.screen);
+            assert!(!seen.screen.contains("[Y/n]"), "{}", seen.screen);
+            assert_eq!(seen.prompt, "", "{}", shell.name);
+            assert!(!seen.ran, "{}", shell.name);
+        }
+    });
+}
+
+#[test]
 fn given_an_ordinary_line_then_the_shell_runs_it_as_normal() {
     in_each_shell(|shell| {
         let seen = drive(shell, "plain", "touch ran", "", "unused");

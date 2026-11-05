@@ -301,6 +301,12 @@ termite warns you about a risky command, but it does not stop you. If you approv
 
 termite blocks a command only when the decision model refuses it. Blocking by level is on the [roadmap](safety-ladder.md).
 
+## If the widget does not match tmite
+
+The widget and the `tmite` program are updated together. If you load the widget from a copy of the repository and the program is older, the widget says that they do not match, and it puts nothing at your prompt.
+
+To fix this, update `tmite`, and then open a new shell. Load the widget in the way that [Getting started](getting-started.md#the-prompt-widget) shows, so that it always comes from the program that you installed.
+
 ## Slow answers
 
 The first request after a pause can take a minute while the model loads. The widget shows what it is doing during this time.

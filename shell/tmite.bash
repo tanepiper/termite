@@ -111,6 +111,16 @@ _tmite_enter() {
     _tmite_ask "$query"
     kind=${_tmite_lines[0]-} rating=${_tmite_lines[1]-} command=${_tmite_lines[2]-}
 
+    # An older tmite has no rating line, so its lines mean something else here.
+    # Line 3 would be its description, so nothing may reach the prompt.
+    if [[ $kind == confirm || $kind == straight_in ]] &&
+      [[ $rating != reads && $rating != changes && $rating != risky ]]; then
+      printf '%s\n' 'tmite: this widget does not match the installed tmite. Nothing was put at your prompt. Update tmite, and then open a new shell.'
+      READLINE_LINE=
+      READLINE_POINT=0
+      break
+    fi
+
     case $kind in
       confirm)
         _tmite_show 3

@@ -58,6 +58,14 @@ function _tmite_enter
         set -l kind $lines[1]
         set -l rating $lines[2]
 
+        # An older tmite has no rating line, so its lines mean something else
+        # here. Line 3 would be its description, so nothing may reach the prompt.
+        if contains -- "$kind" confirm straight_in; and not contains -- "$rating" reads changes risky
+            printf '%s\n' 'tmite: this widget does not match the installed tmite. Nothing was put at your prompt. Update tmite, and then open a new shell.'
+            commandline -r ''
+            break
+        end
+
         switch "$kind"
             case confirm
                 printf '%s\n' $lines[4..-1]

@@ -137,6 +137,14 @@ _tmite_accept_line() {
     lines=("${(@f)output}")
     local kind=$lines[1] rating=$lines[2] command=$lines[3]
 
+    # An older tmite has no rating line, so its lines mean something else here.
+    # Line 3 would be its description, so nothing may reach the prompt.
+    if [[ $kind == (confirm|straight_in) && $rating != (reads|changes|risky) ]]; then
+      BUFFER=
+      zle -M -- "tmite: this widget does not match the installed tmite. Nothing was put at your prompt. Update tmite, and then open a new shell."
+      break
+    fi
+
     case $kind in
       confirm)
         _tmite_show "${(F)lines[4,-1]}"
