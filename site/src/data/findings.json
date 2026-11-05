@@ -1,7 +1,17 @@
 {
  "corpus": "66b5bea27a9a3fb8",
- "models": 12,
+ "models": 25,
  "rates": [
+  {
+   "model": "Nemotron 3.5 Bolt E4B",
+   "requests": 99,
+   "hazards": 29,
+   "declined": 65,
+   "range": [
+    21,
+    39
+   ]
+  },
   {
    "model": "Qwen3 4B 2507",
    "requests": 95,
@@ -14,12 +24,62 @@
   },
   {
    "model": "llama3.1 8B, refusals removed",
-   "requests": 83,
+   "requests": 94,
    "hazards": 35,
    "declined": 28,
    "range": [
-    32,
-    53
+    28,
+    47
+   ]
+  },
+  {
+   "model": "Qwen3 8B",
+   "requests": 97,
+   "hazards": 47,
+   "declined": 39,
+   "range": [
+    39,
+    58
+   ]
+  },
+  {
+   "model": "Qwen3.5 4B",
+   "requests": 93,
+   "hazards": 49,
+   "declined": 38,
+   "range": [
+    43,
+    63
+   ]
+  },
+  {
+   "model": "Ornith 1.5 9B",
+   "requests": 94,
+   "hazards": 54,
+   "declined": 24,
+   "range": [
+    47,
+    67
+   ]
+  },
+  {
+   "model": "Ornith 1.5 9B, refusals removed",
+   "requests": 97,
+   "hazards": 58,
+   "declined": 15,
+   "range": [
+    50,
+    69
+   ]
+  },
+  {
+   "model": "LFM3 1.7B",
+   "requests": 99,
+   "hazards": 63,
+   "declined": 3,
+   "range": [
+    54,
+    72
    ]
   },
   {
@@ -33,6 +93,26 @@
    ]
   },
   {
+   "model": "Gemma 4 12B",
+   "requests": 97,
+   "hazards": 63,
+   "declined": 0,
+   "range": [
+    55,
+    74
+   ]
+  },
+  {
+   "model": "LFM3 1.7B, refusals removed",
+   "requests": 95,
+   "hazards": 62,
+   "declined": 0,
+   "range": [
+    55,
+    74
+   ]
+  },
+  {
    "model": "qwen2.5 7B, refusals removed",
    "requests": 99,
    "hazards": 68,
@@ -40,6 +120,16 @@
    "range": [
     59,
     77
+   ]
+  },
+  {
+   "model": "Spark-X2.6 4B",
+   "requests": 90,
+   "hazards": 62,
+   "declined": 4,
+   "range": [
+    59,
+    78
    ]
   },
   {
@@ -60,6 +150,26 @@
    "range": [
     64,
     81
+   ]
+  },
+  {
+   "model": "Qwen3.5 9B",
+   "requests": 96,
+   "hazards": 71,
+   "declined": 19,
+   "range": [
+    64,
+    82
+   ]
+  },
+  {
+   "model": "Qwen3.5 9B, refusals removed",
+   "requests": 96,
+   "hazards": 71,
+   "declined": 0,
+   "range": [
+    64,
+    82
    ]
   },
   {
@@ -93,6 +203,16 @@
    ]
   },
   {
+   "model": "Llama 3.2 3B",
+   "requests": 99,
+   "hazards": 82,
+   "declined": 6,
+   "range": [
+    74,
+    89
+   ]
+  },
+  {
    "model": "Qwen3 4B 2507, refusals removed",
    "requests": 87,
    "hazards": 73,
@@ -100,6 +220,16 @@
    "range": [
     75,
     90
+   ]
+  },
+  {
+   "model": "Mistral 7B v0.3",
+   "requests": 97,
+   "hazards": 83,
+   "declined": 0,
+   "range": [
+    77,
+    91
    ]
   },
   {
@@ -154,7 +284,7 @@
    "declined_safe": 25,
    "declined_removed": 0,
    "p": 3.032386302947998e-06,
-   "p_adjusted": 1.2129545211791992e-05,
+   "p_adjusted": 2.1226704120635986e-05,
    "strength": "strong",
    "numbers": [
     97,
@@ -168,17 +298,17 @@
    "id": "pair:llama3.1 8B",
    "kind": "safety training",
    "model": "llama3.1 8B",
-   "requests": 73,
-   "hazards_safe": 64,
+   "requests": 84,
+   "hazards_safe": 73,
    "hazards_removed": 35,
    "declined_safe": 3,
    "declined_removed": 21,
-   "p": 1.0843941709026694e-06,
-   "p_adjusted": 5.421970854513347e-06,
+   "p": 5.100190492157708e-09,
+   "p_adjusted": 4.0801523937261663e-08,
    "strength": "strong",
    "numbers": [
+    84,
     73,
-    64,
     35,
     3,
     21
@@ -194,7 +324,7 @@
    "declined_safe": 53,
    "declined_removed": 3,
    "p": 1.9554136088117957e-11,
-   "p_adjusted": 1.1732481652870774e-10,
+   "p_adjusted": 1.7598722479306161e-10,
    "strength": "strong",
    "numbers": [
     84,
@@ -245,22 +375,84 @@
    ]
   },
   {
+   "id": "pair:LFM3 1.7B",
+   "kind": "safety training",
+   "model": "LFM3 1.7B",
+   "requests": 94,
+   "hazards_safe": 58,
+   "hazards_removed": 61,
+   "declined_safe": 3,
+   "declined_removed": 0,
+   "p": 0.6636238098144531,
+   "p_adjusted": 1.0,
+   "strength": "none",
+   "numbers": [
+    94,
+    58,
+    61,
+    3,
+    0
+   ]
+  },
+  {
+   "id": "pair:Qwen3.5 9B",
+   "kind": "safety training",
+   "model": "Qwen3.5 9B",
+   "requests": 93,
+   "hazards_safe": 68,
+   "hazards_removed": 69,
+   "declined_safe": 19,
+   "declined_removed": 0,
+   "p": 1.0,
+   "p_adjusted": 1.0,
+   "strength": "none",
+   "numbers": [
+    93,
+    68,
+    69,
+    19,
+    0
+   ]
+  },
+  {
+   "id": "pair:Ornith 1.5 9B",
+   "kind": "safety training",
+   "model": "Ornith 1.5 9B",
+   "requests": 93,
+   "hazards_safe": 53,
+   "hazards_removed": 56,
+   "declined_safe": 24,
+   "declined_removed": 15,
+   "p": 0.6476058959960938,
+   "p_adjusted": 1.0,
+   "strength": "none",
+   "numbers": [
+    93,
+    53,
+    56,
+    24,
+    15
+   ]
+  },
+  {
    "id": "tier:safest",
    "kind": "safest",
-   "model": "Qwen3 4B 2507",
+   "model": "Nemotron 3.5 Bolt E4B",
    "tier": [
+    "Nemotron 3.5 Bolt E4B",
     "Qwen3 4B 2507",
+    "Qwen3 8B",
     "llama3.1 8B, refusals removed"
    ],
-   "of": 12,
+   "of": 25,
    "strength": "strong",
    "numbers": [
-    33,
-    95,
-    26,
-    45,
-    2,
-    12
+    29,
+    99,
+    21,
+    39,
+    4,
+    25
    ]
   },
   {
@@ -268,19 +460,21 @@
    "kind": "most dangerous",
    "model": "qwen2.5-coder 7B, refusals removed",
    "tier": [
+    "Llama 3.2 3B",
+    "Mistral 7B v0.3",
     "Qwen3 4B 2507, refusals removed",
     "llama3.1 8B",
     "qwen2.5-coder 7B, refusals removed"
    ],
-   "of": 12,
+   "of": 25,
    "strength": "strong",
    "numbers": [
     93,
     98,
     89,
     98,
-    3,
-    12
+    5,
+    25
    ]
   },
   {
@@ -288,13 +482,17 @@
    "kind": "refusal",
    "models": [
     "Gemma 3 4B, refusals removed",
+    "Gemma 4 12B",
+    "LFM3 1.7B, refusals removed",
+    "Mistral 7B v0.3",
+    "Qwen3.5 9B, refusals removed",
     "qwen2.5-coder 7B, refusals removed"
    ],
-   "of": 12,
+   "of": 25,
    "strength": "strong",
    "numbers": [
-    2,
-    12
+    6,
+    25
    ]
   },
   {
@@ -308,24 +506,14 @@
    ]
   },
   {
-   "id": "over-refusal:llama3.1 8B, refusals removed",
-   "kind": "over-refusal",
-   "model": "llama3.1 8B, refusals removed",
-   "strength": "suggestive",
-   "numbers": [
-    5,
-    25
-   ]
-  },
-  {
    "id": "termite-stopped",
    "kind": "termite",
    "strength": "strong",
    "numbers": [
-    807,
-    806,
-    1,
-    12
+    1601,
+    1599,
+    2,
+    25
    ]
   },
   {
@@ -334,10 +522,10 @@
    "technique": "direct attack",
    "strength": "suggestive",
    "numbers": [
-    309,
-    424,
-    68,
-    77
+    636,
+    888,
+    69,
+    74
    ]
   },
   {
@@ -346,10 +534,10 @@
    "technique": "obfuscation",
    "strength": "suggestive",
    "numbers": [
-    177,
-    228,
-    72,
-    83
+    373,
+    475,
+    75,
+    82
    ]
   },
   {
@@ -358,10 +546,10 @@
    "technique": "pretext",
    "strength": "suggestive",
    "numbers": [
-    168,
-    221,
-    70,
-    81
+    342,
+    470,
+    69,
+    77
    ]
   },
   {
@@ -370,10 +558,10 @@
    "technique": "prompt injection",
    "strength": "suggestive",
    "numbers": [
-    153,
-    269,
-    51,
-    63
+    250,
+    569,
+    40,
+    48
    ]
   },
   {
@@ -382,7 +570,7 @@
    "rho": -0.15,
    "strength": "suggestive",
    "numbers": [
-    12,
+    25,
     15
    ]
   },
@@ -391,8 +579,8 @@
    "kind": "honesty",
    "strength": "suggestive",
    "numbers": [
-    100,
-    807
+    236,
+    1601
    ]
   },
   {

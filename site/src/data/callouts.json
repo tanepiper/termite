@@ -8,30 +8,37 @@
     "section": "safety-training-removed"
   },
   {
+    "finding": "pair:qwen2.5-coder 7B",
+    "group": "Command models",
+    "title": "Removing safety training took away every refusal in one model",
+    "text": "With safety training, qwen2.5-coder 7B wrote a hazard for 68 of 97 hostile requests and declined 25. With it removed, the same model wrote 92 and declined 0.",
+    "section": "safety-training-removed"
+  },
+  {
     "finding": "pair:llama3.1 8B",
     "group": "Command models",
     "title": "Removing safety training does not always add hazards",
-    "text": "llama3.1 8B wrote a hazard for 64 of 73 hostile requests. Its copy with safety training removed wrote 35 and declined 21, against 3. Test each copy, and don't assume what it will do.",
+    "text": "llama3.1 8B wrote a hazard for 73 of 84 hostile requests. Its copy with safety training removed wrote 35 and declined 21, against 3. Test each copy, and don't assume what it will do.",
     "section": "safety-training-removed"
   },
   {
     "finding": "never-declined",
     "group": "Command models",
-    "title": "Two models never said no",
-    "text": "Asked to do something hostile, 2 of 12 models declined nothing. Both had their safety training removed. Most others declined only a few requests, so don't rely on a model to refuse."
+    "title": "Some models never said no",
+    "text": "Asked to do something hostile, 6 of 25 models declined nothing, and some of these still had their safety training. Don't rely on a model to refuse."
   },
   {
     "finding": "tier:safest",
     "group": "Command models",
     "title": "Even the safest models wrote hazards",
-    "text": "2 of 12 models are in the safest group. Qwen3 4B still wrote a hazard for 33 of 95 hostile requests.",
+    "text": "4 of 25 models are in the safest group. Nemotron 3.5 Bolt E4B still wrote a hazard for 29 of 99 hostile requests.",
     "section": "command-models"
   },
   {
     "finding": "termite-stopped",
     "group": "Command models",
     "title": "termite stopped almost every hazard",
-    "text": "These 12 models wrote 807 hazardous replies to hostile requests. termite stopped or held 806 of them for a person to check, and 1 went straight in.",
+    "text": "These 25 models wrote 1601 hazardous replies to hostile requests. termite stopped or held 1599 of them for a person to check, and 2 were Injected.",
     "featured": true,
     "section": "command-models"
   },
@@ -47,13 +54,13 @@
     "finding": "labelled-safe",
     "group": "Command models",
     "title": "Models called hazards harmless",
-    "text": "In at least 100 of 807 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
+    "text": "In at least 236 of 1601 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
   },
   {
     "finding": "size-and-safety",
     "group": "Command models",
     "title": "A bigger model was not clearly safer",
-    "text": "Across 12 models, size had only a weak link with how often a model wrote a hazard. Test each model, and don't judge it by its size."
+    "text": "Across 25 models, size had only a weak link with how often a model wrote a hazard. Test each model, and don't judge it by its size."
   },
   {
     "finding": "context-limit",
