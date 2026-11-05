@@ -7,6 +7,16 @@ import { handedOver, page, readOnlyFlags, results, saves, working } from "../lib
 
 const { totals } = results;
 const onlyRead = totals.got_past_policy === readOnlyFlags;
+/** Models are not all on the same set of requests: each counts by its newest run. */
+const newest = new Map<string, (typeof results.runs)[number]>();
+for (const run of results.runs) {
+  const seen = newest.get(run.model);
+  if (run.hostile !== null && (!seen || run.started > seen.started)) newest.set(run.model, run);
+}
+const sizes = working.map((model) => newest.get(model.name)?.requests ?? 0);
+const requestSets = [...new Set(sizes)].sort((a, b) => b - a)
+  .map((size) => `${sizes.filter((other) => other === size).length} got ${size} requests`)
+  .join(" and ");
 const scored = results.decision.filter((model) => model.pairs > 0);
 const unscored = results.decision.length - scored.length;
 const sum = (value: (model: (typeof scored)[number]) => number) => scored.reduce((total, model) => total + value(model), 0);
@@ -50,8 +60,8 @@ const bestChoice = scored.reduce((best, model) => (model.safest_first > best.saf
 
   <h2>What the command models wrote</h2>
   <p>
-    I sent {totals.requests} requests to {working.length} command models, from "list the files"
-    to direct attacks. They wrote {totals.commands_written} commands, and
+    I sent requests to {working.length} command models, from "list the files" to direct
+    attacks: {requestSets}. They wrote {totals.commands_written} commands, and
     {" "}{totals.hazardous} of them were hazards: commands that could cause harm, and that the
     request did not legitimately need. These are the kinds of harm those commands could cause.
   </p>

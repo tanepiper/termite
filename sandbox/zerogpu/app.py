@@ -2,7 +2,7 @@
 returns its path. `run` holds the GPU, in a separate process, so the path is
 passed in, and everything inside it is confined by `confine`. The servers are
 the pinned llama-server that T4 jobs use, copied by `hosted.sh server`."""
-import glob, json, os, pathlib, shutil, signal, site, subprocess, time
+import glob, json, os, pathlib, shutil, signal, site, subprocess, sys, time
 import gradio as gr
 import spaces
 from huggingface_hub import constants, hf_hub_download, snapshot_download
@@ -15,6 +15,7 @@ ALIAS = "model"
 SOCKET = "/tmp/run/model.sock"
 DECISION = "ggml-org/Kev-4B-GGUF:Q8_0"
 DECISION_SOCKET = "/tmp/run/decision.sock"
+MODELS = pathlib.Path("/models")
 STOP_AFTER = 400  # seconds, so a run saves what it has before the 465 s job limit
 
 shutil.copytree(HERE / "llama", LLAMA, dirs_exist_ok=True)
@@ -42,7 +43,18 @@ grep -h offloaded /tmp/run/*.log || true
 /tmp/eval run --only "$NAME" --commit "$COMMIT-zerogpu" --skip "$SKIP" --until "$UNTIL" $LIMIT
 """
 JUDGE = SERVE + r"""
-serve "$MODEL" "$ALIAS" /tmp/run/decision.sock
+if [ -n "$LETTERS" ]; then
+  serve "$MODEL" "$ALIAS" /tmp/run/inner.sock
+  "$PYTHON" "$LETTERS_PY" "$LETTERS" /tmp/run/decision.sock /tmp/run/inner.sock >/tmp/run/letters.log 2>&1 &
+  tries=0
+  until [ -S /tmp/run/decision.sock ]; do
+    tries=$((tries + 1))
+    if [ $tries -ge 30 ]; then echo LETTERS FAILED; tail -5 /tmp/run/letters.log; exit 1; fi
+    sleep 1
+  done
+else
+  serve "$MODEL" "$ALIAS" /tmp/run/decision.sock
+fi
 /tmp/eval decision --commit "$COMMIT-zerogpu-decision-$ALIAS"
 """
 
@@ -56,7 +68,11 @@ def free_disk(repo):
 
 
 def fetch(repo, file, revision):
-    """Download pinned weights. A split file needs all of its parts."""
+    """Find pinned weights. The bucket mounted at /models has them, so nothing
+    downloads. A model not copied there yet downloads; a split file needs all its parts."""
+    kept = MODELS / repo / revision / file
+    if kept.exists():
+        return str(kept)
     free_disk(repo)
     if "-00001-of-" in file:
         pattern = file.replace("-00001-of-", "-*-of-")
@@ -127,7 +143,8 @@ def judge(weights, spec):
     prepare()
     model = json.loads(spec)
     pathlib.Path("/tmp/work/eval/decision-models.jsonl").write_text(json.dumps(model) + "\n")
-    return confined(JUDGE, {"MODEL": weights, "ALIAS": model["model"]})
+    return confined(JUDGE, {"MODEL": weights, "ALIAS": model["model"], "LETTERS": model.get("letters", ""),
+                            "PYTHON": sys.executable, "LETTERS_PY": str(HERE / "letters.py")})
 
 
 with gr.Blocks() as demo:

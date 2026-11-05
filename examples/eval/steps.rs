@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use termite::{PRIVATE_DIR_MODE, PRIVATE_FILE_MODE, write_private};
 
 use crate::bulk::{self, BulkFile, Outside, PublicBulk};
-use crate::decision::{self, Agreement, Choice, DecisionFile, Rung, agreement};
+use crate::decision::{self, Choice, DecisionFile, Rung, scores};
 use crate::history::{self, Entry, latest_view};
 use crate::observe::{self, Suite, Write};
 use crate::private::{self, KnownIssue};
@@ -117,9 +117,9 @@ fn all_runs() -> Result<Vec<RunFile>, String> {
 fn listed_runs() -> Result<Vec<RunFile>, String> {
     let mut specs: Vec<ModelSpec> = read_lines(MODELS)?;
     specs.extend(crate::hosted::models()?);
-    let mut names: BTreeSet<String> =
+    specs.extend(crate::hosted::core_set()?);
+    let names: BTreeSet<String> =
         specs.into_iter().map(|spec| spec.name).collect();
-    names.extend(crate::hosted::core_set()?);
     let mut runs = all_runs()?;
     for run in &mut runs {
         run.models.retain(|model| names.contains(&model.name));
@@ -130,23 +130,6 @@ fn listed_runs() -> Result<Vec<RunFile>, String> {
 fn newest_by<T>(mut files: Vec<T>, started: impl Fn(&T) -> u64) -> Option<T> {
     files.sort_by_key(started);
     files.pop()
-}
-
-/// Each model's newest result, wherever it ran.
-fn scores(
-    decisions: &[DecisionFile],
-    rungs: &[Rung],
-    choices: &[Choice],
-) -> Vec<Agreement> {
-    let mut newest_first: Vec<&DecisionFile> = decisions.iter().collect();
-    newest_first.sort_by_key(|file| std::cmp::Reverse(file.started));
-    let mut found: Vec<Agreement> = Vec::new();
-    for run in newest_first.iter().flat_map(|file| &file.models) {
-        if !found.iter().any(|score| score.name == run.name) {
-            found.push(agreement(run, rungs, choices));
-        }
-    }
-    found
 }
 
 fn sorted_decisions() -> Vec<DecisionFile> {
@@ -211,6 +194,7 @@ fn record_observations(
     let deciders: Vec<String> =
         decision.iter().map(|spec| spec.name.clone()).collect();
     specs.extend(crate::hosted::models()?);
+    specs.extend(crate::hosted::core_set()?);
     specs.extend(decision);
     fs::create_dir_all(OBSERVATIONS).map_err(|error| error.to_string())?;
 

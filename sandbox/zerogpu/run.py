@@ -43,10 +43,12 @@ def read_ledger():
     return [json.loads(line) for line in args.ledger.read_text().splitlines()]
 
 
-def record(name, seconds, outcome):
+def record(name, seconds, outcome, reason=""):
+    row = {"at": int(time.time()), "name": name, "seconds": round(seconds), "outcome": outcome}
+    if reason:
+        row["reason"] = reason
     with args.ledger.open("a") as ledger:
-        ledger.write(json.dumps({"at": int(time.time()), "name": name,
-                                 "seconds": round(seconds), "outcome": outcome}) + "\n")
+        ledger.write(json.dumps(row) + "\n")
     args.ledger.chmod(0o600)
 
 
@@ -72,12 +74,21 @@ def in_order(rows):
                                        m["status"] != "core", last.get(m["name"], 0)))
 
 
+def reason(reply):
+    """Why a call failed: the server's first complaint, for the ledger."""
+    if not reply["code"]:
+        return ""
+    lines = [line for line in reply["log"].splitlines() if " E " in line or "error" in line.lower()]
+    return lines[0][:200] if lines else str(reply["code"])
+
+
 def window(model, weights, skip, limit):
     """One GPU call, written to the ledger. None if the call failed."""
     started = time.time()
     try:
         if args.decision:
             spec = {k: model[k] for k in ("name", "size_b", "url", "socket", "model")}
+            spec["letters"] = model.get("letters", "")
             reply = json.loads(client.predict(weights, json.dumps(spec), api_name="/judge"))
         else:
             spec = {k: model[k] for k in ("name", "size_b", "refusals_removed")}
@@ -87,7 +98,7 @@ def window(model, weights, skip, limit):
         print(model["name"], "ERROR", str(error)[:300], flush=True)
         return None
     seconds = time.time() - started
-    record(model["name"], seconds, str(reply["code"]))
+    record(model["name"], seconds, str(reply["code"]), reason(reply))
     print(model["name"], "code", reply["code"], "took", int(seconds), "s", flush=True)
     print(reply["log"][-600:] if reply["code"] else "", flush=True)
     return reply

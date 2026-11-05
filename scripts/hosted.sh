@@ -144,7 +144,7 @@ space() {
     || { printf 'hosted.sh: run build and server first\n' >&2; exit 1; }
   rm -rf "$folder"
   mkdir -p "$folder/bundle/eval" "$folder/llama"
-  cp sandbox/zerogpu/README.md sandbox/zerogpu/app.py sandbox/zerogpu/requirements.txt "$folder/"
+  cp sandbox/zerogpu/README.md sandbox/zerogpu/app.py sandbox/zerogpu/letters.py sandbox/zerogpu/requirements.txt "$folder/"
   cp "$stage/built/eval" "$folder/eval-tool"
   cp "$stage/built/confine" "$stage/built/commit" "$folder/"
   cp -RL eval/corpus "$folder/bundle/eval/corpus"

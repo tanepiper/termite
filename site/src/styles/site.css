@@ -139,7 +139,7 @@ th[aria-sort="descending"] button.sort::after { content: " ↓"; }
 .scroll { overflow-x: auto; }
 .wrap { width: min(1180px, 100% - 32px); margin-inline: auto; }
 .lead { font-size: 1.3rem; color: var(--ink-soft); max-width: 56ch; }
-.note { color: var(--ink-soft); font-size: 0.92rem; }
+.note { color: var(--ink-soft); font-size: 0.92rem; max-width: none; }
 .run-filters { display: flex; flex-wrap: wrap; gap: 0.6em 1em; align-items: end; margin: 1em 0 0.5em; }
 .run-filters label { display: grid; gap: 0.2em; font-size: 0.92rem; }
 header.site {

@@ -54,7 +54,7 @@ pub enum Expected {
 }
 
 /// One line of `eval/models.jsonl`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ModelSpec {
     pub name: String,
     pub url: String,

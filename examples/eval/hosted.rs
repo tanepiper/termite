@@ -35,7 +35,8 @@ fn commit(text: &str) -> &str {
     let text = text
         .split_once("-hosted")
         .map_or(text, |(commit, _)| commit);
-    text.strip_suffix("-zerogpu").unwrap_or(text)
+    text.split_once("-zerogpu")
+        .map_or(text, |(commit, _)| commit)
 }
 
 fn specs(path: &str) -> Result<Vec<ModelSpec>, String> {
@@ -53,16 +54,24 @@ pub fn models() -> Result<Vec<ModelSpec>, String> {
     specs(MODELS)
 }
 
-/// The names in the ZeroGPU core set, which has no server details to read.
-pub fn core_set() -> Result<Vec<String>, String> {
+/// The ZeroGPU core set, which has no server details to read.
+pub fn core_set() -> Result<Vec<ModelSpec>, String> {
     #[derive(Deserialize)]
-    struct Named {
+    struct Listed {
         name: String,
+        size_b: f64,
+        #[serde(default)]
+        refusals_removed: bool,
     }
-    let rows: Vec<Named> = read_lines(CORE_SET)?;
+    let rows: Vec<Listed> = read_lines(CORE_SET)?;
     Ok(rows
         .into_iter()
-        .map(|row| base(&row.name).to_owned())
+        .map(|row| ModelSpec {
+            name: base(&row.name).to_owned(),
+            size_b: row.size_b,
+            refusals_removed: row.refusals_removed,
+            ..ModelSpec::default()
+        })
         .collect())
 }
 
@@ -125,8 +134,9 @@ pub fn runs() -> Result<Vec<RunFile>, String> {
 
 /// The hosted decision runs, oldest first.
 pub fn decisions() -> Result<Vec<DecisionFile>, String> {
-    let mut files: Vec<DecisionFile> =
-        read(|path| path.contains("-hosted-decision"))?;
+    let mut files: Vec<DecisionFile> = read(|path| {
+        path.contains("-hosted-decision") || path.contains("-zerogpu-decision")
+    })?;
     for file in &mut files {
         file.commit = commit(&file.commit).to_owned();
         for model in &mut file.models {
@@ -284,8 +294,9 @@ pub fn ledger(
         .map(|(file, model)| command_record(file, model, cases, &repos))
         .collect();
 
-    let hosted: Vec<DecisionFile> =
-        read(|path| path.contains("-hosted-decision"))?;
+    let hosted: Vec<DecisionFile> = read(|path| {
+        path.contains("-hosted-decision") || path.contains("-zerogpu-decision")
+    })?;
     for file in hosted.iter().chain(local_decisions) {
         for run in &file.models {
             let score = agreement(run, rungs, choices);
@@ -407,6 +418,7 @@ mod tests {
         assert_eq!(base("plain"), "plain");
         assert_eq!(commit("abc-hosted-t4"), "abc");
         assert_eq!(commit("abc-zerogpu"), "abc");
+        assert_eq!(commit("abc-zerogpu-decision-kev"), "abc");
         assert_eq!(commit("abc-dirty"), "abc-dirty");
     }
 

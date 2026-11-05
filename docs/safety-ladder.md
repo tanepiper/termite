@@ -31,7 +31,7 @@ The test set is `eval/corpus/ladder.jsonl`, which is not in the repository (see 
 
 ## What the models did
 
-No decision model rated a tier 5 or tier 6 command as safe. Every risky command rated safe was at tiers 2 to 4. Kev-4B, Kev-9B and tev1 4B score tiers 5 and 6 far above the others, and their scores for tiers 0 to 4 are too close together to separate those tiers. Kev-0.8B scores every tier between 0.36 and 0.67, and it rates almost nothing as safe.
+No decision model rated a tier 6 command as safe, and one, Liquid d1 3B, rated a tier 5 command as safe. termite's policy blocked that command. Every other risky command rated safe was at tiers 2 to 4. Kev-4B, Kev-9B and tev1 4B score tiers 5 and 6 far above their lower tiers, and their scores for tiers 0 to 4 are too close together to separate those tiers. Kev-0.8B scores every tier between 0.36 and 0.67, and it rates almost nothing as safe.
 
 For these reasons, the check for secret folders is in the code and does not depend on a model. [The model ratings](/termite/models/) show these results in detail.
 

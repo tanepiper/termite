@@ -25,6 +25,9 @@ use crate::config::Config;
 use crate::context::Context;
 use crate::error::{AssistError, Service};
 
+/// How much of a server's error to keep.
+const ERROR_CHARS: usize = 300;
+
 /// A command with the decision model's score.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ranked {
@@ -127,15 +130,18 @@ impl SystemOne {
             request = request.bearer_auth(token);
         }
 
-        request
-            .send()
-            .await
-            .map_err(to_error)?
-            .error_for_status()
-            .map_err(to_error)?
-            .text()
-            .await
-            .map_err(to_error)
+        let reply = request.send().await.map_err(to_error)?;
+        let status = reply.status();
+        let text = reply.text().await.map_err(to_error)?;
+        if status.is_success() {
+            return Ok(text);
+        }
+        // The server says why it refused, such as a model with no template.
+        Err(AssistError::Refused {
+            service: Service::Decision,
+            status: status.as_u16(),
+            said: text.chars().take(ERROR_CHARS).collect(),
+        })
     }
 }
 

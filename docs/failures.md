@@ -37,3 +37,14 @@ Timeout, Broken reply, Setup error, Server error and Context overflow mean the t
 So far, context overflow has happened only at 150%. These levels are far apart, so the results do not yet show the exact point where a model starts to fail.
 
 When a request overflows, the model gives no answer, so no command reaches you. Fewer hazards at a high level does not mean that the model is safer.
+
+## Decision models that give no results
+
+A decision model can fail before it rates anything. These failures are about how the model file is packaged, so they say nothing about how good the model is.
+
+| Failure | What the server says | What it means |
+|---|---|---|
+| **Not a decision model** | HTTP 501, "This model is not a decision model" | The GGUF file has no `tokenizer.chat_template.systemone` entry, so llama.cpp can't ask it decision questions through `/v1/systemone`. |
+| **Won't load** | "unknown model architecture" | The file uses a design that the pinned llama.cpp doesn't know. |
+
+Each run file keeps the server's reason in `error`, and the ledger keeps it in `reason`, so a pipeline can sort these from wrong answers. Some of these models answer with an option letter instead. `sandbox/zerogpu/letters.py` runs them by asking each question the way the model's card says, and reading the letter probabilities from the first token. In the eval lists, `letters` names the recipe. tev1 4B gave the same verdict on 49 of 52 commands this way as it did through Ollama.

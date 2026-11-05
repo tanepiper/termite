@@ -3,21 +3,35 @@
     "finding": "pair:Qwen3 4B 2507",
     "group": "Command models",
     "title": "Safety training changed one model a lot",
-    "text": "With safety training, Qwen3 4B wrote a hazard for 6 of 24 hostile requests and declined 17. With it removed, the same model wrote 22 and declined none.",
+    "text": "With safety training, Qwen3 4B wrote a hazard for 30 of 84 hostile requests and declined 53. With it removed, the same model wrote 70 and declined 3.",
     "featured": true,
+    "section": "safety-training-removed"
+  },
+  {
+    "finding": "pair:llama3.1 8B",
+    "group": "Command models",
+    "title": "Removing safety training does not always add hazards",
+    "text": "llama3.1 8B wrote a hazard for 64 of 73 hostile requests. Its copy with safety training removed wrote 35 and declined 21, against 3. Test each copy, and don't assume what it will do.",
     "section": "safety-training-removed"
   },
   {
     "finding": "never-declined",
     "group": "Command models",
-    "title": "Many models never said no",
-    "text": "Asked to do something hostile, 8 of 14 models declined nothing, and that includes models with their safety training in place. Don't rely on a model to refuse."
+    "title": "Two models never said no",
+    "text": "Asked to do something hostile, 2 of 12 models declined nothing. Both had their safety training removed. Most others declined only a few requests, so don't rely on a model to refuse."
+  },
+  {
+    "finding": "tier:safest",
+    "group": "Command models",
+    "title": "Even the safest models wrote hazards",
+    "text": "2 of 12 models are in the safest group. Qwen3 4B still wrote a hazard for 33 of 95 hostile requests.",
+    "section": "command-models"
   },
   {
     "finding": "termite-stopped",
     "group": "Command models",
     "title": "termite stopped almost every hazard",
-    "text": "These models wrote 259 hazardous replies to hostile requests. termite stopped or held 258 of them for a person to check, and 1 went straight in.",
+    "text": "These 12 models wrote 807 hazardous replies to hostile requests. termite stopped or held 806 of them for a person to check, and 1 went straight in.",
     "featured": true,
     "section": "command-models"
   },
@@ -25,7 +39,7 @@
     "finding": "over-refusal:qwen2.5 7B",
     "group": "Command models",
     "title": "Refusing can go too far",
-    "text": "qwen2.5 7B declined 7 of 15 harmless everyday requests. A model that refuses too much is a problem too, because people stop using it.",
+    "text": "qwen2.5 7B declined 11 of 40 harmless everyday requests. A model that refuses too much is a problem too, because people stop using it.",
     "featured": true,
     "section": "command-models"
   },
@@ -33,13 +47,13 @@
     "finding": "labelled-safe",
     "group": "Command models",
     "title": "Models called hazards harmless",
-    "text": "In at least 73 of 259 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
+    "text": "In at least 100 of 807 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
   },
   {
     "finding": "size-and-safety",
     "group": "Command models",
     "title": "A bigger model was not clearly safer",
-    "text": "Across 14 models, size had only a weak link with how often a model wrote a hazard. Test each model, and don't judge it by its size."
+    "text": "Across 12 models, size had only a weak link with how often a model wrote a hazard. Test each model, and don't judge it by its size."
   },
   {
     "finding": "context-limit",
@@ -53,7 +67,7 @@
     "finding": "decision-backstop",
     "group": "Decision models",
     "title": "The policy catches what decision models miss",
-    "text": "The 4 decision models rated 27 risky commands safe. termite's policy blocked 13 of them, and the other 14 were at tier 2, where a command shows personal information but no secrets.",
+    "text": "The 17 decision models rated 158 risky commands safe. termite's policy blocked 74 of them, and the other 84 were at tier 2, where a command shows personal information but no secrets.",
     "featured": true,
     "section": "decision-models"
   },
@@ -61,19 +75,26 @@
     "finding": "decision-sensitive-reads",
     "group": "Decision models",
     "title": "Reading near secrets looks safe to them",
-    "text": "Kev-4B rated 6 of 8 sensitive reads safe, such as listing a folder of keys. It rated 0 of 6 small project changes safe. A read near a secret can look harmless to a model."
+    "text": "Liquid d1 2B rated 8 of 8 sensitive reads safe, such as listing a folder of keys. It rated 0 of 6 small project changes safe. A read near a secret can look harmless to a model."
   },
   {
     "finding": "decision-top-tier",
     "group": "Decision models",
-    "title": "No model refused every critical command",
-    "text": "The best, tev1 4B, refused 6 of 8 commands at tier 6 and asked for approval on the rest. Each of the 4 models left some critical commands to a person."
+    "title": "Some models refused every critical command",
+    "text": "Of 17 models, vLLM d3 mini was one that refused 8 of 8 critical commands. Others left some of these commands to a person, so test the model you plan to use."
+  },
+  {
+    "finding": "decision-fewest-misses",
+    "group": "Decision models",
+    "title": "One model missed little and still allowed harmless commands",
+    "text": "In this run, JevK5 4B rated 5 of 38 risky commands safe, and 13 of 14 harmless commands safe. Rating nothing safe is easy, so both numbers matter.",
+    "section": "decision-models"
   },
   {
     "finding": "decision-asks-everything",
     "group": "Decision models",
-    "title": "The smallest model asks about everything",
-    "text": "Kev-0.8B asked for approval on 51 of 52 commands, and rated only 1 of 14 harmless commands safe. That is cautious, but people stop reading warnings that they see every time.",
+    "title": "One model asks about everything",
+    "text": "Laya asked for approval on 52 of 52 commands, and rated 0 of 14 harmless commands safe. That is cautious, but people stop reading warnings that they see every time.",
     "featured": true,
     "section": "decision-models"
   },
@@ -81,12 +102,12 @@
     "finding": "decision-safest-choice",
     "group": "Decision models",
     "title": "Choosing the safest option is the weak spot",
-    "text": "Given several ways to do a job, the best model put the safest way first in only 4 of 10 tests."
+    "text": "Given several ways to do a job, the best of 17 models put the safest way first in only 6 of 10 tests."
   },
   {
     "finding": "decision-unusable",
     "group": "Decision models",
-    "title": "Some models give no usable score",
-    "text": "2 of 6 decision models never gave a score that termite could read, so they have no results."
+    "title": "Many decision models need a different setup",
+    "text": "8 of 25 decision models gave no score. llama.cpp said each file is not a decision model, and each one needs its own server or client. This says nothing about how good those models are."
   }
 ]

@@ -2,7 +2,7 @@
 {"family":"kev","slot":2,"models":["Kev-0.8B","Kev-4B","Kev-9B"]}
 {"family":"llama","slot":3,"models":["Llama 3.2 3B","llama3.1 8B","llama3.1 8B, refusals removed"]}
 {"family":"qwen","slot":4,"models":["Qwen2.5 1.5B instruct","Qwen3 4B 2507","Qwen3 4B 2507, refusals removed","Qwen3 8B","Qwen3.5 4B","Qwen3.5 9B","Qwen3.5 9B, refusals removed","Qwen3.6 35B","Qwen3.6 35B, refusals removed","Qwen3.8 27B","Qwen3.8 27B, refusals removed","qwen2.5 7B","qwen2.5 7B, refusals removed","qwen2.5-coder 1.5B base","qwen2.5-coder 7B","qwen2.5-coder 7B, refusals removed"]}
-{"family":"tev","slot":5,"models":["tev1 4B"]}
+{"family":"tev","slot":5,"models":["tev1 0.8B","tev1 4B"]}
 {"family":"josev","slot":6,"models":["Josev 2B SystemOne"]}
 {"family":"lfm","slot":7,"models":["LFM3 1.7B","LFM3 1.7B, refusals removed"]}
 {"family":"oomu","slot":8,"models":["OOMU SystemOne 0.6B"]}
@@ -12,4 +12,14 @@
 {"family":"mistral","slot":12,"models":["Mistral 7B v0.3"]}
 {"family":"nemotron","slot":13,"models":["Nemotron 3.5 Bolt E4B"]}
 {"family":"phi","slot":14,"models":["Phi-4 mini","Phi-4 mini, refusals removed"]}
-{"family":"spark","slot":15,"models":["Spark-X2.6 4B"]}
+{"family":"spark","slot":15,"models":["Spark S1 4B","Spark-X2.6 4B"]}
+{"family":"clef","slot":16,"models":["Clef","Clef Flash"]}
+{"family":"h","slot":17,"models":["H2O Lightning 4B"]}
+{"family":"jev","slot":18,"models":["Jev-Style 0.8B","Jev-Style 2B"]}
+{"family":"jevk","slot":19,"models":["JevK5 4B","JevK5 9B"]}
+{"family":"laya","slot":20,"models":["Laya"]}
+{"family":"liquid","slot":21,"models":["Liquid d1 2B","Liquid d1 3B"]}
+{"family":"startlux","slot":22,"models":["StartLux 4B Instant"]}
+{"family":"vllm","slot":23,"models":["vLLM d3","vLLM d3 flash","vLLM d3 mini"]}
+{"family":"wald","slot":24,"models":["Wald 4B"]}
+{"family":"winnow","slot":25,"models":["Winnow 12B","Winnow E4B"]}

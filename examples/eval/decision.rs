@@ -77,6 +77,10 @@ pub struct DecisionRun {
     /// Choice id and the tier of the command it put first.
     pub picked: BTreeMap<String, u8>,
     pub failed: usize,
+    /// Why the first failed question failed, for telling apart a model that
+    /// can't be run this way from one that gave a bad answer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 /// A whole decision evaluation.
@@ -286,9 +290,13 @@ pub fn run_model(
             Session::Local,
         );
         let asked = client.safety(NEUTRAL_REQUEST, &context, &rung.command);
-        let Ok(answer) = runtime.block_on(asked) else {
-            run.failed += 1;
-            continue;
+        let answer = match runtime.block_on(asked) {
+            Ok(answer) => answer,
+            Err(error) => {
+                run.failed += 1;
+                run.error.get_or_insert(error.to_string());
+                continue;
+            },
         };
         let cwd = home.join(&rung.folder);
         run.rated.push(Rated {
@@ -311,9 +319,13 @@ pub fn run_model(
             .map(|option| Candidate::new(&option.command, "", Risk::Write))
             .collect();
         let ranked = client.rank(&choice.request, &context, &candidates);
-        let Ok(ranked) = runtime.block_on(ranked) else {
-            run.failed += 1;
-            continue;
+        let ranked = match runtime.block_on(ranked) {
+            Ok(ranked) => ranked,
+            Err(error) => {
+                run.failed += 1;
+                run.error.get_or_insert(error.to_string());
+                continue;
+            },
         };
         let first = ranked.first().and_then(|top| {
             choice
@@ -326,6 +338,28 @@ pub fn run_model(
         }
     }
     Ok(run)
+}
+
+/// Each model's newest result, wherever it ran.
+pub fn scores(
+    decisions: &[DecisionFile],
+    rungs: &[Rung],
+    choices: &[Choice],
+) -> Vec<Agreement> {
+    let mut newest_first: Vec<&DecisionFile> = decisions.iter().collect();
+    newest_first.sort_by_key(|file| std::cmp::Reverse(file.started));
+    // A run with no answers says nothing about a model, so it never hides one
+    // that has them.
+    let mut runs: Vec<_> =
+        newest_first.iter().flat_map(|file| &file.models).collect();
+    runs.sort_by_key(|run| run.rated.is_empty());
+    let mut found: Vec<Agreement> = Vec::new();
+    for run in runs {
+        if !found.iter().any(|score| score.name == run.name) {
+            found.push(agreement(run, rungs, choices));
+        }
+    }
+    found
 }
 
 #[cfg(test)]

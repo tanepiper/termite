@@ -21,7 +21,7 @@ Models run one at a time, and each model is unloaded when it finishes, so that t
 | Unit and fuzz tests | Does the code do what it says? | No |
 | Scripted attacks, `eval policy` | Can a known trick get past the policy? | No |
 | Outside commands, `eval bulk` | What does the policy do with 45,000 real commands? | No |
-| Core requests, `eval run` | What do models write for 48 requests, from `list files` to outright attacks? | Yes |
+| Core requests, `eval run` | What do models write for 161 requests, from `list files` to outright attacks? | Yes |
 | Outside requests, `eval run --corpus` | The same question, with public jailbreak and injection sets | Yes |
 | Repeats and floods, `eval trials` | Does it give the same answer twice, and what happens behind a full context? | Yes |
 | The ladder, `eval decision` | Does a decision model rate risky commands as safe, and can it order commands by danger? | Yes |
@@ -132,7 +132,7 @@ machine, starting command, commit and results.
 `eval/hosted-decision-models.jsonl` on the ladder, on a CPU job. Each model needs a
 job of its own. Kev-4B scored about the same hosted as local, so these results can be compared with local runs. A model that is not built for `/v1/systemone` fails every question, and a model in a file that `llama-server` cannot read stops the job. The models page shows no score for a model that answered nothing.
 
-`sandbox/zerogpu/run.py --decision` tests the same list on the ZeroGPU Space, one model at a time, which is much faster than a CPU job. The list marks each model as `core` or `candidate`, and pins each one to a revision.
+`sandbox/zerogpu/run.py --decision` tests the same list on the ZeroGPU Space, one model at a time, and a model with a `letters` recipe runs through `sandbox/zerogpu/letters.py`, which is much faster than a CPU job. The list marks each model as `core` or `candidate`, and pins each one to a revision.
 
 ### ZeroGPU
 
@@ -159,7 +159,7 @@ scripts/hosted.sh space
 HF_TOKEN=... uvx --with huggingface_hub --with gradio_client python sandbox/zerogpu/run.py target/hosted/space eval/zerogpu-core.jsonl ~/termite-private/runs ~/termite-private/zerogpu-ledger.jsonl
 ```
 
-A model that is still running after 400 seconds stops, keeps the requests it finished, and carries on in the next window with `--skip`, up to five windows, so large models finish in parts and the parts make one run. Models whose last runs failed go to the end of the list. Use `-` in place of the folder to keep the Space as it is, `--limit 4` for a short trial, and `--only NAME` for one model, and `--pay` to carry on past the free quota. The script runs the reference model first, then the models that ran longest ago. It stops at 35 minutes in any 24 hours, from a ledger of time used. Other ZeroGPU use on the account isn't in the ledger.
+A model that is still running after 400 seconds stops, keeps the requests it finished, and carries on in the next window with `--skip`, up to five windows, so large models finish in parts and the parts make one run. Models whose last runs failed go to the end of the list. The weights are kept in the private bucket `tanepiper/termite-models`, mounted read-only at `/models`, so a run downloads nothing and a restart loses nothing. After adding a model, run `sandbox/zerogpu/mirror.py`. Use `-` in place of the folder to keep the Space as it is, `--limit 4` for a short trial, and `--only NAME` for one model, and `--pay` to carry on past the free quota. The script runs the reference model first, then the models that ran longest ago. It stops at 35 minutes in any 24 hours, from a ledger of time used. Other ZeroGPU use on the account isn't in the ledger.
 
 Runs from before 5 November 2026 at about 11:00 used a simpler server and no decision model, so read them with care. Llama 3.1 8B with safety training removed wrote hazards for 24 of 24 hostile requests on that server, and for 17 on a T4 with the full servers.
 

@@ -53,6 +53,16 @@ pub enum AssistError {
         /// The HTTP status code.
         status: u16,
     },
+    /// The service answered with an error status and said why.
+    #[error("{service} answered with HTTP {status}: {said}")]
+    Refused {
+        /// The service that answered.
+        service: Service,
+        /// The HTTP status code.
+        status: u16,
+        /// The start of what it said.
+        said: String,
+    },
     /// The reply was not the expected JSON.
     #[error("{service} sent a reply that is not valid: {detail}")]
     InvalidReply {

@@ -44,9 +44,10 @@ import Explain from "../components/Explain.astro";
   #tabs { display: flex; flex-wrap: wrap; gap: 0.3em; margin: 1.4em 0 0.8em; }
   #tabs button { font: inherit; padding: 0.3em 0.8em; color: var(--ink); background: none; border: 1px solid var(--line); border-radius: 4px; cursor: pointer; }
   #tabs button[aria-selected="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
-  #facets { display: flex; flex-wrap: wrap; gap: 0.5em 1.2em; }
-  #facets label { font-size: 0.88rem; color: var(--ink-soft); }
-  #facets select { font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.15em 0.3em; margin-left: 0.3em; max-width: 12em; }
+  #facets { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.7em 1em; }
+  #facets label { display: grid; gap: 0.2em; min-width: 0; font-size: 0.88rem; color: var(--ink-soft); }
+  #facets select { width: 100%; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0.3em; }
+  @media (max-width: 760px) { #facets { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .view svg { display: block; width: 100%; height: auto; }
   .view svg [data-drill] { cursor: pointer; }
   .view svg text { fill: var(--ink-soft); font: 11px var(--sans); }
