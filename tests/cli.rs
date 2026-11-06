@@ -1050,3 +1050,29 @@ fn given_a_config_changed_after_it_was_logged_then_termite_stops() {
     assert_eq!(kind(&stdout(&output)), "failed");
     assert!(stdout(&output).contains("provenance accept"));
 }
+
+/// Storing a key with no default keychain opens a macOS dialog that offers
+/// to reset the keychains.
+#[cfg(target_os = "macos")]
+#[test]
+fn given_no_default_keychain_when_a_check_stops_an_agent_then_the_key_is_a_file()
+ {
+    let home = Folder::new();
+    let script = home.0.join("stop.sh");
+    fs::write(&script, "rm -rf /\n").expect("script");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_tmite"))
+        .args(["check", script.to_str().expect("path")])
+        .current_dir(&home.0)
+        .env("HOME", &home.0)
+        .env("TERMITE_AGENT", "1")
+        .env_remove("TERMITE_HOME")
+        .stdin(Stdio::null())
+        .output()
+        .expect("tmite runs");
+
+    assert_eq!(output.status.code(), Some(2));
+    let root = home.0.join(".config/termite");
+    assert!(root.join("provenance.key").exists());
+    assert!(root.join("provenance.jsonl").exists());
+}

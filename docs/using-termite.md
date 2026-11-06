@@ -260,7 +260,8 @@ never holds a file's contents or your request. It records drafts, installed and
 removed scripts, the bash library and the config that `tmite setup` writes.
 
 Each entry holds the hash of the one before it and a signature. The signing key is
-in the macOS Keychain or the Linux Secret Service. If you set your own
+in the macOS Keychain or the Linux Secret Service. If you have no default
+keychain, the key is a private file instead. If you set your own
 `TERMITE_HOME`, or neither store is there, the key is in `provenance.key`, and `verify`
 warns you.
 

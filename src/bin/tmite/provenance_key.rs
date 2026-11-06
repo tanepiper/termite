@@ -1,6 +1,8 @@
 //! The key that signs the provenance log. It lives in the macOS Keychain or the
 //! Linux Secret Service, and in a 0600 file when neither can be used. A custom
-//! `TERMITE_HOME` always uses the file, because the keychain holds one key.
+//! `TERMITE_HOME` always uses the file, because the keychain holds one key. A
+//! user with no default keychain also gets the file: asking macOS to store a
+//! key there opens a dialog that offers to reset the keychains.
 
 use std::fs::{self, File};
 use std::io::Read;
@@ -54,6 +56,7 @@ fn from_file(home: &Home) -> Result<Vec<u8>, String> {
         Ok(text) => Ok(text.trim().as_bytes().to_vec()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
             let key = new_key()?;
+            home.ensure().map_err(|error| error.to_string())?;
             write_private(
                 home.root(),
                 KEY_FILE,
@@ -80,6 +83,9 @@ fn from_system_store() -> Result<Option<Vec<u8>>, String> {
     };
     if let Some(key) = found {
         return Ok(Some(key));
+    }
+    if !store.can_store() {
+        return Ok(None);
     }
     store.add(&new_key()?);
     match store.find() {
@@ -126,6 +132,18 @@ impl Store {
         let (passed, output) = run_tool(&mut command, "").ok()?;
         let key = output.trim();
         Some((passed && !key.is_empty()).then(|| key.as_bytes().to_vec()))
+    }
+
+    /// Whether a new key has somewhere to go, found without opening a dialog.
+    fn can_store(self) -> bool {
+        match self {
+            Self::Keychain => {
+                let mut command = Command::new("security");
+                command.args(["default-keychain", "-d", "user"]);
+                run_tool(&mut command, "").is_ok_and(|(passed, _)| passed)
+            },
+            Self::SecretService => true,
+        }
     }
 
     /// The key goes in on standard input, because other users can read a
