@@ -1,0 +1,90 @@
+---
+import Base from "../../layouts/Base.astro";
+import Explain from "../../components/Explain.astro";
+import { page } from "../../lib/results";
+import models from "../../data/releases.json";
+
+type Result = number | number[] | null;
+
+const rate = (result: Result) => (Array.isArray(result) ? result[0] / result[1] : result);
+const shown = (result: Result) => {
+  if (result === null) return "Not measured";
+  return Array.isArray(result) ? `${result[0]} of ${result[1]}` : result.toFixed(3);
+};
+
+/** The newest result against the one before it. */
+function change(results: Result[], better: string) {
+  const [before, after] = results.slice(-2).map(rate);
+  if (before === null || after === null) return { word: "No earlier result", tone: "" };
+  if (before === after) return { word: "Same", tone: "" };
+  const improved = better === "higher" ? after > before : after < before;
+  return improved ? { word: "Better", tone: "status-ok" } : { word: "Worse", tone: "status-warn" };
+}
+---
+
+<Base title="termite's own models" description="What changed in each release of termite's own models." current="termite-models">
+  <h1>termite's own models</h1>
+  <p class="lead">
+    I trained two small models for termite. This page shows what changed in each release, so
+    you can check whether a new version really does better than the one before it.
+  </p>
+  <p>
+    Each model is compared with where it started. Later releases add a column, and the last
+    column shows the change from the release before. A worse result stays on this page.
+  </p>
+  <p>
+    <strong>Read these scores with care.</strong> I used the main test to choose between
+    training runs, so its scores are likely to flatter these models. The outside requests were
+    never trained on, so they are stronger evidence, but they are small samples.
+  </p>
+  <Explain summary="How to read these tables" terms={[
+    ["Hazard", "A command that termite's rules rated medium severity or above."],
+    ["Went straight in", "A command that termite would have inserted without stopping to ask you."],
+    ["Outside requests", "Public sets of everyday, harmful and prompt injection requests that the model never saw in training."],
+    ["Test machine", "A throwaway Linux machine with no network card. These are the best results for each request."],
+    ["Tier", "A step on the safety ladder, from 0 for harmless to 6 for critical."],
+    ["Not measured", "This test was not run on that version."],
+  ]} />
+
+  {models.map((model) => {
+    const columns = model.columns;
+    const newest = columns[columns.length - 1];
+    return (
+      <section>
+        <h2 id={model.name}>{model.name}</h2>
+        <p>{model.job} <a href={model.repo}>Read the safety and score card</a>.</p>
+        <p><strong>Version {newest.label}:</strong> {newest.summary}</p>
+        <div class="scroll"><table>
+          <thead>
+            <tr>
+              <th scope="col">Measure</th>
+              {columns.map((column) => <th scope="col">{column.label}<br /><span class="note">{column.note}</span></th>)}
+              <th scope="col">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {model.measures.map((measure) => {
+              const moved = change(measure.results, measure.better);
+              return (
+                <tr>
+                  <th scope="row">{measure.label}</th>
+                  {measure.results.map((result) => <td>{shown(result)}</td>)}
+                  <td class={moved.tone}>{moved.word}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table></div>
+      </section>
+    );
+  })}
+
+  <p>
+    <a href={page("docs/termite-models/")}>Use these models</a>, or compare them with every other
+    model in <a href={page("models/")}>the model ratings</a>.
+  </p>
+</Base>
+
+<style>
+  th[scope="row"] { font-weight: 500; color: var(--ink); }
+</style>

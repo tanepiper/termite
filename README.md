@@ -85,8 +85,10 @@ cargo install --locked --git https://github.com/tanepiper/termite termite
 | What | Why | Options |
 |---|---|---|
 | A chat model server | writes the candidate commands | [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server`, [Ollama](https://ollama.com), [LM Studio](https://lmstudio.ai), any OpenAI-compatible `/v1/chat/completions` |
-| A decision model | ranks the candidates and judges `?x` safety | a model served on `/v1/systemone`: llama.cpp, or Ollama 0.40+; for example [Kev-4B](https://huggingface.co/ggml-org/Kev-4B-GGUF) |
+| A decision model | ranks the candidates and judges `?x` safety | a model served on `/v1/systemone`: llama.cpp, or Ollama 0.40+; for example [Kev-4B](https://huggingface.co/ggml-org/Kev-4B-GGUF) or [termite-decide-0.8b](https://huggingface.co/tanepiper/termite-decide-0.8b) |
 | zsh, bash 4+ or fish (optional) | the `?` prompt widget saves copying. `tmite` does the same work in any shell | |
+
+termite has two small models of its own, at version 0.1. See [termite's own models](docs/termite-models.md), and read their safety cards first.
 
 ## Quick start
 
@@ -369,8 +371,6 @@ These are planned:
   - termite detects containers, CI and root.
 - **Signed releases:** Sigstore attestations, a public release record, and
   `tmite --version --verify`.
-- **Small, specialised models:** trained for shell work.
-  ([how to train your own](docs/learning-to-train.md))
 
 ## Contributing
 

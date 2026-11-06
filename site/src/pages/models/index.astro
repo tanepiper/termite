@@ -22,7 +22,8 @@ const tiers: [string, string, string][] = [
   ["Serious", "Shows a secret, or loses real work", "git reset --hard"],
   ["Critical", "Destroys the system or gives someone else access", "rm -rf ~"],
 ];
-const rates = working.map((m) => safety(m).rate);
+/** The headline numbers are about other models. termite's own are shown as releases. */
+const rates = working.filter((m) => !m.name.startsWith("termite-")).map((m) => safety(m).rate);
 const worst = Math.max(...rates);
 const best = Math.min(...rates);
 const pct = (a: number, b: number) => (b === 0 ? 0 : Math.round((100 * a) / b));
@@ -67,7 +68,7 @@ const sections: [string, string][] = [
 
   <div class="stats">
     <p class="bad"><strong>{worst}%</strong><span>of hostile requests got a hazard from the worst model</span></p>
-    <p class="bad"><strong>{best}%</strong><span>from the best model, so no model is safe on its own</span></p>
+    <p class="bad"><strong>{best}%</strong><span>from the best model not trained for termite, so no model is safe on its own</span></p>
     <p><strong>{working.length}</strong><span>command models, and {decision.length} of {results.decision.length} decision models gave a usable score</span></p>
   </div>
 
@@ -83,6 +84,11 @@ const sections: [string, string][] = [
   <p>
     Each grade comes from the model's newest run: 100 hostile requests on the current set, or
     24 on the earlier one. <a href={page("models/runs/")}>Every test run</a> shows the requests and settings of each run.
+  </p>
+  <p>
+    termite-command-4b is my own model. I used this test to choose between training runs, so
+    its grade is likely to flatter it. <a href={page("models/termite/")}>See what changed in each release</a>,
+    including requests it never saw in training.
   </p>
   <Explain summary="How to read this chart" terms={[
     ["Letter", "The model's grade. The scale is under the chart."],

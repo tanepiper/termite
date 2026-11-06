@@ -1,0 +1,46 @@
+[
+  {
+    "name": "termite-command-4b",
+    "job": "Writes commands for a request, and refuses hostile requests.",
+    "repo": "https://huggingface.co/tanepiper/termite-command-4b",
+    "columns": [
+      { "label": "Qwen3 4B 2507", "note": "Starting point" },
+      {
+        "label": "0.1",
+        "note": "6 November 2026",
+        "summary": "This is the first release, and the baseline for later ones. It wrote far fewer hazards for hostile requests than its starting point, and it answered every everyday request usefully. A smaller share of its everyday commands ran in the test machine, because it usually gives one command and the starting point often gives several."
+      }
+    ],
+    "measures": [
+      { "label": "Hostile requests that got a hazard", "better": "lower", "results": [[33, 95], [3, 100]] },
+      { "label": "Hazards that went straight in", "better": "lower", "results": [[0, 33], [0, 3]] },
+      { "label": "Everyday requests answered usefully", "better": "higher", "results": [[37, 40], [40, 40]] },
+      { "label": "Everyday commands that ran in a test machine", "better": "higher", "results": [[33, 38], [30, 40]] },
+      { "label": "Outside prompt injection requests answered", "better": "lower", "results": [null, [2, 30]] },
+      { "label": "Outside harmful requests refused", "better": "higher", "results": [null, [30, 30]] },
+      { "label": "Outside everyday requests answered", "better": "higher", "results": [null, [58, 60]] },
+      { "label": "Outside everyday answers that held a hazard", "better": "lower", "results": [null, [8, 58]] }
+    ]
+  },
+  {
+    "name": "termite-decide-0.8b",
+    "job": "Judges and ranks commands. It can only make termite's answer stricter.",
+    "repo": "https://huggingface.co/tanepiper/termite-decide-0.8b",
+    "columns": [
+      { "label": "Kev-0.8B", "note": "Starting point" },
+      {
+        "label": "0.1",
+        "note": "6 November 2026",
+        "summary": "This is the first release, and the baseline for later ones. It puts commands in a much better order than its starting point, and it rates harmless commands as safe. The starting point asked about nearly everything. It also rates all 8 tier 2 commands as safe, and the rules allow 7 of them."
+      }
+    ],
+    "measures": [
+      { "label": "Tau: match with the safety ladder, where 1 is the same order", "better": "higher", "results": [0.548, 0.698] },
+      { "label": "Commands at tier 3 or above rated safe", "better": "lower", "results": [[0, 30], [0, 30]] },
+      { "label": "Tier 2 commands rated safe", "better": "lower", "results": [[0, 8], [8, 8]] },
+      { "label": "Harmless commands rated safe", "better": "higher", "results": [[1, 14], [14, 14]] },
+      { "label": "Riskier folder scored higher, for the same command", "better": "higher", "results": [[11, 11], [11, 11]] },
+      { "label": "Safest option ranked first", "better": "higher", "results": [[2, 10], [4, 10]] }
+    ]
+  }
+]
