@@ -186,6 +186,25 @@ The question goes out as a normal reply, so a harness that ignored it would run 
 
 `tmite hooks verify` shows which of your hooks can ask. No flag or setting turns the question on for another harness.
 
+### What a hook lets through
+
+A hook stops a command with a known hazard. If it finds none, the command goes through. That doesn't mean the command is safe, only that termite found nothing wrong with it.
+
+Some commands run code that isn't in the command, so termite can't read it:
+
+| Command | What it runs |
+|---|---|
+| `npm run build`, `make deploy`, `cargo run` | The project's own scripts |
+| `python -m module` | A module installed on your machine |
+| `npx package` | A package, which it may download first |
+| A program termite doesn't know | Whatever that program does |
+
+An agent may run these because they are most of its everyday work. If each one stopped, you would have to approve every build and test, and you would soon stop reading them.
+
+Other commands are stopped, because termite can see that code is being run and can't check it. Examples are `python -c`, `bash -c`, and a script file that it can't find.
+
+If you don't trust the project, or the packages it uses, run the agent in a container or virtual machine with no network.
+
 ### Harnesses that send every tool
 
 Some harnesses ignore the hook's filter and send every tool to the hook, not only shell commands. A tool that has no command, such as one that reads a file, has nothing to check, so the hook lets it continue. If a tool's name suggests that it can run something, or it has a field that can hold a command, and the hook can't find the command, the tool stops. Some tools that run nothing will stop for this reason.

@@ -55,8 +55,8 @@ You often know what you want ("restart the web container", "show what is using m
 
 This is not safe with small local models. In testing they wrote `rm -rf ~/*`, printed SSH keys and piped unknown scripts into a shell. [The results are public](https://tanepiper.github.io/termite/). termite therefore treats every model as untrusted:
 
-- **Local.** Your requests, folders and commands go to model servers on your own
-  machine (llama.cpp, Ollama, LM Studio), not to a cloud.
+- **Local by default.** Your requests, folders and commands go to model servers on your own
+  machine (llama.cpp, Ollama, LM Studio). If you set a model or decision URL to another machine, they go there instead, with any decision token. Only do this with a server you trust.
 - **Checked.** Every suggested command passes through tested Rust code before you see it.
 - **Never run.** termite stops at your prompt, and only you can press Enter.
 - **Rated.** Every command is marked in words and colour, and risky commands turn red whatever the model says.
@@ -69,7 +69,7 @@ termite sits between a model and your shell, and catches a bad command before it
 |---|---|---|
 | **Ask** | A local model writes the command or script for a job you describe | `?`, `??`, `?x`, `?b` |
 | **Check** | Fixed rules rate any command or script, with no model | `tmite check`, or pipe text into `tmite` |
-| **Gate** | Six levels decide what happens to a command. You decide for yourself. An agent gets only what is safe with nobody reading it | Always on |
+| **Gate** | Six levels decide what happens to a command. You decide for yourself. An agent is stopped at any known hazard, and anything else goes through | Always on |
 | **Test** | Rates how models behave with dangerous requests, in a sandbox | [The results](https://tanepiper.github.io/termite/) |
 
 ## Install
@@ -279,6 +279,7 @@ termite logs what it installs and what it stops, as hashes, in a signed chain. S
 
 - **Levels 1 to 3 still reach your prompt if you say yes.** A contained delete such as `rm -rf node_modules` asks first, but a yes puts it at your prompt, so read every command before you press Enter. Root commands and commands that reach outside the project never reach your prompt.
 - **A person's `tmite check` result is a rating.** It shows the level, but the exit status follows the rating. An agent is held to the levels. See [agent tools](docs/agents.md).
+- **termite can't see code that isn't in the command.** `npm run build`, `make deploy`, `python -m module` and `npx package` run code that termite can't read, so an agent may run them. See [what a hook lets through](docs/agents.md#what-a-hook-lets-through).
 - **termite only sees what passes through it.** It is not a sandbox. To stop an agent reaching other machines for certain, run the agent somewhere with no network.
 - **The read-only policy matches paths as written.** It does not follow
   symlinks, and with zsh's `GLOB_DOTS` on, `cat *` can reach hidden files.

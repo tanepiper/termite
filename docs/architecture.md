@@ -116,6 +116,7 @@ Code plugin, and `tests/hooks/` holds recorded messages from each harness.
 | Input | Limit | Where |
 |---|---|---|
 | A model's reply | 256 KiB | `sse::MAX_REPLY_BYTES` |
+| A decision server's reply | 64 KiB | `decide::MAX_REPLY_BYTES` |
 | One line of a stream | 64 KiB | `sse` |
 | Candidates | 5 | `generate::MAX_CANDIDATES` |
 | One command | `MAX_COMMAND_CHARS` | `command` |

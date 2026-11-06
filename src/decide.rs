@@ -28,6 +28,10 @@ use crate::error::{AssistError, Service};
 /// How much of a server's error to keep.
 const ERROR_CHARS: usize = 300;
 
+/// The longest reply accepted. An answer about five commands needs a few
+/// kilobytes.
+const MAX_REPLY_BYTES: usize = 64 * 1024;
+
 /// A command with the decision model's score.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Ranked {
@@ -132,7 +136,7 @@ impl SystemOne {
 
         let reply = request.send().await.map_err(to_error)?;
         let status = reply.status();
-        let text = reply.text().await.map_err(to_error)?;
+        let text = read_reply(reply).await?;
         if status.is_success() {
             return Ok(text);
         }
@@ -143,6 +147,27 @@ impl SystemOne {
             said: text.chars().take(ERROR_CHARS).collect(),
         })
     }
+}
+
+/// The reply as text, stopping as soon as it passes the limit.
+async fn read_reply(
+    mut reply: reqwest::Response,
+) -> Result<String, AssistError> {
+    let mut body = Vec::new();
+    while let Some(bytes) = reply
+        .chunk()
+        .await
+        .map_err(|error| AssistError::from_http(Service::Decision, &error))?
+    {
+        if body.len() + bytes.len() > MAX_REPLY_BYTES {
+            return Err(AssistError::invalid(
+                Service::Decision,
+                "the reply is too long",
+            ));
+        }
+        body.extend_from_slice(&bytes);
+    }
+    Ok(String::from_utf8_lossy(&body).into_owned())
 }
 
 impl DecisionClient for SystemOne {
@@ -182,13 +207,17 @@ impl DecisionClient for SystemOne {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
     use serde_json::json;
 
     use super::{
-        SafetyVerdict, Verdict, parse_ranking, parse_safety, rank_request,
-        safety_request,
+        MAX_REPLY_BYTES, SafetyVerdict, SystemOne, Verdict, parse_ranking,
+        parse_safety, rank_request, safety_request,
     };
     use crate::candidate::{Candidate, Risk};
+    use crate::config::Config;
     use crate::context::{Context, Session};
     use crate::error::{AssistError, Service};
 
@@ -432,6 +461,57 @@ mod tests {
         for ((only_reads, no_secrets, harmful), expected) in cases {
             let verdict = SafetyVerdict::new(only_reads, no_secrets, harmful);
             assert_eq!(verdict.reason(), expected);
+        }
+    }
+
+    /// Serve one reply of `size` bytes on a local port, and return the URL.
+    fn serve_once(status: &str, size: usize) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let port = listener.local_addr().expect("address").port();
+        let head = format!(
+            "HTTP/1.1 {status}\r\ncontent-length: {size}\r\n\
+             connection: close\r\n\r\n"
+        );
+        std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept");
+            let mut request = [0_u8; 8192];
+            let _ = socket.read(&mut request);
+            let _ = socket.write_all(head.as_bytes());
+            let _ = socket.write_all(&vec![b'x'; size]);
+        });
+        format!("http://127.0.0.1:{port}")
+    }
+
+    fn ask_server(url: &str) -> Result<String, AssistError> {
+        let config = Config::from_json(&format!(
+            r#"{{"model_url":"{url}","model":"m","decision_url":"{url}","decision_model":"d"}}"#
+        ))
+        .expect("config");
+        let client = SystemOne::new(&config, None).expect("client");
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+            .block_on(client.ask(&json!({})))
+    }
+
+    #[test]
+    fn given_a_reply_at_the_limit_then_it_is_read() {
+        let url = serve_once("200 OK", MAX_REPLY_BYTES);
+        assert_eq!(ask_server(&url).expect("reply").len(), MAX_REPLY_BYTES);
+    }
+
+    #[test]
+    fn given_a_reply_over_the_limit_then_it_is_refused() {
+        for status in ["200 OK", "500 Server Error"] {
+            let url = serve_once(status, MAX_REPLY_BYTES + 1);
+            assert!(matches!(
+                ask_server(&url),
+                Err(AssistError::InvalidReply {
+                    service: Service::Decision,
+                    ..
+                })
+            ));
         }
     }
 }
