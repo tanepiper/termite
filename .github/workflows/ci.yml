@@ -3,7 +3,6 @@ name: Checks
 on:
   push:
     branches: [main]
-  pull_request:
   # The release workflow starts this for its version bump pull request.
   workflow_dispatch:
 
