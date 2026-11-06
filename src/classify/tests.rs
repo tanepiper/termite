@@ -530,3 +530,76 @@ fn given_git_clean_outside_a_repository_then_only_the_reason_changes() {
     ));
     fs::remove_dir_all(root).expect("clean");
 }
+
+#[test]
+fn given_a_system_tool_that_only_looks_then_it_is_not_refused() {
+    let change = [
+        "diskutil list",
+        "diskutil info disk0",
+        "launchctl list",
+        "launchctl list com.apple.Finder",
+        "sysctl -n hw.ncpu",
+        "sysctl -a",
+        "ip -brief address",
+        "ip route",
+        "ip addr show dev eth0",
+        "systemctl is-active nginx",
+        "systemctl --user list-units",
+    ];
+    each(Level::Change, &change);
+    assert_eq!(level("systemctl status nginx"), Level::SensitiveRead);
+}
+
+#[test]
+fn given_any_other_form_of_a_system_tool_then_it_stays_refused() {
+    each(
+        Level::SystemDangerous,
+        &[
+            "diskutil eraseDisk JHFS+ x disk2",
+            "diskutil unmount disk2",
+            "launchctl load x.plist",
+            "launchctl list a b",
+            "launchctl",
+            "sysctl -w kern.x=1",
+            "sysctl kern.x=1",
+            "sysctl -p",
+            "sysctl -p /tmp/x",
+            "sysctl",
+            "ip link set eth0 down",
+            "ip route add default via 1.2.3.4",
+            "ip route flush table main",
+            "ip netns exec x sh",
+            "ip -batch cmds",
+            "ip -force -batch cmds",
+            "ip address show; ip link set eth0 down",
+            "systemctl stop nginx",
+            "systemctl --host=x status nginx",
+            "systemctl -H x is-active nginx",
+            "systemctl -M x list-units",
+            "systemctl --root=/x status nginx",
+            "systemctl",
+            "sudo diskutil list",
+            "sudo systemctl status nginx",
+        ],
+    );
+}
+
+#[test]
+fn given_git_clean_then_only_a_true_dry_run_escapes_the_sweep_level() {
+    each(
+        Level::ContainedDestructive,
+        &["git clean -nd", "git clean -n", "git clean --dry-run -dx"],
+    );
+    each(
+        Level::SystemDangerous,
+        &[
+            "git clean -f -en",
+            "git clean -fd -- -n",
+            "git clean -n --no-dry-run -f",
+            "git clean -n -fd --no-dry-run",
+            "git clean -f",
+            "git clean -i",
+            "git clean --force",
+        ],
+    );
+}

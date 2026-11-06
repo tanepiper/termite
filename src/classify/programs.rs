@@ -2,7 +2,7 @@
 //! harm are listed: anything else is an ordinary change, level 2.
 
 use super::Level;
-use super::{deletes, git};
+use super::{deletes, git, system};
 
 /// Programs that run the next word as a command.
 const WRAPPERS: &[&str] = &[
@@ -253,6 +253,12 @@ pub(super) fn level_of(
     name: &str,
     arguments: &[String],
 ) -> Option<(Level, &'static str)> {
+    if system::shows_logs(name, arguments) {
+        return Some((Level::SensitiveRead, "may show private log lines"));
+    }
+    if system::only_looks(name, arguments) {
+        return None;
+    }
     if SYSTEM.contains(&name) || name.starts_with("mkfs") {
         return Some((Level::SystemDangerous, "changes the whole system"));
     }

@@ -12,6 +12,7 @@ mod leaves;
 mod parse;
 mod paths;
 mod programs;
+mod system;
 mod verdict;
 mod walk;
 

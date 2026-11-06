@@ -21,7 +21,7 @@ pub(super) fn level_of(arguments: &[String]) -> Option<(Level, &'static str)> {
             Some((Level::SystemDangerous, "overwrites a shared branch"))
         },
         "reset" if has("--hard") => Some(loses),
-        "clean" if has("-n") || has("--dry-run") => Some(loses),
+        "clean" if only_lists(options) => None,
         "clean" => Some(sweeps),
         "restore" => Some(loses),
         "rm" => Some(deletes),
@@ -37,6 +37,28 @@ pub(super) fn level_of(arguments: &[String]) -> Option<(Level, &'static str)> {
         },
         _ => None,
     }
+}
+
+/// A dry run with only options known to be safe. `-e` takes a value, a later
+/// `--no-dry-run` cancels the dry run, and a word after `--` is a path.
+fn only_lists(options: &[String]) -> bool {
+    let mut dry = false;
+    for option in options {
+        match option.as_str() {
+            "--" => break,
+            "--dry-run" => dry = true,
+            "--quiet" => {},
+            long if long.starts_with("--") => return false,
+            short if short.starts_with('-') => {
+                if !short[1..].chars().all(|one| "ndxXq".contains(one)) {
+                    return false;
+                }
+                dry |= short.contains('n');
+            },
+            _ => {},
+        }
+    }
+    dry
 }
 
 fn force_push(options: &[String]) -> bool {
