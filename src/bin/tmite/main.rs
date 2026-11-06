@@ -49,6 +49,7 @@ Usage: tmite [--json | --zle] '<prefix> request'   prefix: ? ?? ?x ?b
        tmite provenance verify|PATH|accept PATH what termite installed
        tmite alerts                             what its guards stopped
        tmite setup   find harnesses and local models, write the config
+       tmite --version   print the version
        tmite setup --plan   show what setup would do, as JSON; changes nothing
        tmite hooks [--json]|install|remove|verify   hooks for agent harnesses
        tmite hook NAME   what an agent harness runs before a shell command
@@ -93,6 +94,11 @@ fn main() -> ExitCode {
                 ExitCode::from(64)
             },
         };
+    }
+
+    if arguments.first().is_some_and(|first| first == "--version") {
+        println!("tmite {}", env!("CARGO_PKG_VERSION"));
+        return ExitCode::SUCCESS;
     }
 
     if arguments.first().is_some_and(|first| first == "hook") {

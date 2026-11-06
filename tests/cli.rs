@@ -810,6 +810,15 @@ fn given_every_mode_then_the_exit_status_follows_the_answer() {
 }
 
 #[test]
+fn given_version_then_it_prints_the_package_version() {
+    let home = Folder::new();
+    let output = tmite(&home.0, &home.0, &["--version"]);
+    assert_eq!(code(&output), 0);
+    let expected = format!("tmite {}\n", env!("CARGO_PKG_VERSION"));
+    assert_eq!(stdout(&output), expected);
+}
+
+#[test]
 fn given_a_bad_config_then_it_says_so() {
     let missing = Folder::new();
     let output = tmite(&missing.0, &missing.0, &["? go"]);

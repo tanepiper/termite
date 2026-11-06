@@ -1,15 +1,16 @@
 ---
 name: Docs site
 
+# The site goes out for two reasons: a release, which starts this workflow when it
+# finishes, and new data, which can arrive without a release. Changes to the docs or
+# to how the site looks wait for one of those. Run it by hand for anything else.
 on:
   push:
     branches: [main]
     paths:
-      - site/**
-      - docs/**
+      - eval/history.jsonl
       - eval/observations/**
-      - scripts/check-public.sh
-      - .github/workflows/pages.yml
+      - site/src/data/**
   workflow_dispatch:
 
 permissions:

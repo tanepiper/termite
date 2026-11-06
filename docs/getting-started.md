@@ -12,9 +12,37 @@ To set it up by hand, follow the steps below.
 
 ## Install
 
+Download a release, or build termite from source. Either way, you also need llama.cpp, which serves the models.
+
+### Download a release
+
+Choose your system: `macos-arm64`, `macos-x86_64`, `linux-x86_64` or `linux-arm64`. The Linux builds run on any distribution. This example is for an Apple silicon Mac:
+
+```bash
+curl -fLO https://github.com/tanepiper/termite/releases/latest/download/tmite-macos-arm64.tar.gz
+```
+
+Check the download with the [GitHub CLI](https://cli.github.com). If this fails, delete the file and do not run it:
+
+```bash
+gh attestation verify tmite-macos-arm64.tar.gz --repo tanepiper/termite
+```
+
+Unpack it, and put `tmite` in a folder on your `PATH`:
+
+```bash
+tar -xzf tmite-macos-arm64.tar.gz && mkdir -p ~/.local/bin && mv tmite ~/.local/bin/
+```
+
+The macOS builds are not signed by Apple. A file downloaded with `curl` runs normally. A file downloaded in a browser is blocked, so use `curl`.
+
+[Releases](/termite/releases/) lists every version, with the hash of each file.
+
+### Build from source
+
 You need Rust 1.87 or newer and llama.cpp, which serves the models. Setup can download models for llama.cpp. If you already run Ollama or LM Studio, setup finds them and lists their models, but it doesn't download models for them.
 
-### macOS
+#### macOS
 
 ```bash
 brew install rust llama.cpp
@@ -24,7 +52,7 @@ brew install rust llama.cpp
 cargo install --locked --git https://github.com/tanepiper/termite termite
 ```
 
-### Linux
+#### Linux
 
 Install Rust with [rustup](https://rustup.rs), because the `cargo` package in your distribution may be older than 1.87. Install llama.cpp from its [releases page](https://github.com/ggml-org/llama.cpp/releases), and make sure `llama-server` is on your `PATH`.
 

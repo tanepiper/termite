@@ -74,7 +74,7 @@ termite sits between a model and your shell, and catches a bad command before it
 
 ## Install
 
-termite is at an early stage, so install it from source. Signed release binaries and a Homebrew tap are planned.
+termite is at an early stage. [Download a signed release](docs/getting-started.md#download-a-release) for macOS or Linux, or install it from source:
 
 ```bash
 cargo install --locked --git https://github.com/tanepiper/termite termite

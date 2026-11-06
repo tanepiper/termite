@@ -65,6 +65,9 @@ jobs:
         run: brew install bash shellcheck bats-core
       - name: Test
         run: cargo test --locked
+      - name: Test the release script
+        if: runner.os == 'Linux'
+        run: python3 -I scripts/test_release.py
       - name: Test the bash library
         if: runner.os == 'macOS'
         run: bash/tests/run.sh

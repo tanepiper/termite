@@ -1,0 +1,68 @@
+---
+import Base from "../../layouts/Base.astro";
+import { Content as Changelog } from "../../../../CHANGELOG.md";
+import { page } from "../../lib/results";
+import record from "../../../public/releases.json";
+
+type Release = { version: string; date: string; commit: string; files: Record<string, string> };
+
+const repo = "https://github.com/tanepiper/termite";
+const releases = record.releases as Release[];
+const newest = releases[0];
+const systems: [string, string][] = [
+  ["macOS, Apple silicon", "tmite-macos-arm64.tar.gz"],
+  ["macOS, Intel", "tmite-macos-x86_64.tar.gz"],
+  ["Linux, x86-64", "tmite-linux-x86_64.tar.gz"],
+  ["Linux, Arm", "tmite-linux-arm64.tar.gz"],
+];
+---
+
+<Base title="Releases" description="Download termite, check what you downloaded, and see what changed." current="releases">
+  <h1>Releases</h1>
+  {newest ? (
+    <>
+      <p class="lead">The newest release is {newest.version}, from {newest.date}.</p>
+      <div class="scroll"><table>
+        <thead><tr><th scope="col">System</th><th scope="col">Download</th><th scope="col">SHA-256</th></tr></thead>
+        <tbody>
+          {systems.map(([system, file]) => (
+            <tr>
+              <th scope="row">{system}</th>
+              <td><a href={`${repo}/releases/download/v${newest.version}/${file}`}>{file}</a></td>
+              <td><code>{newest.files[file]}</code></td>
+            </tr>
+          ))}
+        </tbody>
+      </table></div>
+    </>
+  ) : (
+    <p class="lead">
+      There is no release to download yet. <a href={page("docs/getting-started/")}>Install termite from source</a>.
+    </p>
+  )}
+
+  <h2 id="check">Check what you downloaded</h2>
+  <p>
+    Every release is built by GitHub Actions from a tagged commit. Each file has a signed record of
+    how it was built. To check a file, install the <a href="https://cli.github.com">GitHub CLI</a> and run:
+  </p>
+  <pre><code>gh attestation verify tmite-macos-arm64.tar.gz --repo tanepiper/termite</code></pre>
+  <p>
+    The hash of every file is also in <a href={page("releases.json")}>the release record</a>. Each entry
+    holds the hash of the one before it, so an older entry can't be changed without it showing.
+  </p>
+  <p>
+    The macOS builds are not signed by Apple. If you download one in a browser, macOS blocks it.
+    <a href={page("docs/getting-started/#download-a-release")}>Getting started</a> shows how to download it with
+    <code>curl</code>, which macOS doesn't block.
+  </p>
+
+  <h2 id="changes">What changed</h2>
+  <div class="changes"><Changelog /></div>
+</Base>
+
+<style>
+  th[scope="row"] { font-weight: 500; color: var(--ink); }
+  code { overflow-wrap: anywhere; }
+  .changes :global(h1), .changes :global(#unreleased:has(+ h2)) { display: none; }
+</style>
