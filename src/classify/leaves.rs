@@ -113,6 +113,38 @@ const PUBLISHES: &[(&str, &[&str])] = &[
     ("yarn", &["publish"]),
 ];
 
+/// `az` commands that only show settings, never secrets or tokens. These must
+/// match from the first word, so `az keyvault secret show` is not one.
+const SAFE_AZ_READS: &[&[&str]] = &[
+    &["account", "list"],
+    &["account", "show"],
+    &["group", "list"],
+    &["group", "show"],
+    &["keyvault", "list"],
+    &["keyvault", "show"],
+    &["role", "assignment", "list"],
+    &["role", "definition", "list"],
+];
+
+/// The only options a safe `az` read may have. `--debug` prints the request.
+const SAFE_AZ_OPTIONS: &[&str] = &[
+    "--all",
+    "--assignee",
+    "--include-groups",
+    "--include-inherited",
+    "--name",
+    "--only-show-errors",
+    "--output",
+    "--query",
+    "--resource-group",
+    "--role",
+    "--scope",
+    "--subscription",
+    "-g",
+    "-n",
+    "-o",
+];
+
 /// `curl` options that can't send anything anywhere else.
 const LOCAL_CURL_OPTIONS: &[&str] = &[
     "-I",
@@ -208,12 +240,27 @@ fn leaves_by_name(name: &str, arguments: &[String]) -> bool {
         "rsync" => arguments.iter().any(|word| names_a_host(word)),
         "git" => git_leaves(arguments),
         _ => {
-            REACHES_OUT.contains(&name)
+            (REACHES_OUT.contains(&name) && !is_safe_az_read(name, arguments))
                 || PUBLISHES.iter().any(|(program, verb)| {
                     *program == name && starts_with(arguments, verb)
                 })
         },
     }
+}
+
+/// One of the `az` reads above, with nothing but the options above.
+fn is_safe_az_read(name: &str, arguments: &[String]) -> bool {
+    let plain_option = |word: &String| {
+        !word.starts_with('-')
+            || SAFE_AZ_OPTIONS
+                .contains(&word.split('=').next().unwrap_or(word.as_str()))
+    };
+    name == "az"
+        && SAFE_AZ_READS.iter().any(|verb| {
+            arguments.len() >= verb.len()
+                && verb.iter().zip(arguments).all(|(a, b)| *a == b)
+                && arguments[verb.len()..].iter().all(plain_option)
+        })
 }
 
 /// A write or read through bash's network paths.
@@ -322,6 +369,15 @@ mod tests {
             "git -c core.sshCommand=other push origin",
             "npm publish",
             "pbcopy",
+            "az keyvault secret show --name a --vault-name b",
+            "az keyvault key list --vault-name b",
+            "az keyvault show --name a --debug",
+            "az --debug keyvault show --name a",
+            "az account get-access-token",
+            "az rest --url https://example.test",
+            "az role assignment create --role Owner",
+            "az keyvault",
+            "az",
         ] {
             assert!(leaves(command), "{command}");
         }
@@ -342,6 +398,10 @@ mod tests {
             "cargo build",
             "docker ps",
             "gh pr view",
+            "az account show",
+            "az keyvault show --name a -g b --query properties -o json",
+            "az keyvault show --name=a",
+            "az role assignment list --scope /subscriptions/a --all",
         ] {
             assert!(!leaves(command), "{command}");
         }

