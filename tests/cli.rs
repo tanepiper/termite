@@ -738,6 +738,16 @@ fn given_a_delete_across_home_then_a_person_is_shown_it_but_it_cant_be_inserted(
 
 #[cfg(target_os = "macos")]
 #[test]
+fn given_git_clean_outside_a_repository_then_it_stays_text_and_says_why() {
+    let text = at_a_terminal("git clean -fdx");
+
+    assert!(text.contains("\"level\":4"), "{text}");
+    assert!(text.contains("\"insert\":false"), "{text}");
+    assert!(text.contains("no git repository here"), "{text}");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn given_a_person_at_a_terminal_then_level_3_comes_back_to_be_asked() {
     let text = at_a_terminal("rm -rf node_modules");
     assert!(text.contains("rm -rf node_modules"), "{text}");
