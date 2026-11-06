@@ -31,6 +31,8 @@ const SECRET_PAIRS: &[[&str; 2]] = &[
     [".config", "op"],
     [".docker", "config.json"],
     ["library", "cookies"],
+    ["library", "mail"],
+    ["library", "messages"],
     ["library", "safari"],
     ["application support", "google"],
     ["application support", "firefox"],
@@ -62,6 +64,7 @@ const SECRET_NAMES: &[&str] = &[
     ".viminfo",
     "fish_history",
     "credentials",
+    "environ",
 ];
 
 /// File name beginnings that are secret: `.env`, `.env.local`, and SSH

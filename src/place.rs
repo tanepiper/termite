@@ -43,8 +43,9 @@ const UNATTENDED: [&str; 14] = [
 ];
 
 /// Is nobody there to answer a question? True for any of the variables, set
-/// to anything, any `AIDER_` variable, or no terminal. Nothing can turn this
-/// off: an agent that hides its variables still has no terminal.
+/// to anything, any `AIDER_` variable, or no terminal. Nothing in `tmite` can
+/// turn this off. A harness sets `TERMITE_AGENT` so that the answer doesn't
+/// depend on what it can see from here.
 pub fn unattended<I, S>(variables: I, has_terminal: bool) -> bool
 where
     I: IntoIterator<Item = S>,

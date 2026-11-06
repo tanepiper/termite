@@ -2,7 +2,7 @@
 //! harm are listed: anything else is an ordinary change, level 2.
 
 use super::Level;
-use super::deletes;
+use super::{deletes, git};
 
 /// Programs that run the next word as a command.
 const WRAPPERS: &[&str] = &[
@@ -27,6 +27,10 @@ pub(super) const SHELLS: &[&str] =
     &["sh", "bash", "zsh", "dash", "ksh", "fish", "ash"];
 
 /// Languages that also run what they are fed.
+/// Shell words that start a stage and hide the program after them.
+const KEYWORDS: &[&str] =
+    &["!", "do", "elif", "else", "if", "then", "until", "while"];
+
 pub(super) const LANGUAGES: &[&str] = &[
     "python", "python2", "python3", "perl", "ruby", "php", "node", "lua",
 ];
@@ -159,6 +163,10 @@ pub(super) fn unwrap(words: Vec<String>) -> Unwrapped {
         rest = after;
         let Some(first) = rest.first() else { break };
         let name = name_of(first);
+        if KEYWORDS.contains(&name.as_str()) {
+            rest = &rest[1..];
+            continue;
+        }
         let is_env = name == "env" && rest.len() > 1;
         if ROOT.contains(&name.as_str()) {
             found.root = true;
@@ -174,9 +182,20 @@ pub(super) fn unwrap(words: Vec<String>) -> Unwrapped {
 }
 
 fn changes_code(assignment: &str) -> bool {
-    ["LD_", "DYLD_", "PATH=", "PYTHONPATH=", "NODE_OPTIONS="]
-        .iter()
-        .any(|start| assignment.starts_with(start))
+    [
+        "LD_",
+        "DYLD_",
+        "PATH=",
+        "PYTHONPATH=",
+        "NODE_OPTIONS=",
+        "GIT_ASKPASS=",
+        "GIT_EXTERNAL_DIFF=",
+        "GIT_PAGER=",
+        "GIT_PROXY_COMMAND=",
+        "GIT_SSH",
+    ]
+    .iter()
+    .any(|start| assignment.starts_with(start))
 }
 
 fn skip_assignments(words: &[String]) -> &[String] {
@@ -238,7 +257,7 @@ pub(super) fn level_of(
         return Some((Level::SystemDangerous, "changes the whole system"));
     }
     if name == "git" {
-        return git(arguments);
+        return git::level_of(arguments);
     }
     if privileged_container(name, arguments) {
         return Some((Level::SystemDangerous, "gives a container the host"));
@@ -268,53 +287,6 @@ fn privileged_container(name: &str, arguments: &[String]) -> bool {
         })
 }
 
-/// The git subcommand, past `-C folder` and `-c name=value`.
-fn git(arguments: &[String]) -> Option<(Level, &'static str)> {
-    let mut rest = arguments;
-    while let [first, _, others @ ..] = rest {
-        if first != "-C" && first != "-c" {
-            break;
-        }
-        rest = others;
-    }
-    let (verb, options) = rest.split_first()?;
-    let has = |word: &str| options.iter().any(|option| option == word);
-    let loses = (Level::ContainedDestructive, "loses uncommitted work");
-    let sweeps = (Level::SystemDangerous, deletes::LOOSE);
-    let deletes = (Level::ContainedDestructive, "deletes data");
-    match verb.as_str() {
-        "push" if force_push(options) || has("--delete") || has("-d") => {
-            Some((Level::SystemDangerous, "overwrites a shared branch"))
-        },
-        "reset" if has("--hard") => Some(loses),
-        "clean" if has("-n") || has("--dry-run") => Some(loses),
-        "clean" => Some(sweeps),
-        "restore" => Some(loses),
-        "rm" => Some(deletes),
-        "remote" | "worktree" if has("remove") || has("rm") => Some(deletes),
-        "checkout" if has("--") || has("-f") || has("--force") => Some(loses),
-        "stash" if has("clear") => Some(sweeps),
-        "stash" if has("drop") => Some(loses),
-        "branch" if has("-D") || has("-d") || has("--delete") => Some(loses),
-        "tag" | "update-ref" if has("-d") || has("--delete") => Some(deletes),
-        "reflog" if has("expire") => Some(sweeps),
-        "gc" if options.iter().any(|one| one.starts_with("--prune")) => {
-            Some(sweeps)
-        },
-        _ => None,
-    }
-}
-
-fn force_push(options: &[String]) -> bool {
-    options.iter().any(|option| {
-        option.starts_with("--force")
-            || option.starts_with('+')
-            || (option.starts_with('-')
-                && !option.starts_with("--")
-                && option.contains('f'))
-    })
-}
-
 /// Reads that show secrets through a tool, not through a file.
 pub(super) fn shows_secrets(name: &str, arguments: &[String]) -> bool {
     let has = |word: &str| arguments.iter().any(|one| one == word);
@@ -325,6 +297,9 @@ pub(super) fn shows_secrets(name: &str, arguments: &[String]) -> bool {
     };
     match name {
         "export" => has("-p"),
+        "ps" => arguments
+            .iter()
+            .any(|one| !one.starts_with('-') && one.contains('e')),
         "kubectl" => mentions("secret"),
         "gh" => has("auth") && has("token"),
         "aws" => has("configure") && has("get"),
@@ -371,6 +346,7 @@ pub(super) fn runs_inline_code(name: &str, arguments: &[String]) -> bool {
             arguments.iter().any(|one| one.contains("system("))
         },
         "git" => has("-c"),
+        "php" => has("-r"),
         _ => is_language && (has("-c") || has("-e")),
     }
 }

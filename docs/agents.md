@@ -8,13 +8,20 @@ termite works with any agent service or harness that can run a command before it
 
 No agent ever runs a command that a model wrote.
 
-## Stop an agent running destructive commands
+## Stop an agent running destructive commands or sending data out
 
-Send each shell command to `tmite check` before the agent runs it. The check reads the command from standard input:
+Send each shell command to `tmite check` before the agent runs it. The check reads the command from standard input. Set `TERMITE_AGENT` in the hook, so the check treats the caller as an agent whatever it can detect:
 
 ```bash
-printf '%s' "$command" | tmite check >&2
+printf '%s' "$command" | TERMITE_AGENT=1 tmite check >&2
 ```
+
+An agent gets stricter rules than a person, because nobody reads its commands first. The check stops:
+
+- Anything above level 2, and level 1, which reads secrets.
+- Anything that can carry data to another machine, at any level. This includes `curl` and `wget` to other machines, `ssh`, `scp`, DNS lookups, cloud tools, uploads, publishing, the clipboard, and opening a web address.
+
+`curl` to `localhost` still passes, and so does `git push` to a remote that already has a name.
 
 The exit status tells your harness what to do:
 
@@ -27,7 +34,9 @@ The exit status tells your harness what to do:
 
 Add this as a pre-command hook, a tool wrapper or a policy step, whichever your harness supports. Treat every status except 0 as a stop. `tmite` must be on your `PATH`.
 
-The check blocks only what it can see, so read [what it misses](using-termite.md#check-a-script-or-a-pipe). A command built from variables counts as risky, so some ordinary commands will also stop.
+The check blocks only what it can see, so read [what it misses](using-termite.md#check-a-script-or-a-pipe). It can't see inside a file that a command runs, such as `python3 script.py` or `npm test`. It also can't see an agent's other tools, such as one that writes files or fetches web pages. To stop data leaving for certain, run the agent in a container or a virtual machine with no network.
+
+A command built from variables counts as risky, so some ordinary commands will also stop. `grep -r` also stops, because it can read secrets in the folder. `rg` skips ignored files, so it passes.
 
 ## Before you start
 

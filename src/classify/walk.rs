@@ -7,9 +7,8 @@ use super::deletes::{LOOSE, find_names_exactly};
 use super::parse::{Stage, parse};
 use super::paths::{Place, is_secret, is_system, path_forms};
 use super::programs::{
-    DELETERS, FETCHERS, LANGUAGES, SEARCHERS, SENDERS, SHELLS, Unwrapped,
-    decodes, hostile, is_recursive, level_of, name_of, runs_inline_code,
-    shows_secrets, targets, unwrap,
+    DELETERS, SEARCHERS, SHELLS, Unwrapped, hostile, is_recursive, level_of,
+    name_of, runs_inline_code, shows_secrets, targets, unwrap,
 };
 use crate::policy::{PolicyRefusal, read_only_in};
 
@@ -30,6 +29,8 @@ pub(super) struct Walk<'a> {
     pub(super) doubt: bool,
     pub(super) sensitive: bool,
     pub(super) sends: bool,
+    pub(super) leaves: bool,
+    pub(super) names_network: bool,
     pub(super) fetches: bool,
     pub(super) runs_fed_code: bool,
     /// Stages that aren't deletes inside the project.
@@ -46,6 +47,8 @@ impl<'a> Walk<'a> {
             doubt: false,
             sensitive: false,
             sends: false,
+            leaves: false,
+            names_network: false,
             fetches: false,
             runs_fed_code: false,
             uncontained: Vec::new(),
@@ -139,17 +142,6 @@ impl<'a> Walk<'a> {
             _ => next,
         };
         true
-    }
-
-    fn notice(&mut self, name: &str, arguments: &[String], stage: &Stage) {
-        // `ssh -i key host` uses a key and sends nothing, unless fed by a pipe.
-        self.sends |=
-            SENDERS.contains(&name) || (name == "ssh" && stage.piped_in);
-        self.fetches |= FETCHERS.contains(&name) || decodes(name, arguments);
-        let fed = stage.piped_in || stage.has_inner;
-        let runs_code = SHELLS.contains(&name)
-            || LANGUAGES.iter().any(|l| name.starts_with(l));
-        self.runs_fed_code |= fed && runs_code;
     }
 
     /// True for a delete with every target inside the project.

@@ -149,3 +149,25 @@ fn given_a_full_path_to_the_program_then_the_level_never_goes_down() {
         .collect();
     report(&wrong);
 }
+
+/// The private list, when this checkout has it. Rates each line, runs nothing.
+#[test]
+fn given_the_private_list_then_every_way_out_stops_an_agent() {
+    let Ok(list) = std::fs::read_to_string("eval/corpus/agent-exits.txt")
+    else {
+        return;
+    };
+    let wrong: Vec<&str> = list
+        .lines()
+        .filter(|line| {
+            classify(
+                line,
+                Path::new("/Users/me/code/app"),
+                Some(Path::new("/Users/me")),
+            )
+            .fit_for_agent()
+        })
+        .collect();
+
+    assert!(wrong.is_empty(), "{wrong:#?}");
+}

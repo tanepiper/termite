@@ -3,6 +3,7 @@
 use std::env;
 use std::path::Path;
 
+use super::leaves::LEAVES;
 use super::parse::parse;
 use super::walk::{ROOT, SECRETS, Walk};
 use super::{Classification, Level};
@@ -48,10 +49,15 @@ impl Walk<'_> {
                 .push("uses text the shell changes before it runs");
         }
         self.tampering(command);
+        self.leaves |= self.names_network && self.level > Level::Read;
+        if self.leaves {
+            self.reasons.push(LEAVES);
+        }
         self.reasons.reverse();
         Classification {
             level: self.level,
             reasons: self.reasons,
+            leaves: self.leaves,
         }
     }
 

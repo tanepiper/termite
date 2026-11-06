@@ -87,12 +87,13 @@ impl<'a> Judge<'a> {
     }
 
     fn hold(&self, ranked: &Ranked) -> Option<Held> {
-        let Classification { level, reasons } = self.level_of(ranked);
+        let found = self.level_of(ranked);
         let allowed = if self.unattended {
-            level.allowed_unattended()
+            found.fit_for_agent()
         } else {
-            level.may_insert()
+            found.level.may_insert()
         };
+        let Classification { level, reasons, .. } = found;
         let shown = !self.unattended && level == Level::SystemDangerous;
         (!allowed).then(|| Held {
             level,

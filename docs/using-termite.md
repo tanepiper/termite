@@ -126,7 +126,7 @@ The exit status is 0 if there is a command to use, 2 if the command is risky, or
 
 ## Check a script or a pipe
 
-`tmite check` rates every command in a script. It needs no model and runs nothing:
+`tmite check` rates every command in a script and shows its level. It needs no model and runs nothing:
 
 ```bash
 tmite check install.sh

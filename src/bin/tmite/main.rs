@@ -162,6 +162,7 @@ fn check_input(arguments: &[String]) -> ExitCode {
         json: false,
         colour: wants_colour(Format::Human),
         all: false,
+        agent: caller_from_environment() == Caller::Agent,
     };
     let mut files = Vec::new();
     let mut options_done = false;
@@ -321,8 +322,7 @@ fn context_from_environment() -> Context {
         .with_caller(caller_from_environment())
 }
 
-/// The harness sets these variables, not the model. An agent with no known
-/// variable still has no terminal.
+/// The harness sets these variables, not the model.
 fn caller_from_environment() -> Caller {
     let names =
         env::vars_os().map(|(name, _)| name.to_string_lossy().into_owned());

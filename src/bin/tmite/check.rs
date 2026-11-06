@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 
 use serde_json::json;
 use termite::{
-    Finding, MAX_COMMAND_BYTES, Rating, Severity, Splitter, Statement, assess,
-    to_printable,
+    Finding, Level, MAX_COMMAND_BYTES, Rating, Severity, Splitter, Statement,
+    assess, classify, to_printable,
 };
 
 /// How much of a command is shown on a line.
@@ -43,6 +43,8 @@ pub(crate) struct Style {
     pub json: bool,
     pub colour: bool,
     pub all: bool,
+    /// Nobody reads these commands first, so stop what an agent may not have.
+    pub agent: bool,
 }
 
 /// Check each source, or standard input if there are none. Returns the exit
@@ -172,15 +174,25 @@ fn report(
     tally: &mut Tally,
     out: &mut impl Write,
 ) -> io::Result<()> {
-    let Some(finding) = assess(statement, place.cwd, place.home) else {
+    let Some(mut finding) = assess(statement, place.cwd, place.home) else {
         return Ok(());
     };
+    let found = classify(&statement.text, place.cwd, place.home);
+    if style.agent && !found.fit_for_agent() {
+        finding.rating = Rating::Risky;
+        for reason in &found.reasons {
+            if !finding.warnings.contains(reason) {
+                finding.warnings.push(reason);
+            }
+        }
+    }
     tally.add(&finding);
     if style.json {
         let line = json!({
             "source": source,
             "line": finding.line,
             "command": finding.command,
+            "level": found.level.number(),
             "rating": finding.rating.as_str(),
             "severity": finding.severity,
             "warnings": finding.warnings,
@@ -189,7 +201,8 @@ fn report(
         return out.flush();
     }
     if finding.rating == Rating::Risky || style.all {
-        writeln!(out, "{}", human_line(&finding, source, style.colour))?;
+        let line = human_line(&finding, found.level, source, style.colour);
+        writeln!(out, "{line}")?;
     }
     out.flush()
 }
@@ -202,7 +215,12 @@ fn level(finding: &Finding) -> &'static str {
     }
 }
 
-fn human_line(finding: &Finding, source: &str, colour: bool) -> String {
+fn human_line(
+    finding: &Finding,
+    gate: Level,
+    source: &str,
+    colour: bool,
+) -> String {
     let (mark, code) = match finding.rating {
         Rating::Risky => ("✗", "31"),
         Rating::Changes => ("⚠", "33"),
@@ -212,7 +230,12 @@ fn human_line(finding: &Finding, source: &str, colour: bool) -> String {
         .chars()
         .take(SHOWN_CHARS)
         .collect();
-    let head = format!("{mark} {source}:{}  {}", finding.line, level(finding));
+    let head = format!(
+        "{mark} {source}:{}  level {}, {}",
+        finding.line,
+        gate.number(),
+        level(finding)
+    );
     let head = paint(&head, code, colour);
     if finding.warnings.is_empty() {
         format!("{head}\n    {}", command.trim())
@@ -284,6 +307,7 @@ mod tests {
         json: false,
         colour: false,
         all: false,
+        agent: false,
     };
 
     fn checked(input: &[u8], style: Style) -> (String, Tally) {
@@ -308,7 +332,7 @@ mod tests {
         assert_eq!((tally.reads, tally.changes, tally.risky), (1, 1, 1));
         assert_eq!(quiet.lines().count(), 2, "{quiet}");
         assert!(
-            quiet.contains("test:3  critical: destroys the system"),
+            quiet.contains("test:3  level 4, critical: destroys the system"),
             "{quiet}"
         );
         assert_eq!(all.lines().count(), 6, "{all}");
@@ -372,5 +396,45 @@ mod tests {
 
         assert!(text.contains("\x1b[31m"), "{text:?}");
         assert!(!text.contains("\x1b[32m"), "{text:?}");
+    }
+
+    #[test]
+    fn given_an_agent_then_levels_and_ways_off_the_machine_stop_it() {
+        let agent = Style {
+            agent: true,
+            ..PLAIN
+        };
+        for command in [
+            "printenv",
+            "gh gist create notes.txt",
+            "dig example.test",
+            "aws s3 cp notes.txt s3://bucket/",
+        ] {
+            let (_, person) = checked(command.as_bytes(), PLAIN);
+            let (text, stopped) = checked(command.as_bytes(), agent);
+
+            assert_eq!(person.risky, 0, "{command}");
+            assert_eq!(stopped.risky, 1, "{command}: {text}");
+        }
+    }
+
+    #[test]
+    fn given_an_agent_then_ordinary_work_still_passes() {
+        let agent = Style {
+            agent: true,
+            ..PLAIN
+        };
+        for command in [
+            "cargo test",
+            "git add src/ssh.rs",
+            "git commit -m 'add curl retry'",
+            "git push origin main",
+            "curl http://localhost:3000/health",
+            "echo https://example.test",
+        ] {
+            let (text, tally) = checked(command.as_bytes(), agent);
+
+            assert_eq!(tally.risky, 0, "{command}: {text}");
+        }
     }
 }

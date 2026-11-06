@@ -6,6 +6,8 @@
 //! signatures set a floor, so a shape this code misses is still caught.
 
 mod deletes;
+mod git;
+mod leaves;
 mod parse;
 mod paths;
 mod programs;
@@ -89,6 +91,16 @@ pub struct Classification {
     pub level: Level,
     /// Why, in plain words.
     pub reasons: Vec<&'static str>,
+    /// It can carry data to another machine, whatever its level.
+    pub leaves: bool,
+}
+
+impl Classification {
+    /// It may go to an agent or CI. Nobody reads these commands first, so
+    /// the level must allow it and it must stay on this machine.
+    pub fn fit_for_agent(&self) -> bool {
+        self.level.allowed_unattended() && !self.leaves
+    }
 }
 
 /// Put `command` at a level, as it would run in `cwd`.
