@@ -115,7 +115,11 @@ pub fn not_real(
     installed: Option<&dyn Fn(&str) -> bool>,
 ) -> Option<NotReal> {
     let parsed = parse(command);
-    if parsed.broken || is_cut_off(command) {
+    if parsed.broken
+        || is_cut_off(command)
+        || has_empty_pipe(command)
+        || has_open_block(&parsed)
+    {
         return Some(NotReal::CutOff);
     }
     if let Some(found) = placeholder(command) {
@@ -138,6 +142,34 @@ fn is_cut_off(command: &str) -> bool {
         == 1;
     let open = line.ends_with(['|', '<', '>', '$']) || line.ends_with("&&");
     open && !escaped
+}
+
+/// Two pipes with only spaces between them, as in `ls | | wc`. A `||` is
+/// a real operator, and it leaves nothing at all between the two.
+fn has_empty_pipe(command: &str) -> bool {
+    unquoted(command)
+        .split('|')
+        .any(|gap| !gap.is_empty() && gap.trim().is_empty())
+}
+
+/// A loop or a branch that starts and never ends, such as
+/// `for f in *.txt; do`. Only the first word of each stage counts, so
+/// `echo if` is not a branch, and code inside a subshell is not read here.
+fn has_open_block(parsed: &Parsed) -> bool {
+    let first_words: Vec<String> = parsed
+        .stages
+        .iter()
+        .filter_map(|stage| words_of(stage)?.into_iter().next())
+        .collect();
+    let count = |names: &[&str]| {
+        first_words
+            .iter()
+            .filter(|word| names.contains(&word.as_str()))
+            .count()
+    };
+    count(&["if"]) > count(&["fi"])
+        || count(&["case"]) > count(&["esac"])
+        || count(&["for", "select", "until", "while"]) > count(&["done"])
 }
 
 /// The command with quoted text and escaped characters blanked out.
@@ -258,6 +290,12 @@ mod tests {
             "cat <file>",
             "cat <source> <target>",
             ":help<Enter>",
+            "for f in *.txt; do",
+            "while true; do",
+            "if [ -f a ]; then",
+            "if true",
+            "case $x in",
+            "ls | | wc -l",
         ] {
             assert_eq!(check(command), Some(NotReal::CutOff), "{command}");
         }
@@ -320,6 +358,15 @@ mod tests {
             "if ls; then gti; fi",
             "f() { ls; }; f",
             "{ ls; }",
+            "echo if",
+            "echo for while case",
+            "grep 'a | | b' notes.txt",
+            "ls || echo none",
+            "while read a; do echo \"$a\"; done < notes.txt",
+            "for f in *.txt; do echo \"$f\"; done | wc -l",
+            "if ls; then echo a; else echo b; fi",
+            "case $x in a) ls ;; esac",
+            "(if ls; then echo a; fi)",
         ] {
             assert_eq!(check(command), None, "{command}");
         }
