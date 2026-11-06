@@ -1,0 +1,18 @@
+{
+  "description": "Stop a risky shell command before it runs. Needs tmite on PATH; without it every command stops.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Monitor",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "tmite hook claude || exit 2",
+            "timeout": 30,
+            "onFailure": "block"
+          }
+        ]
+      }
+    ]
+  }
+}

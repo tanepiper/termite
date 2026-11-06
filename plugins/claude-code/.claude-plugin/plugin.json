@@ -1,0 +1,7 @@
+{
+  "name": "termite",
+  "version": "0.1.0",
+  "description": "Check every shell command with tmite before Claude Code runs it",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/tanepiper/termite"
+}

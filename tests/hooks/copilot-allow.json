@@ -1,0 +1,12 @@
+{
+  "hook_event_name": "PreToolUse",
+  "session_id": "s1",
+  "timestamp": "2026-11-06T10:08:13.492Z",
+  "cwd": "/tmp/project",
+  "tool_use_id": "toolu_1",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "ls -la",
+    "description": "Run it"
+  }
+}

@@ -13,8 +13,8 @@ use super::prompt::Prompt;
 use crate::shell::Shell;
 use crate::{library, script_tools};
 
-const START: &str = "# >>> termite >>>";
-const END: &str = "# <<< termite <<<";
+pub(crate) const START: &str = "# >>> termite >>>";
+pub(crate) const END: &str = "# <<< termite <<<";
 
 const SH_BLOCK: &str = r#"export TERMITE_HOME="${TERMITE_HOME:-$HOME/.config/termite}"
 case ":$PATH:" in
@@ -128,13 +128,13 @@ fn blocks(shell: Shell, user_home: &Path) -> Vec<(PathBuf, &'static str)> {
     }
 }
 
-fn wrapped(block: &str) -> String {
+pub(crate) fn wrapped(block: &str) -> String {
     format!("{START}\n{block}{END}\n")
 }
 
 /// `text` with its termite block replaced, or a block added at the end. Bytes
 /// outside the block don't change.
-fn with_block(text: &str, block: &str) -> String {
+pub(crate) fn with_block(text: &str, block: &str) -> String {
     let wanted = wrapped(block);
     let found = text.find(START).and_then(|start| {
         let end = text[start..].find(END)? + start + END.len();
@@ -152,7 +152,7 @@ fn with_block(text: &str, block: &str) -> String {
     format!("{}{wanted}{rest}", &text[..start])
 }
 
-fn backup_of(file: &Path) -> PathBuf {
+pub(crate) fn backup_of(file: &Path) -> PathBuf {
     let mut name = file.as_os_str().to_owned();
     name.push(".termite-backup");
     PathBuf::from(name)
@@ -162,20 +162,27 @@ fn backup_of(file: &Path) -> PathBuf {
 /// The new file replaces the old one in one step, with the same mode.
 fn apply(file: &Path, block: &str) -> io::Result<()> {
     let target = fs::canonicalize(file).unwrap_or_else(|_| file.to_owned());
-    let (old, mode) = match fs::read(&target) {
-        Ok(bytes) => {
-            let mode = fs::metadata(&target)?.permissions().mode() & 0o777;
-            (String::from_utf8_lossy(&bytes).into_owned(), mode)
-        },
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            (String::new(), 0o644)
-        },
+    let old = match fs::read(&target) {
+        Ok(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => String::new(),
         Err(error) => return Err(error),
     };
     let new = with_block(&old, block);
     if new == old {
         return Ok(());
     }
+    replace_file(file, &new)
+}
+
+/// Replace a file the person owns, keeping the old one beside it. A link is
+/// followed, and the new file arrives in one step with the same mode.
+pub(crate) fn replace_file(file: &Path, new: &str) -> io::Result<()> {
+    let target = fs::canonicalize(file).unwrap_or_else(|_| file.to_owned());
+    let mode = match fs::metadata(&target) {
+        Ok(metadata) => metadata.permissions().mode() & 0o777,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => 0o644,
+        Err(error) => return Err(error),
+    };
     if let Some(folder) = target.parent() {
         fs::create_dir_all(folder)?;
     }
@@ -186,8 +193,8 @@ fn apply(file: &Path, block: &str) -> io::Result<()> {
     let mut temporary = target.as_os_str().to_owned();
     temporary.push(".termite-new");
     let temporary = PathBuf::from(temporary);
-    // The user's own startup file keeps the mode it had, so the private-file
-    // rule doesn't apply. The name is opened new, and never through a link.
+    // The user's own file keeps the mode it had, so the private-file rule
+    // doesn't apply. The name is opened new, and never through a link.
     // nosemgrep: termite-files-are-written-privately
     let mut new_file = OpenOptions::new()
         .write(true)

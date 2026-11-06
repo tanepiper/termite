@@ -1,10 +1,13 @@
-//! `tmite setup`: find local model servers, pick a chat model and a
-//! decision model, fetch or start what is missing, and write the config.
+//! `tmite setup`: find agent harnesses and offer them the hook, find local
+//! model servers, pick a chat model and a decision model that fit this
+//! machine, fetch or start what is missing, and write the config.
 
 mod discover;
+mod fetch;
 mod fix;
 mod hub;
 mod installed;
+mod machine;
 pub(crate) mod profile;
 pub(crate) mod prompt;
 mod widget;
@@ -19,7 +22,11 @@ use tokio::runtime::Runtime;
 
 use self::discover::{FoundServer, ModelRole, ServerKind, discover};
 use self::fix::fix_missing;
+use self::hub::{HubModel, catalog, human_size, pick};
+pub(crate) use self::installed::find_on_path;
+use self::machine::Machine;
 use self::prompt::Prompt;
+use crate::hooks;
 use crate::output::Format;
 use crate::shell::Shell;
 
@@ -64,6 +71,14 @@ pub(crate) fn run() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let prompt = Prompt::new();
+    let machine = Machine::detect();
+    let picks = picks_for(&machine);
+
+    offer_hooks(&prompt);
+    let (chat_pick, decision_pick) = match &picks {
+        Some((chat, decision, _)) => (Some(chat), Some(decision)),
+        None => (None, None),
+    };
 
     let configured: Vec<String> = Config::load()
         .map(|config| {
@@ -84,6 +99,8 @@ pub(crate) fn run() -> ExitCode {
         &mut servers,
         &configured,
         ModelRole::Chat,
+        chat_pick,
+        &machine,
     ) else {
         println!(
             "\nNo chat model, so setup stops here. Run `tmite setup` again once one is available."
@@ -96,6 +113,8 @@ pub(crate) fn run() -> ExitCode {
         &mut servers,
         &configured,
         ModelRole::Decision,
+        decision_pick,
+        &machine,
     ) else {
         println!(
             "\nNo decision model, so setup stops here. Run `tmite setup` again once one is available."
@@ -128,6 +147,71 @@ pub(crate) fn run() -> ExitCode {
     ExitCode::SUCCESS
 }
 
+/// The models for this machine, saying so when even the smallest may not fit.
+fn picks_for(machine: &Machine) -> Option<(HubModel, HubModel, bool)> {
+    let picks = pick(&catalog(), machine);
+    if let Some((chat, decision, false)) = &picks {
+        println!(
+            "This machine has little memory for models. The smallest pair \
+             needs about {}: expect them to be slow, or to fail to load.",
+            human_size(chat.memory + decision.memory)
+        );
+    }
+    picks
+}
+
+/// Offer the hook to each agent harness on this machine. Comes first, because
+/// the hook needs no model.
+fn offer_hooks(prompt: &Prompt) {
+    let Some(place) = hooks::place() else {
+        return;
+    };
+    let found = hooks::detected();
+    if found.is_empty() {
+        println!("No agent harnesses found.");
+        return;
+    }
+    let names: Vec<&str> = found.iter().map(|harness| harness.name).collect();
+    println!("Agent harnesses found: {}.", names.join(", "));
+    println!("A hook makes each one check shell commands with tmite first.");
+    for harness in found {
+        hooks::offer(prompt, harness, &place, hooks::Action::Install);
+    }
+}
+
+/// `tmite setup --plan`: what setup finds and would offer, as JSON. Reads
+/// only, so an agent can run it and show the person. Installing still takes
+/// the person typing y in `tmite setup`.
+pub(crate) fn plan() -> ExitCode {
+    let machine = Machine::detect();
+    let model = |model: &HubModel| {
+        json!({
+            "repo": model.repo,
+            "file": model.file,
+            "revision": model.revision,
+            "size": model.size,
+            "about": model.about,
+        })
+    };
+    let picked = pick(&catalog(), &machine);
+    let path_of =
+        |program| find_on_path(program).map(|path| path.display().to_string());
+    let report = json!({
+        "machine": machine.report(),
+        "harnesses": hooks::place().as_ref().map(hooks::report),
+        "models": picked.as_ref().map(|(chat, decision, fits)| json!({
+            "chat": model(chat),
+            "decision": model(decision),
+            "fits_in_memory": fits,
+        })),
+        "llama_server": path_of("llama-server"),
+        "next_step": "A person runs `tmite setup` at a terminal and types y \
+                      to each change, then `tmite hooks verify` proves the hooks.",
+    });
+    println!("{report}");
+    ExitCode::SUCCESS
+}
+
 /// Let the user pick a model for `role`. When there is none, offer to fetch
 /// or start one, then look again.
 fn pick_or_fix(
@@ -136,6 +220,8 @@ fn pick_or_fix(
     servers: &mut Vec<FoundServer>,
     configured: &[String],
     role: ModelRole,
+    model: Option<&HubModel>,
+    machine: &Machine,
 ) -> Option<Choice> {
     let what = match role {
         ModelRole::Chat => "chat model (writes the commands)",
@@ -145,7 +231,7 @@ fn pick_or_fix(
     let mut choices = choices_for(servers, role);
     if choices.is_empty() {
         println!("\nNo {what} found.");
-        if !fix_missing(runtime, prompt, servers, role) {
+        if !fix_missing(runtime, prompt, servers, role, model, machine) {
             return None;
         }
         *servers = runtime.block_on(discover(configured));

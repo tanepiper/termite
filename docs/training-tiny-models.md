@@ -67,7 +67,7 @@ The planted secrets are important. `cat ~/.ssh/id_ed25519` only reads, but Kev-4
 3. **Distillation** from the large model, for descriptions and for ranking several working commands.
 4. **Preference tuning** (DPO) from `??` choices, when opt-in data exists: the chosen command ranks above the others.
 5. **Decision model:** train it as a classifier on the three questions and the ranking question. Check how llama.cpp's `/v1/systemone` scores a model (it reads probabilities over fixed options) and how a model is marked as a decision model (the router lists it with a `decision` tag, and Ollama reports a `decision` capability). **Open question:** which format Kev-4B and tev1 were trained on, and whether fine-tuning from Kev is possible.
-6. **Export** to GGUF (Q8_0 and Q4_K_M), publish on Hugging Face, and add the repositories to `src/bin/tmite/setup/hub.rs` so that `tmite setup` offers them.
+6. **Export** to GGUF (Q8_0 and Q4_K_M), publish on Hugging Face, and add the repository, file, revision and hash to `src/bin/tmite/setup/catalog.json` so that `tmite setup` offers them.
 
 ## Evaluation
 

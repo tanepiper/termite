@@ -1,142 +1,167 @@
-//! Models suggested from the Hugging Face Hub, and the commands that
-//! download or serve them. Downloads go to the normal Hugging Face cache,
-//! where llama.cpp (`-hf`) and the Llama app find them too.
+//! The models setup can install, and the commands that fetch or serve them.
+//! Contract: `catalog.json` is the list. Every entry names a GGUF file at a
+//! pinned revision with its hash, so what is fetched can't change underneath
+//! a user, and no repository code is ever run. A new model is a new entry.
 
 use std::path::Path;
-use std::time::Duration;
 
 use serde::Deserialize;
 
 use super::discover::ModelRole;
+use super::machine::Machine;
 
-/// A GGUF model on the Hugging Face Hub.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// The file that holds the list.
+const CATALOG: &str = include_str!("catalog.json");
+
+/// A GGUF file on the Hugging Face Hub, at one revision.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct HubModel {
-    pub(crate) repo: &'static str,
-    pub(crate) quant: &'static str,
-    pub(crate) role: ModelRole,
-    pub(crate) about: &'static str,
+    pub(crate) repo: String,
+    pub(crate) file: String,
+    /// The full commit hash.
+    pub(crate) revision: String,
+    pub(crate) sha256: String,
+    pub(crate) size: u64,
+    pub(crate) role: Role,
+    pub(crate) about: String,
+    /// Memory it needs to run, with its working space, in bytes.
+    pub(crate) memory: u64,
+}
+
+/// `ModelRole`, as the catalog writes it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub(crate) enum Role {
+    Chat,
+    Decision,
 }
 
 impl HubModel {
-    /// The name llama.cpp uses for it with `-hf`, and that its router lists
-    /// it under: `repo:quant`.
+    fn serves(&self, role: ModelRole) -> bool {
+        matches!(
+            (self.role, role),
+            (Role::Chat, ModelRole::Chat)
+                | (Role::Decision, ModelRole::Decision)
+        )
+    }
+
+    /// The name it is served under.
     pub(crate) fn id(&self) -> String {
-        format!("{}:{}", self.repo, self.quant)
+        format!("{}/{}", self.repo, self.file)
+    }
+
+    /// Where the file is, at its pinned revision.
+    pub(crate) fn url(&self, base: &str) -> String {
+        format!(
+            "{base}/{}/resolve/{}/{}",
+            self.repo, self.revision, self.file
+        )
+    }
+
+    /// Why this entry must not be used, if it must not.
+    fn problem(&self) -> Option<&'static str> {
+        let hex = |text: &str, length: usize| {
+            text.len() == length
+                && text.bytes().all(|byte| {
+                    byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)
+                })
+        };
+        let plain = |text: &str| {
+            !text.is_empty()
+                && !text.starts_with(['-', '.'])
+                && !text.contains("..")
+                && text.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || b"._-".contains(&byte)
+                })
+        };
+        let repo = self.repo.split_once('/');
+        if !repo.is_some_and(|(owner, name)| plain(owner) && plain(name)) {
+            return Some("the repository name is not owner/name");
+        }
+        if !plain(&self.file) || !self.file.ends_with(".gguf") {
+            return Some("the file is not a plain .gguf name");
+        }
+        if !hex(&self.revision, 40) {
+            return Some("the revision is not a full commit hash");
+        }
+        if !hex(&self.sha256, 64) {
+            return Some("the sha256 is not a full hash");
+        }
+        (self.size == 0 || self.memory < self.size)
+            .then_some("the size or memory is wrong")
     }
 }
 
-/// The decision model termite is tuned for.
-pub(crate) const DECISION_MODEL: HubModel = HubModel {
-    repo: "ggml-org/Kev-4B-GGUF",
-    quant: "Q8_0",
-    role: ModelRole::Decision,
-    about: "Kev-4B, a decision model for llama.cpp /v1/systemone",
-};
-
-/// A small chat model that is good at shell commands.
-pub(crate) const CHAT_MODEL: HubModel = HubModel {
-    repo: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
-    quant: "Q4_K_M",
-    role: ModelRole::Chat,
-    about: "Qwen2.5 Coder 7B Instruct",
-};
-
-/// The same chat model for Ollama.
-pub(crate) const OLLAMA_CHAT_MODEL: &str = "qwen2.5-coder:7b";
-
-/// A file in a Hub repository.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct HubFile {
-    pub(crate) path: String,
-    pub(crate) size: u64,
+/// The models on the list. An entry that isn't fully pinned is left out.
+pub(crate) fn catalog() -> Vec<HubModel> {
+    parse_catalog(CATALOG)
 }
 
-/// Pick the GGUF files for `quant` from a Hub tree listing. A repository
-/// may hold the same quant as one file and as split parts; one file is
-/// preferred. Vision projectors (`mmproj`) are left out.
-pub(crate) fn pick_files(tree: &str, quant: &str) -> Vec<HubFile> {
-    let Ok(entries) = serde_json::from_str::<Vec<TreeEntry>>(tree) else {
-        return Vec::new();
-    };
-    let quant = quant.to_lowercase();
-
-    let matches: Vec<HubFile> = entries
+fn parse_catalog(text: &str) -> Vec<HubModel> {
+    let models: Vec<HubModel> = serde_json::from_str(text).unwrap_or_default();
+    models
         .into_iter()
-        .filter(|entry| {
-            let name = entry.path.to_lowercase();
-            // A name starting with `-` would be read as an option by the
-            // download command; it comes from the Hub, so it is not trusted.
-            name.ends_with(".gguf")
-                && !name.starts_with('-')
-                && !name.starts_with("mmproj")
-                && name.contains(&quant)
-        })
-        .map(|entry| HubFile {
-            size: entry.lfs.map(|lfs| lfs.size).unwrap_or(entry.size),
-            path: entry.path,
-        })
+        .filter(|model| model.problem().is_none())
+        .collect()
+}
+
+/// The chat and decision models for a machine: the pair with the most
+/// memory that fits, or the smallest pair if none does. `None` when the list
+/// lacks a role. The second value says whether the pair fits.
+pub(crate) fn pick(
+    models: &[HubModel],
+    machine: &Machine,
+) -> Option<(HubModel, HubModel, bool)> {
+    let budget = machine.model_budget();
+    let of = |role| {
+        models
+            .iter()
+            .filter(move |model: &&HubModel| model.serves(role))
+    };
+    let mut pairs: Vec<(&HubModel, &HubModel)> = of(ModelRole::Chat)
+        .flat_map(|chat| of(ModelRole::Decision).map(move |d| (chat, d)))
         .collect();
+    pairs.sort_by_key(|(chat, decision)| chat.memory + decision.memory);
 
-    match matches.iter().find(|file| !is_split_part(&file.path)) {
-        Some(single) => vec![single.clone()],
-        None => matches,
-    }
+    let fitting = pairs
+        .iter()
+        .rev()
+        .find(|(chat, decision)| chat.memory + decision.memory <= budget);
+    let fits = fitting.is_some();
+    let (chat, decision) = fitting.or(pairs.first())?;
+    Some(((*chat).clone(), (*decision).clone(), fits))
 }
 
-/// Look up the files for `model` on the Hub. `None` when the Hub cannot be
-/// reached; the download then picks files by pattern instead.
-pub(crate) async fn files(model: &HubModel) -> Option<Vec<HubFile>> {
-    let url =
-        format!("https://huggingface.co/api/models/{}/tree/main", model.repo);
-    let client = reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .ok()?;
-
-    let tree = client.get(url).send().await.ok()?.text().await.ok()?;
-    let files = pick_files(&tree, model.quant);
-
-    (!files.is_empty()).then_some(files)
-}
-
-/// The command that downloads `model` into the Hugging Face cache, using
-/// the `hf` CLI (or the older `huggingface-cli`). Exact file names are used
-/// when known, a pattern otherwise.
+/// The command that downloads `model` into the Hugging Face cache, for the
+/// Llama app, using the `hf` CLI (or the older `huggingface-cli`).
 pub(crate) fn download_command(
     downloader: &Path,
     model: &HubModel,
-    files: Option<&[HubFile]>,
 ) -> Vec<String> {
-    let mut command = vec![
+    vec![
         downloader.display().to_string(),
         "download".to_owned(),
-        model.repo.to_owned(),
-    ];
-
-    match files {
-        Some(files) => {
-            command.extend(files.iter().map(|file| file.path.clone()))
-        },
-        None => command.extend([
-            "--include".to_owned(),
-            format!("*{}*.gguf", model.quant),
-        ]),
-    }
-
-    command
+        model.repo.clone(),
+        model.file.clone(),
+        "--revision".to_owned(),
+        model.revision.clone(),
+    ]
 }
 
-/// The command that serves `model` with `llama-server`, downloading it
-/// first if it is not in the cache yet. Bound to this machine only.
+/// The command that serves a fetched file with `llama-server`. Bound to this
+/// machine only.
 pub(crate) fn serve_command(
     llama_server: &Path,
     model: &HubModel,
+    file: &Path,
     port: u16,
 ) -> Vec<String> {
     vec![
         llama_server.display().to_string(),
-        "-hf".to_owned(),
+        "--model".to_owned(),
+        file.display().to_string(),
+        "--alias".to_owned(),
         model.id(),
         "--host".to_owned(),
         "127.0.0.1".to_owned(),
@@ -154,24 +179,6 @@ pub(crate) fn human_size(bytes: u64) -> String {
     format!("{:.0} MB", bytes as f64 / 1_000_000.0)
 }
 
-fn is_split_part(path: &str) -> bool {
-    path.to_lowercase().contains("-of-0")
-}
-
-#[derive(Deserialize)]
-struct TreeEntry {
-    path: String,
-    #[serde(default)]
-    size: u64,
-    #[serde(default)]
-    lfs: Option<Lfs>,
-}
-
-#[derive(Deserialize)]
-struct Lfs {
-    size: u64,
-}
-
 #[cfg(test)]
 mod tests {
     use std::path::Path;
@@ -179,109 +186,140 @@ mod tests {
     use serde_json::json;
 
     use super::{
-        CHAT_MODEL, DECISION_MODEL, HubFile, download_command, human_size,
-        pick_files, serve_command,
+        HubModel, Role, catalog, download_command, human_size, parse_catalog,
+        pick, serve_command,
     };
+    use crate::setup::machine::{Gpu, Machine};
 
-    fn tree() -> String {
-        json!([
-            { "type": "file", "path": "README.md", "size": 100 },
-            { "type": "file", "path": "qwen2.5-coder-7b-instruct-q4_k_m-00001-of-00002.gguf", "size": 3993201376u64 },
-            { "type": "file", "path": "qwen2.5-coder-7b-instruct-q4_k_m-00002-of-00002.gguf", "size": 689872288 },
-            { "type": "file", "path": "qwen2.5-coder-7b-instruct-q4_k_m.gguf", "size": 1, "lfs": { "size": 4683073536u64 } },
-            { "type": "file", "path": "qwen2.5-coder-7b-instruct-q8_0.gguf", "size": 8098525184u64 },
-            { "type": "file", "path": "mmproj-q4_k_m.gguf", "size": 600000000 },
-        ])
-        .to_string()
+    const GB: u64 = 1_000_000_000;
+
+    fn entry() -> serde_json::Value {
+        json!({
+            "repo": "owner/model-GGUF",
+            "file": "model-Q4_K_M.gguf",
+            "revision": "a".repeat(40),
+            "sha256": "b".repeat(64),
+            "size": 100,
+            "role": "chat",
+            "about": "A model",
+            "memory": 200,
+        })
     }
 
+    fn mac(memory: u64) -> Machine {
+        Machine {
+            os: "macos".to_owned(),
+            arch: "aarch64".to_owned(),
+            memory,
+            gpu: Gpu::Unified,
+        }
+    }
+
+    /// The trained models arrive this way: one more entry, and no code.
     #[test]
-    fn given_single_and_split_files_then_the_single_file_is_picked() {
+    fn given_a_pinned_entry_then_it_is_a_model() {
+        let text = json!([entry()]).to_string();
+        let models = parse_catalog(&text);
+
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].role, Role::Chat);
         assert_eq!(
-            pick_files(&tree(), "Q4_K_M"),
-            vec![HubFile {
-                path: "qwen2.5-coder-7b-instruct-q4_k_m.gguf".into(),
-                size: 4683073536,
-            }]
+            models[0].url("https://huggingface.co"),
+            format!(
+                "https://huggingface.co/owner/model-GGUF/resolve/{}/model-Q4_K_M.gguf",
+                "a".repeat(40)
+            )
         );
     }
 
     #[test]
-    fn given_only_split_files_then_every_part_is_picked() {
-        let tree = json!([
-            { "path": "big-q6_k-00001-of-00002.gguf", "size": 2 },
-            { "path": "big-q6_k-00002-of-00002.gguf", "size": 3 },
-        ])
-        .to_string();
-
-        let files = pick_files(&tree, "Q6_K");
-
-        assert_eq!(files.len(), 2);
-        assert_eq!(files.iter().map(|file| file.size).sum::<u64>(), 5);
+    fn given_an_entry_that_is_not_pinned_then_it_is_left_out() {
+        for (key, bad) in [
+            ("revision", json!("main")),
+            ("revision", json!("abc123")),
+            ("sha256", json!("")),
+            ("file", json!("model.safetensors")),
+            ("file", json!("--local-dir=x.gguf")),
+            ("file", json!("../model.gguf")),
+            ("repo", json!("no-owner")),
+            ("repo", json!("a/b/c")),
+            ("size", json!(0)),
+        ] {
+            let mut model = entry();
+            model[key] = bad.clone();
+            let text = json!([model]).to_string();
+            assert_eq!(parse_catalog(&text), [], "{key} {bad}");
+        }
     }
 
     #[test]
-    fn given_no_match_or_bad_json_then_no_files_are_picked() {
-        assert!(pick_files(&tree(), "IQ2_XS").is_empty());
-        assert!(pick_files("not json", "Q8_0").is_empty());
+    fn the_shipped_list_is_fully_pinned_and_has_both_roles() {
+        let models = catalog();
+        let shipped: Vec<serde_json::Value> =
+            serde_json::from_str(include_str!("catalog.json")).expect("json");
+
+        assert_eq!(models.len(), shipped.len());
+        assert!(models.iter().any(|model| model.role == Role::Chat));
+        assert!(models.iter().any(|model| model.role == Role::Decision));
+    }
+
+    fn picked(memory: u64) -> (String, String, bool) {
+        let (chat, decision, fits) =
+            pick(&catalog(), &mac(memory)).expect("a pair");
+        (chat.file, decision.file, fits)
     }
 
     #[test]
-    fn given_a_file_named_like_an_option_then_it_is_left_out() {
-        let tree = r#"[{"path":"--local-dir=~-Q4_K_M.gguf","size":1}]"#;
-        assert_eq!(pick_files(tree, "Q4_K_M"), []);
+    fn given_memory_then_the_largest_pair_that_fits_is_picked() {
+        let (chat, decision, fits) = picked(96 * GB);
+        assert!(chat.contains("7b") && decision.contains("4B") && fits);
+
+        let (chat, decision, fits) = picked(16 * GB);
+        assert!(chat.contains("3b") && decision.contains("4B") && fits);
+
+        let (chat, decision, fits) = picked(8 * GB);
+        assert!(chat.contains("3b") && decision.contains("0.8B") && fits);
+
+        let (_, _, fits) = picked(2 * GB);
+        assert!(!fits);
     }
 
     #[test]
-    fn given_known_files_then_the_download_names_them() {
-        let files = [HubFile {
-            path: "Kev-4B-Q8_0.gguf".into(),
-            size: 4483801504,
-        }];
+    fn given_an_empty_list_then_nothing_is_picked() {
+        assert_eq!(pick(&[], &mac(96 * GB)), None);
+    }
 
+    fn model() -> HubModel {
+        parse_catalog(&json!([entry()]).to_string()).remove(0)
+    }
+
+    #[test]
+    fn given_a_model_then_the_download_names_the_file_and_revision() {
         assert_eq!(
-            download_command(
-                Path::new("/bin/hf"),
-                &DECISION_MODEL,
-                Some(&files)
-            ),
+            download_command(Path::new("/bin/hf"), &model()),
             [
-                "/bin/hf",
-                "download",
-                "ggml-org/Kev-4B-GGUF",
-                "Kev-4B-Q8_0.gguf"
+                "/bin/hf".to_owned(),
+                "download".to_owned(),
+                "owner/model-GGUF".to_owned(),
+                "model-Q4_K_M.gguf".to_owned(),
+                "--revision".to_owned(),
+                "a".repeat(40),
             ]
         );
-        assert_eq!(
-            download_command(Path::new("/bin/hf"), &CHAT_MODEL, None),
-            [
-                "/bin/hf",
-                "download",
-                "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF",
-                "--include",
-                "*Q4_K_M*.gguf",
-            ]
-        );
     }
 
     #[test]
-    fn given_a_model_then_the_serve_command_uses_hf_and_localhost() {
-        assert_eq!(
-            serve_command(
-                Path::new("/bin/llama-server"),
-                &DECISION_MODEL,
-                8081
-            ),
-            [
-                "/bin/llama-server",
-                "-hf",
-                "ggml-org/Kev-4B-GGUF:Q8_0",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "8081",
-            ]
+    fn given_a_model_then_the_serve_command_uses_the_file_and_localhost() {
+        let command = serve_command(
+            Path::new("/bin/llama-server"),
+            &model(),
+            Path::new("/cache/model.gguf"),
+            8081,
         );
+
+        assert_eq!(command[1..3], ["--model", "/cache/model.gguf"]);
+        assert_eq!(command[5..7], ["--host", "127.0.0.1"]);
+        assert!(!command.contains(&"-hf".to_owned()));
     }
 
     #[test]

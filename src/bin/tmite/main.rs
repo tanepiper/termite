@@ -14,6 +14,7 @@
 //! That is the last safety gate.
 
 mod check;
+mod hooks;
 mod library;
 mod output;
 mod progress;
@@ -47,7 +48,10 @@ Usage: tmite [--json | --zle] '<prefix> request'   prefix: ? ?? ?x ?b
        tmite scripts list|show|install|remove   manage your scripts
        tmite provenance verify|PATH|accept PATH what termite installed
        tmite alerts                             what its guards stopped
-       tmite setup   find local models and write the config
+       tmite setup   find harnesses and local models, write the config
+       tmite setup --plan   show what setup would do, as JSON; changes nothing
+       tmite hooks [--json]|install|remove|verify   hooks for agent harnesses
+       tmite hook NAME   what an agent harness runs before a shell command
        tmite shell [zsh|bash|fish]   print the optional prompt widget
 
 Prefixes:
@@ -81,11 +85,22 @@ fn main() -> ExitCode {
     // nosemgrep: rust.lang.security.args.args
     let arguments: Vec<String> = env::args().skip(1).collect();
     if arguments.first().is_some_and(|first| first == "setup") {
-        if arguments.len() > 1 {
-            eprint!("tmite: setup takes no arguments\n\n{USAGE}");
-            return ExitCode::from(64);
-        }
-        return setup::run();
+        return match &arguments[1..] {
+            [] => setup::run(),
+            [plan] if plan == "--plan" => setup::plan(),
+            _ => {
+                eprint!("tmite: setup takes only --plan\n\n{USAGE}");
+                ExitCode::from(64)
+            },
+        };
+    }
+
+    if arguments.first().is_some_and(|first| first == "hook") {
+        return hooks::adapter::run(arguments.get(1).map(String::as_str));
+    }
+
+    if arguments.first().is_some_and(|first| first == "hooks") {
+        return hooks::manage(&arguments[1..]);
     }
 
     if arguments.first().is_some_and(|first| first == "check") {

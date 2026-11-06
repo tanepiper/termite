@@ -58,7 +58,8 @@ shellcheck, which parse and never run), `library` (installs the bash library),
 code that talks to the system key store).
 
 The binary has `main` (arguments and wiring), `output` (the three output
-formats), `progress` (the progress line) and `setup` (`discover`, `installed`,
+formats), `progress` (the progress line), `hooks` (the adapter `tmite hook` that agent harnesses run, the table of
+harnesses, and installing and removing hooks) and `setup` (`discover`, `machine`, `fetch`, `installed`,
 `prompt`, `fix`, `hub`).
 
 ## Flow

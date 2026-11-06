@@ -1,0 +1,10 @@
+{
+  "event": "PreToolUse",
+  "session_id": "s1",
+  "tool_name": "shell",
+  "tool_input": {
+    "command": "ls -la"
+  },
+  "working_dir": "/tmp/project",
+  "tool_call_id": "c1"
+}

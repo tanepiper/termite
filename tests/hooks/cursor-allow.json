@@ -1,0 +1,10 @@
+{
+  "conversation_id": "c1",
+  "hook_event_name": "beforeShellExecution",
+  "workspace_roots": [
+    "/tmp/project"
+  ],
+  "command": "ls -la",
+  "cwd": "/tmp/project",
+  "sandbox": false
+}

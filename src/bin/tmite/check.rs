@@ -115,6 +115,44 @@ pub(crate) fn run(sources: &[String], style: Style) -> u8 {
     }
 }
 
+/// What the check says about one command from an agent.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct AgentRating {
+    pub pass: bool,
+    /// What was risky, in the words `tmite check` prints.
+    pub report: String,
+}
+
+/// Rate `command` as `TERMITE_AGENT=1 tmite check` does: it passes only when
+/// something was found to rate and none of it is risky.
+pub(crate) fn rate_for_agent(
+    command: &str,
+    cwd: &Path,
+    home: Option<&Path>,
+) -> AgentRating {
+    let style = Style {
+        json: false,
+        colour: false,
+        all: false,
+        agent: true,
+    };
+    let place = Place { cwd, home };
+    let mut tally = Tally::default();
+    let mut report = Vec::new();
+    let read = check(
+        command.as_bytes(),
+        "command",
+        place,
+        style,
+        &mut tally,
+        &mut report,
+    );
+    AgentRating {
+        pass: read.is_ok() && tally.risky == 0 && tally.total() > 0,
+        report: String::from_utf8_lossy(&report).into_owned(),
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 struct Place<'a> {
     cwd: &'a Path,

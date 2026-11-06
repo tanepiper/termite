@@ -110,6 +110,8 @@ $ tmite '? show disk usage of this folder'
   du -sh .
 ```
 
+Setup also finds the agent harnesses on your machine, such as Claude Code, Codex, Cursor, Copilot and Hermes, and offers each a hook that checks shell commands before they run. It changes nothing until you type y. See [agent tools](docs/agents.md#add-termite-to-your-agent-harness), which also has a prompt you can give any agent to set this up.
+
 **3. Optional: the `?` widget for zsh, bash or fish.** `tmite setup` offers to add it. See [getting started](docs/getting-started.md#the-prompt-widget).
 
 ## Usage

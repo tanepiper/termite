@@ -1,0 +1,10 @@
+{
+  "session_id": "abc",
+  "hook_event_name": "BeforeTool",
+  "timestamp": "2026-11-06T10:00:00Z",
+  "cwd": "/tmp/project",
+  "tool_name": "run_shell_command",
+  "tool_input": {
+    "command": "ls -la"
+  }
+}

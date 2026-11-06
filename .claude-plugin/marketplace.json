@@ -1,0 +1,11 @@
+{
+  "name": "termite",
+  "owner": { "name": "Tane Piper" },
+  "plugins": [
+    {
+      "name": "termite",
+      "source": "./plugins/claude-code",
+      "description": "Check every shell command with tmite before Claude Code runs it"
+    }
+  ]
+}

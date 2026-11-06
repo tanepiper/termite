@@ -11,11 +11,10 @@ use termite::create_private;
 use tokio::runtime::Runtime;
 
 use super::discover::{FoundServer, ModelRole, ServerKind};
-use super::hub::{
-    self, CHAT_MODEL, DECISION_MODEL, HubModel, OLLAMA_CHAT_MODEL,
-    download_command, human_size, serve_command,
-};
+use super::fetch::{HUB, fetch};
+use super::hub::{HubModel, download_command, human_size, serve_command};
 use super::installed::{find_on_path, installed};
+use super::machine::Machine;
 use super::prompt::Prompt;
 
 /// Offer the fixes that fit what is installed and running. Returns whether
@@ -25,14 +24,9 @@ pub(super) fn fix_missing(
     prompt: &Prompt,
     servers: &[FoundServer],
     role: ModelRole,
+    model: Option<&HubModel>,
+    machine: &Machine,
 ) -> bool {
-    let model = match role {
-        ModelRole::Chat => CHAT_MODEL,
-        ModelRole::Decision => DECISION_MODEL,
-    };
-    let ollama_running = servers
-        .iter()
-        .any(|server| server.kind == ServerKind::Ollama);
     let llama_router = servers.iter().any(|server| {
         server.kind == ServerKind::LlamaCpp && server.models_max.is_some()
     });
@@ -48,39 +42,29 @@ pub(super) fn fix_missing(
         );
     }
 
-    if let Some(done) = offer_ollama_pull(prompt, role, ollama_running) {
-        return done;
-    }
-
-    let files = runtime.block_on(hub::files(&model));
-    let size = files
-        .as_ref()
-        .map(|files| human_size(files.iter().map(|file| file.size).sum()))
-        .unwrap_or_else(|| "size unknown".to_owned());
+    let Some(model) = model else {
+        println!("  There is no model on the list to offer.");
+        return false;
+    };
+    let size = human_size(model.size);
 
     if let (true, Some(downloader)) = (llama_router, &downloader) {
-        let command = download_command(downloader, &model, files.as_deref());
-        if let Some(done) = offer_download(prompt, &model, &command, &size) {
+        let command = download_command(downloader, model);
+        if let Some(done) = offer_download(prompt, model, &command, &size) {
             return done;
         }
     }
 
     if let Some(llama_server) = &llama_server {
         let port = free_port(servers, role);
-        let command = serve_command(llama_server, &model, port);
         if let Some(done) =
-            offer_llama_server(runtime, prompt, &model, &command, port, &size)
+            offer_llama_server(runtime, prompt, model, llama_server, port, HUB)
         {
             return done;
         }
     }
 
-    print_install_advice(
-        role,
-        llama_server.is_some(),
-        downloader.is_some(),
-        ollama_running,
-    );
+    print_install_advice(role, llama_server.is_some(), machine);
     false
 }
 
@@ -88,36 +72,16 @@ pub(super) fn fix_missing(
 pub(super) fn print_install_advice(
     role: ModelRole,
     has_llama_server: bool,
-    has_downloader: bool,
-    ollama_running: bool,
+    machine: &Machine,
 ) {
-    if !(has_llama_server || has_downloader || ollama_running) {
-        println!(
-            "  Install llama.cpp (`brew install llama.cpp`), then run `tmite setup` again."
-        );
+    if !has_llama_server {
+        println!("  {}", machine.llama_advice());
     }
     if role == ModelRole::Decision && !has_llama_server {
         println!(
             "  Decision models need llama.cpp, which serves /v1/systemone."
         );
     }
-}
-
-/// Offer `ollama pull` for the chat model, when Ollama is running. `None`
-/// when it does not apply or the user says no.
-pub(super) fn offer_ollama_pull(
-    prompt: &Prompt,
-    role: ModelRole,
-    ollama_running: bool,
-) -> Option<bool> {
-    if role != ModelRole::Chat || !ollama_running {
-        return None;
-    }
-    let question =
-        format!("Pull {OLLAMA_CHAT_MODEL} with Ollama (about 4.7 GB)?");
-    prompt
-        .confirm(&question, false)
-        .then(|| run_visible(&["ollama", "pull", OLLAMA_CHAT_MODEL]))
 }
 
 /// Offer a Hugging Face download into the cache the Llama app reads.
@@ -139,28 +103,41 @@ pub(super) fn offer_download(
     }
     println!(
         "Downloaded. Restart the Llama app so it lists {}, then run `tmite setup` again.",
-        model.id()
+        model.about
     );
     Some(false)
 }
 
-/// Offer to start llama-server with the model. `None` when the user says no.
+/// Offer to fetch the model's pinned file and start llama-server with it.
+/// `None` when the user says no or the file can't be fetched.
 pub(super) fn offer_llama_server(
     runtime: &Runtime,
     prompt: &Prompt,
     model: &HubModel,
-    command: &[String],
+    llama_server: &std::path::Path,
     port: u16,
-    size: &str,
+    base: &str,
 ) -> Option<bool> {
+    let folder = model_folder()?;
+    let path = super::fetch::file_path(&folder, model);
+    let command = serve_command(llama_server, model, &path, port);
     let question = format!(
-        "Start local inference: run llama-server with {} on port {port} (downloads {size} the first time)?\n  {}",
+        "Fetch {} ({}) from {}\n  at revision {}\n  into {}\nand start local inference on port {port}?\n  {}",
         model.about,
+        human_size(model.size),
+        model.repo,
+        model.revision,
+        folder.display(),
         command.join(" ")
     );
-    prompt
-        .confirm(&question, false)
-        .then(|| start_server(runtime, command, port))
+    if !prompt.confirm(&question, false) {
+        return None;
+    }
+    if let Err(problem) = runtime.block_on(fetch(model, &folder, base)) {
+        println!("Couldn't fetch {}: {problem}", model.file);
+        return None;
+    }
+    Some(start_server(runtime, &command, port))
 }
 
 /// Run a command with the terminal attached, so its progress shows.
@@ -292,6 +269,11 @@ pub(super) fn free_port(servers: &[FoundServer], role: ModelRole) -> u16 {
         .unwrap_or(first)
 }
 
+/// Where model files go.
+pub(super) fn model_folder() -> Option<PathBuf> {
+    log_folder().map(|folder| folder.join("models"))
+}
+
 /// Where server logs go: `~/.cache/termite`. `None` when `HOME` is not
 /// set, rather than falling back to the current or a shared folder.
 pub(super) fn log_folder() -> Option<PathBuf> {
@@ -306,37 +288,88 @@ pub(super) const START_TIMEOUT: Duration = Duration::from_secs(15 * 60);
 
 #[cfg(test)]
 mod tests {
+    use std::path::Path;
+
     use super::super::discover::{FoundServer, ModelRole, ServerKind};
-    use super::super::hub::{CHAT_MODEL, DECISION_MODEL};
+    use super::super::hub::{HubModel, catalog};
+    use super::super::machine::{Gpu, Machine};
     use super::super::prompt::Prompt;
     use super::{
         fix_missing, free_port, offer_download, offer_llama_server,
-        offer_ollama_pull, print_install_advice, run_visible,
+        print_install_advice, run_visible,
     };
 
-    /// Without a terminal every offer is a no: nothing is pulled,
-    /// downloaded or started, and the next fix is tried.
+    fn model() -> HubModel {
+        catalog().remove(0)
+    }
+
+    fn machine() -> Machine {
+        Machine {
+            os: "linux".to_owned(),
+            arch: "x86_64".to_owned(),
+            memory: 0,
+            gpu: Gpu::None,
+        }
+    }
+
+    fn runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime")
+    }
+
+    /// Port 1 refuses at once, so a fetch that was wrongly started fails
+    /// loudly rather than downloading anything.
+    const NOWHERE: &str = "http://127.0.0.1:1";
+
+    /// Without a terminal every offer is a no: nothing is downloaded or
+    /// started, and the next fix is tried.
     #[test]
     fn offers_do_nothing_without_a_terminal() {
         let prompt = Prompt::without_terminal();
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .build()
-            .expect("runtime");
         let command = vec!["/nonexistent/should-not-run".to_owned()];
 
-        assert_eq!(offer_ollama_pull(&prompt, ModelRole::Chat, true), None);
-        assert_eq!(
-            offer_download(&prompt, &CHAT_MODEL, &command, "1 GB"),
-            None
-        );
+        assert_eq!(offer_download(&prompt, &model(), &command, "1 GB"), None);
         assert_eq!(
             offer_llama_server(
-                &runtime,
+                &runtime(),
                 &prompt,
-                &DECISION_MODEL,
-                &command,
+                &model(),
+                Path::new("/nonexistent/should-not-run"),
                 8081,
-                "1 GB"
+                NOWHERE,
+            ),
+            None
+        );
+    }
+
+    /// Only a typed y counts. Pressing Enter is a no.
+    #[test]
+    fn enter_alone_or_no_starts_nothing() {
+        for answer in ["\n", "n\n", "no\n", "maybe\n", ""] {
+            let prompt = Prompt::answering(answer);
+            let command = vec!["/nonexistent/should-not-run".to_owned()];
+
+            assert_eq!(
+                offer_download(&prompt, &model(), &command, "1 GB"),
+                None
+            );
+        }
+    }
+
+    /// A y is what starts the fetch: here it fails at once, on purpose.
+    #[test]
+    fn a_y_tries_the_pinned_fetch_and_a_failure_tries_the_next_fix() {
+        let prompt = Prompt::answering("y\n");
+        assert_eq!(
+            offer_llama_server(
+                &runtime(),
+                &prompt,
+                &model(),
+                Path::new("/nonexistent/should-not-run"),
+                8081,
+                NOWHERE,
             ),
             None
         );
@@ -349,7 +382,7 @@ mod tests {
         let prompt = Prompt::answering("y\n");
         let command = vec!["true".to_owned()];
         assert_eq!(
-            offer_download(&prompt, &CHAT_MODEL, &command, "1 GB"),
+            offer_download(&prompt, &model(), &command, "1 GB"),
             Some(false)
         );
     }
@@ -359,10 +392,7 @@ mod tests {
     fn a_failed_download_tries_the_next_fix() {
         let prompt = Prompt::answering("yes\n");
         let command = vec!["false".to_owned()];
-        assert_eq!(
-            offer_download(&prompt, &CHAT_MODEL, &command, "1 GB"),
-            None
-        );
+        assert_eq!(offer_download(&prompt, &model(), &command, "1 GB"), None);
     }
 
     /// With nothing running and no terminal, setup finds nothing to do
@@ -370,10 +400,6 @@ mod tests {
     #[test]
     fn given_no_terminal_then_no_fix_is_made() {
         let prompt = Prompt::without_terminal();
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("runtime");
         let ollama = FoundServer {
             kind: ServerKind::Ollama,
             url: "http://127.0.0.1:11434".to_owned(),
@@ -381,7 +407,14 @@ mod tests {
             models_max: None,
         };
 
-        assert!(!fix_missing(&runtime, &prompt, &[ollama], ModelRole::Chat));
+        assert!(!fix_missing(
+            &runtime(),
+            &prompt,
+            &[ollama],
+            ModelRole::Chat,
+            Some(&model()),
+            &machine(),
+        ));
     }
 
     #[test]
@@ -396,16 +429,9 @@ mod tests {
     fn given_any_situation_then_install_advice_is_safe_to_print() {
         for role in [ModelRole::Chat, ModelRole::Decision] {
             for has in [true, false] {
-                print_install_advice(role, has, has, has);
+                print_install_advice(role, has, &machine());
             }
         }
-    }
-
-    #[test]
-    fn ollama_is_offered_only_for_chat_when_running() {
-        let prompt = Prompt::without_terminal();
-        assert_eq!(offer_ollama_pull(&prompt, ModelRole::Decision, true), None);
-        assert_eq!(offer_ollama_pull(&prompt, ModelRole::Chat, false), None);
     }
 
     #[test]

