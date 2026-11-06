@@ -3,7 +3,7 @@
 //! answer stricter, and nothing a model writes reaches the terminal raw.
 
 use std::fs;
-use std::io::{Read, Write};
+use std::io::{ErrorKind, Read, Write};
 use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
@@ -855,12 +855,15 @@ fn tmite_command(arguments: &[&str]) -> Command {
 
 fn piped(arguments: &[&str], input: &str) -> Output {
     let mut child = tmite_command(arguments).spawn().expect("tmite starts");
-    child
+    let written = child
         .stdin
         .take()
         .expect("stdin")
-        .write_all(input.as_bytes())
-        .expect("writes");
+        .write_all(input.as_bytes());
+    // tmite ignores the pipe when it has a request, and it can exit before this write.
+    if let Err(error) = written {
+        assert_eq!(error.kind(), ErrorKind::BrokenPipe, "{error}");
+    }
     child.wait_with_output().expect("tmite ends")
 }
 
