@@ -252,7 +252,7 @@ An agent gets stricter rules than a person, because nobody reads its commands fi
 - Anything above level 2, and level 1, which reads secrets.
 - Anything that can carry data to another machine, at any level. This includes `curl` and `wget` to other machines, `ssh`, `scp`, DNS lookups, cloud tools, uploads, publishing, the clipboard, and opening a web address.
 
-Work that stays on the machine, such as `curl` to `localhost`, still passes. So does a short list of `az` commands that only show settings, never secrets or tokens. Every other cloud command stops, so run it yourself.
+Work that stays on the machine, such as `curl` to `localhost`, still passes. Every cloud command stops, including ones that only read, so run it yourself.
 
 `tmite check` only passes or stops. The [hooks](#commands-that-need-approval) can ask you about some of these commands in place of stopping them.
 
