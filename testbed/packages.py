@@ -21,7 +21,7 @@ ARCHIVES = (
 )
 LOCK = Path(__file__).parent / "packages.lock"
 WANTED = """git jq ripgrep lsof tree rsync bc zip unzip xxd net-tools dnsutils tmux
-ncal psmisc python3-pip bind9-libs bind9-host""".split()
+ncal psmisc python3-pip bind9-libs bind9-host ffmpeg""".split()
 
 
 def read_index():
