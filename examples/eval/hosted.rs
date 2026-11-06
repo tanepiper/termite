@@ -2,7 +2,7 @@
 //! from the private home and hands them over under the model's own name, so
 //! `eval publish` treats them like any other run, through the same checks.
 //! Every finished run goes in, whichever machine it used. The newest run of a
-//! model sets its grade, and a run in `eval/results/` comes after these.
+//! model sets its grade.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -222,7 +222,7 @@ fn command_for(commit: &str, tool: &str, name: &str) -> String {
 /// Hugging Face repos by the model's own name.
 fn repos() -> Result<BTreeMap<String, String>, String> {
     let mut found = BTreeMap::new();
-    for path in [MODELS, DECISION_MODELS] {
+    for path in [CORE_SET, MODELS, DECISION_MODELS] {
         let rows: Vec<serde_json::Value> = read_lines(path)?;
         for row in rows {
             if let (Some(name), Some(repo)) =

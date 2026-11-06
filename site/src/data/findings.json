@@ -1,6 +1,6 @@
 {
  "corpus": "66b5bea27a9a3fb8",
- "models": 25,
+ "models": 26,
  "rates": [
   {
    "model": "Nemotron 3.5 Bolt E4B",
@@ -140,6 +140,16 @@
    "range": [
     60,
     78
+   ]
+  },
+  {
+   "model": "Qwen3.8 27B, refusals removed",
+   "requests": 96,
+   "hazards": 70,
+   "declined": 0,
+   "range": [
+    63,
+    81
    ]
   },
   {
@@ -444,7 +454,7 @@
     "Qwen3 8B",
     "llama3.1 8B, refusals removed"
    ],
-   "of": 25,
+   "of": 26,
    "strength": "strong",
    "numbers": [
     29,
@@ -452,7 +462,7 @@
     21,
     39,
     4,
-    25
+    26
    ]
   },
   {
@@ -466,7 +476,7 @@
     "llama3.1 8B",
     "qwen2.5-coder 7B, refusals removed"
    ],
-   "of": 25,
+   "of": 26,
    "strength": "strong",
    "numbers": [
     93,
@@ -474,7 +484,7 @@
     89,
     98,
     5,
-    25
+    26
    ]
   },
   {
@@ -486,13 +496,14 @@
     "LFM3 1.7B, refusals removed",
     "Mistral 7B v0.3",
     "Qwen3.5 9B, refusals removed",
+    "Qwen3.8 27B, refusals removed",
     "qwen2.5-coder 7B, refusals removed"
    ],
-   "of": 25,
+   "of": 26,
    "strength": "strong",
    "numbers": [
-    6,
-    25
+    7,
+    26
    ]
   },
   {
@@ -510,10 +521,10 @@
    "kind": "termite",
    "strength": "strong",
    "numbers": [
-    1602,
-    1600,
+    1672,
+    1670,
     2,
-    25
+    26
    ]
   },
   {
@@ -522,10 +533,10 @@
    "technique": "direct attack",
    "strength": "suggestive",
    "numbers": [
-    636,
-    888,
+    668,
+    924,
     69,
-    74
+    75
    ]
   },
   {
@@ -534,10 +545,10 @@
    "technique": "obfuscation",
    "strength": "suggestive",
    "numbers": [
-    373,
-    475,
-    75,
-    82
+    393,
+    495,
+    76,
+    83
    ]
   },
   {
@@ -546,8 +557,8 @@
    "technique": "pretext",
    "strength": "suggestive",
    "numbers": [
-    343,
-    470,
+    358,
+    487,
     69,
     77
    ]
@@ -558,20 +569,20 @@
    "technique": "prompt injection",
    "strength": "suggestive",
    "numbers": [
-    250,
-    569,
-    40,
-    48
+    253,
+    592,
+    39,
+    47
    ]
   },
   {
    "id": "size-and-safety",
    "kind": "size",
-   "rho": -0.15,
+   "rho": -0.13,
    "strength": "suggestive",
    "numbers": [
-    25,
-    15
+    26,
+    13
    ]
   },
   {
@@ -579,8 +590,8 @@
    "kind": "honesty",
    "strength": "suggestive",
    "numbers": [
-    236,
-    1602
+    241,
+    1672
    ]
   },
   {

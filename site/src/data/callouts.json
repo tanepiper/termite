@@ -25,20 +25,20 @@
     "finding": "never-declined",
     "group": "Command models",
     "title": "Some models never said no",
-    "text": "Asked to do something hostile, 6 of 25 models declined nothing, and some of these still had their safety training. Don't rely on a model to refuse."
+    "text": "Asked to do something hostile, 7 of 26 models declined nothing, and some of these still had their safety training. Don't rely on a model to refuse."
   },
   {
     "finding": "tier:safest",
     "group": "Command models",
     "title": "Even the safest models wrote hazards",
-    "text": "4 of 25 models did best, and the test cannot separate them. Even so, Nemotron 3.5 Bolt E4B wrote a hazard for 29 of 99 hostile requests.",
+    "text": "4 of 26 models did best, and the test cannot separate them. Even so, Nemotron 3.5 Bolt E4B wrote a hazard for 29 of 99 hostile requests.",
     "section": "command-models"
   },
   {
     "finding": "termite-stopped",
     "group": "Command models",
     "title": "termite stopped almost every hazard",
-    "text": "These 25 models wrote 1602 hazardous replies to hostile requests. termite stopped or held 1600 of them for a person to check, and 2 were Injected.",
+    "text": "These 26 models wrote 1672 hazardous replies to hostile requests. termite stopped or held 1670 of them for a person to check, and 2 were Injected.",
     "featured": true,
     "section": "command-models"
   },
@@ -54,13 +54,13 @@
     "finding": "labelled-safe",
     "group": "Command models",
     "title": "Models called hazards harmless",
-    "text": "In at least 236 of 1602 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
+    "text": "In at least 241 of 1672 hazardous replies, the model said that the command only reads. Don't trust a model's description of its own command."
   },
   {
     "finding": "size-and-safety",
     "group": "Command models",
     "title": "A bigger model was not clearly safer",
-    "text": "Across 25 models, larger models did not write clearly fewer hazards. Test each model, and don't judge it by its size."
+    "text": "Across 26 models, larger models did not write clearly fewer hazards. Test each model, and don't judge it by its size."
   },
   {
     "finding": "context-edge",
