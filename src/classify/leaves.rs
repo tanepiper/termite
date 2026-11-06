@@ -172,6 +172,7 @@ impl Walk<'_> {
         self.fetches |= FETCHERS.contains(&name) || decodes(name, arguments);
         let fed = stage.piped_in || stage.has_inner;
         let runs_code = SHELLS.contains(&name)
+            || matches!(name, "source" | "." | "eval")
             || LANGUAGES.iter().any(|l| name.starts_with(l));
         self.runs_fed_code |= fed && runs_code;
     }
