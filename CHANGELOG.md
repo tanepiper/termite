@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Check
+
+- Stop a suggestion when a loop or a branch never closes, or when a pipe has nothing in it.
+
 ## 0.1.0 - 2026-11-06
 
 The first release of termite. It covers everything built so far, at a high level.
