@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.0 - 2026-11-06
+
 The first release of termite. It covers everything built so far, at a high level.
 
 ### Ask

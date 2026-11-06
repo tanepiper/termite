@@ -1,3 +1,16 @@
 {
-  "releases": []
+  "releases": [
+    {
+      "version": "0.1.0",
+      "date": "2026-11-06",
+      "commit": "55bf4cc6a7d84a8a23fd829440bbb3b228480971",
+      "files": {
+        "tmite-linux-arm64.tar.gz": "9a7efdcb66c78a70f33e1801fec5c4b105aa97f25a01be6dd3e1372d3b4d4bc7",
+        "tmite-linux-x86_64.tar.gz": "8565582b659dbd9b69cf7a2401ec690aafd85a8b492f7ad8de467fec8d161b1e",
+        "tmite-macos-arm64.tar.gz": "8a6fc2068f47de368acbf7b34ed67570c71cba714458eb4d4cc80d05a6dbee2c",
+        "tmite-macos-x86_64.tar.gz": "7b969505bde007bbd54cc50dcc2583b0e150cec64db20ded5dfce477dfd15989"
+      },
+      "previous": null
+    }
+  ]
 }
