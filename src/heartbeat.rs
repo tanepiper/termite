@@ -36,6 +36,7 @@ where
 #[cfg(test)]
 mod tests {
     use std::sync::Mutex;
+    use std::sync::atomic::{AtomicBool, Ordering};
     use std::time::Duration;
 
     use super::watch;
@@ -62,15 +63,22 @@ mod tests {
     fn given_slow_work_then_checks_are_reported_and_the_result_returned() {
         for answering in [true, false] {
             let stages = Stages::default();
+            let checked = AtomicBool::new(false);
+            // Finishes only after a check, however slow the machine is.
             let work = async {
-                tokio::time::sleep(Duration::from_millis(50)).await;
+                while !checked.load(Ordering::Relaxed) {
+                    tokio::time::sleep(Duration::from_millis(1)).await;
+                }
                 7
             };
 
             let result = run(watch(
                 work,
                 Duration::from_millis(10),
-                || async move { answering },
+                || async {
+                    checked.store(true, Ordering::Relaxed);
+                    answering
+                },
                 &stages,
             ));
 
