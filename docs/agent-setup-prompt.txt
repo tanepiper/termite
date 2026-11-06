@@ -1,6 +1,6 @@
 Set up termite on this machine. termite checks each shell command before an agent runs it, and stops risky ones. Do only these steps, in this order.
 
-1. Run `tmite --help`. If `tmite` isn't installed, run `cargo install --locked --git https://github.com/tanepiper/termite`. If `cargo` isn't installed, stop and tell me to install Rust from https://rustup.rs.
+1. Run `tmite --help`. If `tmite` isn't installed, run `cargo install --locked --git https://github.com/tanepiper/termite termite`. If `cargo` isn't installed, stop and tell me to install Rust from https://rustup.rs.
 
 2. Run `tmite setup --plan`. It only reads, and it changes nothing. Show me a short list: my system and memory, each agent harness it found and whether its hook is installed, and the models it would install with their sizes.
 

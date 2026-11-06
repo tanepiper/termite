@@ -1,8 +1,8 @@
 # Train your own models
 
-This guide shows how to train two small models for a tool that handles shell commands: one that writes commands, and one that judges them. I had never trained a model before this, so it assumes that you haven't either. It describes what I did, including what went wrong the first time.
+This guide shows how to train two small models for a tool that handles shell commands: one that writes commands, and one that judges them. It assumes that you have never trained a model before.
 
-You need a set of rules in code that can rate a command, because the rules do most of the labelling. You also need a set of tests that the model never sees. Everything else can be rented by the hour. The decision model work below cost about $2.50 in rented GPU time.
+You need a set of rules in code that can rate a command, because the rules do most of the labelling. You also need a set of tests that the model never sees. Everything else can be rented by the hour, and a small model can cost only a few dollars to train.
 
 **A trained model does not replace your rules.** It will sometimes be wrong, and a command written to deceive it can still get past it. Build it so that it can only make the answer stricter. It must never be able to approve something that the rules refuse.
 
@@ -25,15 +25,15 @@ Write this down before you collect any data, and include the score that counts a
 | Job | Takes a request and returns commands | Answers fixed questions about a command, and ranks several commands |
 | Worst failure | Writes a hazard for a hostile request | Rates an unsafe command as safe |
 | Who catches a mistake | The rules, and then the person who reads it | The rules |
-| My pass mark | Hazards for under 35% of hostile requests, and useful answers for at least 92% of everyday requests | Puts commands in a better order than the best small model I have tested, and rates no unsafe command as safe |
+| Example pass mark | Writes fewer hazards for hostile requests than the model you use now, and still answers nearly all everyday requests | Puts commands in a better order than the best small model you have tested, and rates no unsafe command as safe |
 
 A decision model has a harder job than it looks. A person reads what a command model writes, but a decision model's answer may let a command skip the question.
 
 ## Step 2: choose a base model
 
 - **Read the licence.** Use one that lets you change the model and publish the result, and check the licence of anything you start from.
-- **Choose the smallest model that can do the job.** A small model that can check every command is more useful than a large one that can't. My decision model has under 1 billion parameters.
-- **Start from a model that already does a similar job, if one exists.** An open decision model gave me the right format and a score to beat.
+- **Choose the smallest model that can do the job.** A small model that can check every command is more useful than a large one that can't. A decision model can be under 1 billion parameters.
+- **Start from a model that already does a similar job, if one exists.** It gives you the right format and a score to beat.
 - **Pin the exact revision,** so that the same run gives you the same model.
 - **Use a base model for a decision model, not a chat model.** It picks an option and never chats, so it doesn't need chat training.
 
@@ -60,13 +60,13 @@ The data ends up in three groups. The model learns from **train**, you watch **v
 
 Run your rules over every command, and let them give one of three answers: yes, no, or can't say. Do this in a fake folder that holds nothing real. Rating a command doesn't run it.
 
-**Never train on "can't say".** I left out about 12,700 rows for this reason. A guessed label teaches a guess.
+**Never train on "can't say".** Leave those rows out, even if there are thousands of them. A guessed label teaches a guess.
 
-Don't turn one number into a label. My first version labelled every command above a certain level as harmful. That taught the model that a command is harmful when it is only hard to check. The second version marked harm only when the rules gave a reason for it, such as a damage warning, and left the rest unlabelled. A broad warning caused the same fault in my label for secrets, so I narrowed that rule to what really names a secret.
+Don't turn one number into a label. If you label every command above a certain level as harmful, the model learns that a command is harmful when it is only hard to check. Mark harm only when the rules give a reason for it, such as a damage warning, and leave the rest unlabelled. A broad warning causes the same fault in any label, so narrow each rule to what really shows the thing you are labelling.
 
-**Then read the labels.** Take a random sample of the rows and read each one, because a script can't find this kind of fault. A score can look fine while the labels underneath are wrong. In my first sample, about 1 row in 10 was weak. After I fixed the rules and read the rows by hand, about 2 or 3 in 100 were still weak. Keep a list of the rows you reject, so that a rebuild doesn't bring them back.
+**Then read the labels.** Take a random sample of the rows and read each one, because a script can't find this kind of fault. A score can look fine while the labels underneath are wrong. Fix the rules, build the data again, and read a new sample until very few rows are weak. Keep a list of the rows you reject, so that a rebuild doesn't bring them back.
 
-The best label comes from what a command really does. To get this, run it in a throwaway virtual machine with no network, and compare the disk before and after. I haven't added these labels yet.
+The best label comes from what a command really does. To get this, run it in a throwaway virtual machine with no network, and compare the disk before and after.
 
 ## Step 6: teach the difference
 
@@ -75,13 +75,13 @@ A model learns from contrast. Rows that are all safe or all dangerous teach it v
 - **Pairs that look alike.** Write a safe command next to a dangerous one that looks almost the same, with the opposite labels.
 - **Commands that look harmless and aren't.** Include commands that look like reads but change things.
 - **The same command in different places.** A command can be safe in a project and risky in a folder of keys.
-- **Hand-written rows for the hard cases.** I wrote a few hundred for secrets, because public data had too few.
+- **Hand-written rows for the hard cases.** Write your own rows where public data has too few, such as commands that show secrets.
 
 For the command model, a hostile request gets a refusal as its answer. **A hostile example teaches refusal. It never teaches the hazard.** Never put a harmful command in a training target, whatever the reason.
 
 ## Step 7: use the exact format
 
-Train on exactly what the tool sends. Use the same system prompt, the same wording for each question, and the same reply format. My audit script fails if the wording in the data differs from the wording in the code. If the two drift apart, the scores in training mean nothing in use.
+Train on exactly what the tool sends. Use the same system prompt, the same wording for each question, and the same reply format. Write a check that fails if the wording in the data differs from the wording in the code. If the two drift apart, the scores in training mean nothing in use.
 
 A decision row looks like this. It holds the situation, one question and fixed options:
 
@@ -97,13 +97,13 @@ Does this command only read or display information, without creating, changing o
   yes: it only reads or displays
 ```
 
-The model picks an option and returns a probability, and it writes no text. This makes it fast, and it can't be talked into a long answer. I ask three questions about each command: does it only read, does it keep secrets hidden, and could it do harm. A fourth question ranks several commands for the same job.
+The model picks an option and returns a probability, and it writes no text. This makes it fast, and it can't be talked into a long answer. Useful questions about a command are: does it only read, does it keep secrets hidden, and could it do harm. Another question can rank several commands for the same job.
 
 A command row is an ordinary chat: the system prompt, the request, and the exact JSON reply that the tool expects.
 
 ## Step 8: train
 
-Rent a GPU by the hour. These are the settings that worked for the decision model, with about 16,000 records:
+Rent a GPU by the hour. These settings are a good start for a small decision model with a few thousand to tens of thousands of records:
 
 | Setting | Value |
 |---|---|
@@ -127,14 +127,14 @@ Accuracy hides the failure you care about, because most commands are ordinary. C
 
 Score the model before and after, on the same rows. Set its confidence scale on one half of the validation rows, and report the score on the other half, so that the scale can't flatter the result.
 
-These are my results on rows from whole programs that the model never saw:
+Use rows from whole programs that the model never saw, and record the results in a table like this:
 
 | Mistake | Before | After |
 |---|---|---|
-| Called a harmful command harmless | 88 of 173 | 21 of 173 |
-| Called a change read-only | 93 of 295 | 3 of 295 |
-| Called a command that shows secrets safe | 5 of 26 | 2 of 26 |
-| Top pick matched the best command | 80% | 83% |
+| Called a harmful command harmless | Count | Count |
+| Called a change read-only | Count | Count |
+| Called a command that shows secrets safe | Count | Count |
+| Top pick matched the best command | Percentage | Percentage |
 
 **This is not the pass mark.** The same rules labelled these rows, so the numbers show that the model learned the rules. They don't show that the rules are right.
 
@@ -144,13 +144,13 @@ Convert the model to GGUF, shrink it to Q8_0, and serve it with the same server 
 
 For a model served through llama.cpp's `/v1/systemone`, the converter needs the adapter, the head and the training settings together. Run the conversion in a job with llama.cpp's own image, and pin that image to a digest before you release.
 
-My converted file made these mistakes on all the held-out rows: 41 of 337, 5 of 618 and 6 of 57, in the order of the table above. Its top pick matched for 118 of 138 rankings.
+Count the same mistakes for the converted file as you did in step 9, and compare the two.
 
 ## Step 11: read every miss
 
 Read each wrong answer yourself. The total tells you how much is wrong, and the rows tell you why.
 
-Mine fell into a few groups. One was a family of tools that I had held out on purpose, so the model had never seen them. That was the test working: those rows go back in for the last run. Another was a group where I wasn't sure the label was right, because the question and the label didn't quite agree. In that case, fix the data or the question. Don't add rows until the score goes up.
+Misses usually fall into a few groups. Some come from a family of tools that you held out on purpose, so the model never saw them. That is the test working: put those rows back for the last run. Others come from a label you aren't sure of, because the question and the label don't quite agree. In that case, fix the data or the question. Don't add rows until the score goes up.
 
 ## Step 12: run the real test, then publish
 
@@ -162,7 +162,3 @@ When it passes:
 2. Give the base model and its licence.
 3. Publish GGUF files, with the revision and hash, so that people can check what they run.
 4. Test it again in your tool, with your rules on.
-
-## Where this stands
-
-The decision model has finished steps 1 to 11. It hasn't taken the real test yet, so I don't recommend it, and it isn't published. The command model has its data, and its training is the next step. It will follow the same steps, and I will add what I learn here.

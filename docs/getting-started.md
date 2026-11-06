@@ -21,7 +21,7 @@ brew install rust llama.cpp
 ```
 
 ```bash
-cargo install --locked --git https://github.com/tanepiper/termite
+cargo install --locked --git https://github.com/tanepiper/termite termite
 ```
 
 ### Linux
@@ -29,7 +29,7 @@ cargo install --locked --git https://github.com/tanepiper/termite
 Install Rust with [rustup](https://rustup.rs), because the `cargo` package in your distribution may be older than 1.87. Install llama.cpp from its [releases page](https://github.com/ggml-org/llama.cpp/releases), and make sure `llama-server` is on your `PATH`.
 
 ```bash
-cargo install --locked --git https://github.com/tanepiper/termite
+cargo install --locked --git https://github.com/tanepiper/termite termite
 ```
 
 ### Windows

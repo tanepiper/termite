@@ -77,7 +77,7 @@ termite sits between a model and your shell, and catches a bad command before it
 termite is at an early stage, so install it from source. Signed release binaries and a Homebrew tap are planned.
 
 ```bash
-cargo install --locked --git https://github.com/tanepiper/termite
+cargo install --locked --git https://github.com/tanepiper/termite termite
 ```
 
 **You also need:**
