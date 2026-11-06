@@ -36,7 +36,9 @@ mod test_support;
 
 pub use answer::{Answer, Held, answer, gate};
 pub use candidate::{Candidate, Risk};
-pub use classify::{Classification, Level, classify, classify_candidate};
+pub use classify::{
+    Classification, Level, NotReal, classify, classify_candidate, not_real,
+};
 pub use command::{
     CommandRejected, MAX_COMMAND_CHARS, check_command, to_printable,
 };

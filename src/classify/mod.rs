@@ -12,6 +12,7 @@ mod leaves;
 mod parse;
 mod paths;
 mod programs;
+mod real;
 mod system;
 mod verdict;
 mod walk;
@@ -21,6 +22,7 @@ use std::path::Path;
 use crate::candidate::{Candidate, Risk};
 
 use paths::Place;
+pub use real::{NotReal, not_real};
 use verdict::{NO_REPOSITORY, cleans_outside_a_repository};
 use walk::Walk;
 

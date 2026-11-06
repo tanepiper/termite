@@ -3,11 +3,16 @@
 //! it. It runs after [`super::answer`], which the evaluation uses to see what a
 //! model really wrote.
 
+use std::ffi::OsString;
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 use super::Answer;
-use crate::classify::{Classification, Level, classify_candidate};
-use crate::context::Context;
+use crate::classify::{
+    Classification, Level, NotReal, classify_candidate, not_real,
+};
+use crate::command::CommandRejected;
+use crate::context::{Context, Session};
 use crate::decide::Ranked;
 
 /// A command that must not reach the prompt.
@@ -41,18 +46,22 @@ impl Held {
 
 /// Apply the levels to `answer`. Level 4 is display only and level 5 is
 /// withheld. With nobody there to answer, as in an agent or CI, only levels
-/// 0 and 2 get through and no held command is shown.
+/// 0 and 2 get through and no held command is shown. A command that gets
+/// through and can't be used as written is turned down: this can only stop a
+/// suggestion, and it comes after the levels, so what is held stays held.
 pub fn gate(answer: Answer, context: &Context) -> Answer {
     let judge = Judge::new(context);
     match answer {
         Answer::Confirm(ranked) => match judge.hold(&ranked) {
             Some(held) => Answer::Held(held),
-            None => Answer::Confirm(ranked),
+            None => judge.if_real(ranked, Answer::Confirm),
         },
         Answer::ConfirmWithReason { ranked, reason } => {
             match judge.hold(&ranked) {
                 Some(held) => Answer::Held(held),
-                None => Answer::ConfirmWithReason { ranked, reason },
+                None => judge.if_real(ranked, |ranked| {
+                    Answer::ConfirmWithReason { ranked, reason }
+                }),
             }
         },
         Answer::Refused { ranked, reason } => match judge.hold(&ranked) {
@@ -71,6 +80,18 @@ struct Judge<'a> {
     cwd: &'a Path,
     home: Option<PathBuf>,
     unattended: bool,
+    /// Where programs are found. `None` when the command is for another
+    /// machine, or nothing says where to look.
+    search: Option<OsString>,
+}
+
+/// Whether `program` is an executable file in a folder of `search`.
+fn on_path(program: &str, search: &OsString) -> bool {
+    std::env::split_paths(search).any(|folder| {
+        std::fs::metadata(folder.join(program)).is_ok_and(|found| {
+            found.is_file() && found.permissions().mode() & 0o111 != 0
+        })
+    })
 }
 
 impl<'a> Judge<'a> {
@@ -79,6 +100,39 @@ impl<'a> Judge<'a> {
             cwd: Path::new(context.cwd()),
             home: std::env::var_os("HOME").map(PathBuf::from),
             unattended: context.unattended(),
+            search: (context.session() == Session::Local)
+                .then(|| std::env::var_os("PATH"))
+                .flatten(),
+        }
+    }
+
+    /// Why `ranked` can't be used as written, if it can't.
+    fn rejected(&self, ranked: &Ranked) -> Option<CommandRejected> {
+        let installed = |program: &str| {
+            self.search
+                .as_ref()
+                .is_none_or(|path| on_path(program, path))
+        };
+        let found = not_real(ranked.candidate().command(), Some(&installed))?;
+        Some(match found {
+            NotReal::CutOff => CommandRejected::CutOff,
+            NotReal::Placeholder(word) => CommandRejected::Placeholder(word),
+            NotReal::NoSuchProgram(name) => {
+                CommandRejected::NoSuchProgram(name)
+            },
+        })
+    }
+
+    fn if_real(
+        &self,
+        ranked: Ranked,
+        answer: impl FnOnce(Ranked) -> Answer,
+    ) -> Answer {
+        match self.rejected(&ranked) {
+            Some(reason) => Answer::NoUsableCommand {
+                rejected: vec![(ranked.candidate().clone(), reason)],
+            },
+            None => answer(ranked),
         }
     }
 
@@ -109,24 +163,35 @@ impl<'a> Judge<'a> {
         }
         let found = self.level_of(&ranked);
         if found.level == Level::Read {
-            return Answer::StraightIn { ranked, reason };
+            return self.if_real(ranked, |ranked| Answer::StraightIn {
+                ranked,
+                reason,
+            });
         }
-        Answer::ConfirmWithReason {
+        let reason = found.reasons.join(", ");
+        self.if_real(ranked, |ranked| Answer::ConfirmWithReason {
             ranked,
-            reason: found.reasons.join(", "),
-        }
+            reason,
+        })
     }
 
     fn choose(&self, ranked: Vec<Ranked>, mut held: Vec<Held>) -> Answer {
         let mut kept = Vec::new();
+        let mut rejected = Vec::new();
         for one in ranked {
-            match self.hold(&one) {
-                Some(stopped) => held.push(stopped),
-                None => kept.push(one),
+            if let Some(stopped) = self.hold(&one) {
+                held.push(stopped);
+            } else if let Some(reason) = self.rejected(&one) {
+                rejected.push((one.candidate().clone(), reason));
+            } else {
+                kept.push(one);
             }
         }
         if !kept.is_empty() {
             return Answer::Choose { ranked: kept, held };
+        }
+        if held.is_empty() && !rejected.is_empty() {
+            return Answer::NoUsableCommand { rejected };
         }
         held.sort_by_key(|one| one.level);
         match held.into_iter().next() {
@@ -144,6 +209,7 @@ mod tests {
     use super::{Answer, Held, gate};
     use crate::candidate::{Candidate, Risk};
     use crate::classify::Level;
+    use crate::command::CommandRejected;
     use crate::context::{Caller, Context, Session};
     use crate::decide::Ranked;
 
@@ -175,6 +241,101 @@ mod tests {
 
     fn confirmed(command: &str, unattended: bool) -> Answer {
         gate(Answer::Confirm(ranked(command)), &context(unattended))
+    }
+
+    /// A program that no machine has.
+    const NO_SUCH: &str = "termite-no-such-program --go";
+
+    fn turned_down(answer: &Answer) -> Option<&CommandRejected> {
+        match answer {
+            Answer::NoUsableCommand { rejected } => {
+                rejected.first().map(|(_, reason)| reason)
+            },
+            _ => None,
+        }
+    }
+
+    #[test]
+    fn given_a_command_that_is_not_real_then_it_never_reaches_the_prompt() {
+        for (command, reason) in [
+            (
+                NO_SUCH,
+                CommandRejected::NoSuchProgram(
+                    "termite-no-such-program".to_owned(),
+                ),
+            ),
+            ("ls |", CommandRejected::CutOff),
+            (
+                "ls path/to/folder",
+                CommandRejected::Placeholder("path/to/folder".to_owned()),
+            ),
+        ] {
+            let confirm = confirmed(command, false);
+            assert_eq!(turned_down(&confirm), Some(&reason), "{command}");
+
+            let straight = Answer::StraightIn {
+                ranked: ranked(command),
+                reason: "safe".to_owned(),
+            };
+            let gated = gate(straight, &context(false));
+            assert_eq!(turned_down(&gated), Some(&reason), "{command}");
+
+            let asking = Answer::ConfirmWithReason {
+                ranked: ranked(command),
+                reason: "unsure".to_owned(),
+            };
+            let gated = gate(asking, &context(false));
+            assert_eq!(turned_down(&gated), Some(&reason), "{command}");
+        }
+    }
+
+    #[test]
+    fn given_a_held_command_that_is_not_real_then_it_stays_held() {
+        let answer = confirmed("sudo termite-no-such-program", false);
+        let Answer::Held(held) = answer else {
+            panic!("expected held, got {answer:?}");
+        };
+        assert_eq!(held.level, Level::SystemDangerous);
+    }
+
+    #[test]
+    fn given_a_choice_then_only_the_real_commands_are_offered() {
+        let answer = Answer::Choose {
+            ranked: vec![ranked(NO_SUCH), ranked("ls")],
+            held: Vec::new(),
+        };
+        let Answer::Choose { ranked, held } = gate(answer, &context(false))
+        else {
+            panic!("expected a choice");
+        };
+        assert_eq!(ranked.len(), 1);
+        assert_eq!(ranked[0].candidate().command(), "ls");
+        assert!(held.is_empty());
+    }
+
+    #[test]
+    fn given_a_choice_with_nothing_real_then_the_reasons_are_shown() {
+        let answer = Answer::Choose {
+            ranked: vec![ranked(NO_SUCH), ranked("ls |")],
+            held: Vec::new(),
+        };
+        let Answer::NoUsableCommand { rejected } =
+            gate(answer, &context(false))
+        else {
+            panic!("expected no usable command");
+        };
+        assert_eq!(rejected.len(), 2);
+    }
+
+    #[test]
+    fn given_another_machine_then_only_the_text_is_checked() {
+        let remote = Context::new("linux", "bash", CWD, Session::Ssh)
+            .with_caller(Caller::Person);
+        let gated = gate(Answer::Confirm(ranked(NO_SUCH)), &remote);
+        assert!(matches!(gated, Answer::Confirm(_)), "{gated:?}");
+
+        let gated = gate(Answer::Confirm(ranked("ls |")), &remote);
+        assert_eq!(turned_down(&gated), Some(&CommandRejected::CutOff));
     }
 
     #[test]

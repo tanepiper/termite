@@ -332,6 +332,8 @@ termite warns you about a risky command at levels 1 to 3, but it does not stop y
 
 Commands at levels 4 and 5 never reach your prompt. A level 4 command is shown as text for you to type yourself, and a level 5 command is withheld. termite also blocks a command when the decision model refuses it.
 
+termite also turns down a command you can't use as written: one that is cut off, one that still holds a placeholder such as `<file>`, and one whose program isn't on this machine. You see the command and the reason, so you can install a tool that you want. This check can only stop a suggestion. It doesn't change a command's level, and it doesn't catch an option that doesn't exist. Over SSH it doesn't look for the program, because that program would be on the other machine.
+
 ## If the widget does not match tmite
 
 The widget and the `tmite` program are updated together. If you load the widget from a copy of the repository and the program is older, the widget says that they do not match, and it puts nothing at your prompt.

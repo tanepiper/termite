@@ -23,6 +23,15 @@ pub enum CommandRejected {
     /// The command is not valid shell words, such as an unclosed quote.
     #[error("the command is not valid shell syntax")]
     Unparseable,
+    /// The command stops part way through.
+    #[error("the command is cut off")]
+    CutOff,
+    /// The command still holds a placeholder for the person to fill in.
+    #[error("the command still holds a placeholder: {0}")]
+    Placeholder(String),
+    /// The command's program isn't on this machine.
+    #[error("{0} isn't on this machine, and it may not be a real program")]
+    NoSuchProgram(String),
     /// The command is longer than [`MAX_COMMAND_CHARS`].
     #[error(
         "the command is {length} characters long; the limit is {MAX_COMMAND_CHARS}"
