@@ -3,7 +3,7 @@
 //! unreadable one is stopped, and a missing `tmite` stops everything.
 
 use std::fs;
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant};
@@ -57,12 +57,11 @@ fn hook(harness: &str, input: &[u8], home: &Path) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("starts");
-    child
-        .stdin
-        .take()
-        .expect("stdin")
-        .write_all(input)
-        .expect("writes");
+    // A hook may stop before it reads anything, which closes the pipe.
+    let written = child.stdin.take().expect("stdin").write_all(input);
+    if let Err(error) = written {
+        assert_eq!(error.kind(), ErrorKind::BrokenPipe, "{error}");
+    }
     child.wait_with_output().expect("finishes")
 }
 
