@@ -167,6 +167,9 @@ pub(super) fn unwrap(words: Vec<String>) -> Unwrapped {
             rest = &rest[1..];
             continue;
         }
+        if name == "command" && only_looks_up(&rest[1..]) {
+            break;
+        }
         let is_env = name == "env" && rest.len() > 1;
         if ROOT.contains(&name.as_str()) {
             found.root = true;
@@ -179,6 +182,14 @@ pub(super) fn unwrap(words: Vec<String>) -> Unwrapped {
     }
     found.words = rest.to_vec();
     found
+}
+
+/// `command -v` and `-V` print where a name is and run nothing.
+fn only_looks_up(arguments: &[String]) -> bool {
+    arguments
+        .iter()
+        .take_while(|word| word.starts_with('-') && !word.starts_with("--"))
+        .any(|word| word.contains(['v', 'V']))
 }
 
 fn changes_code(assignment: &str) -> bool {
@@ -297,9 +308,7 @@ pub(super) fn shows_secrets(name: &str, arguments: &[String]) -> bool {
     };
     match name {
         "export" => has("-p"),
-        "ps" => arguments
-            .iter()
-            .any(|one| !one.starts_with('-') && one.contains('e')),
+        "ps" => ps_shows_environment(arguments),
         "kubectl" => mentions("secret"),
         "gh" => has("auth") && has("token"),
         "aws" => has("configure") && has("get"),
@@ -308,6 +317,17 @@ pub(super) fn shows_secrets(name: &str, arguments: &[String]) -> bool {
         "pass" | "op" => true,
         _ => SHOW_ENVIRONMENT.contains(&name),
     }
+}
+
+/// `ps e`, with no dash, prints each process's environment. The word after
+/// `-o` or `-p` only names columns or processes.
+fn ps_shows_environment(arguments: &[String]) -> bool {
+    let mut names_something = false;
+    arguments.iter().any(|word| {
+        let named = names_something;
+        names_something = matches!(word.as_str(), "-o" | "-O" | "-p");
+        !named && !word.starts_with('-') && word.contains('e')
+    })
 }
 
 /// Hostile whatever it is asked for: why, if so.

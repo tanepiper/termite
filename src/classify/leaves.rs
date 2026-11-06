@@ -165,7 +165,7 @@ impl Walk<'_> {
         let redirected = stage.writes.iter().chain(&stage.reads);
         self.leaves |= leaves_machine(name, arguments)
             || redirected.into_iter().any(|path| is_network_path(path));
-        let judged = matches!(name, "curl" | "echo" | "printf")
+        let judged = matches!(name, "command" | "curl" | "echo" | "printf")
             || (name == "git"
                 && arguments.first().is_some_and(|verb| verb == "commit"));
         self.names_network |= !judged && names_network(&stage.text);

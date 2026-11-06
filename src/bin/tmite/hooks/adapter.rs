@@ -3,7 +3,8 @@
 //! does, and answers in the harness's own shape.
 //!
 //! Contract: everything that isn't a clean pass is a stop, and a pass is only
-//! ever "no objection": the harness's own approval rules still run.
+//! ever "no objection": the harness's own approval rules still run. A tool
+//! that plainly isn't a shell has nothing to rate, so it gets no objection.
 
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
@@ -26,6 +27,29 @@ const DEADLINE: Duration = Duration::from_secs(HOOK_TIMEOUT_SECS * 2 / 3);
 
 /// The exit status that stops a command in every harness.
 const STOP: u8 = 2;
+
+/// Words in a tool's name that mean it may run a command.
+const SHELL_TOOL_WORDS: &[&str] = &[
+    "bash",
+    "cmd",
+    "command",
+    "exec",
+    "monitor",
+    "powershell",
+    "run",
+    "shell",
+    "terminal",
+];
+
+/// Fields that hold a command, whatever the tool is called.
+const COMMAND_FIELDS: &[&str] = &[
+    "cmd",
+    "command",
+    "command_line",
+    "commandline",
+    "script",
+    "shell",
+];
 
 /// What the check decided.
 #[derive(Debug, PartialEq, Eq)]
@@ -89,6 +113,9 @@ pub(super) fn decide(
     let Some(command) =
         message.pointer(harness.command_at).and_then(Value::as_str)
     else {
+        if names_another_tool(&message) {
+            return Outcome::Pass;
+        }
         return stop("the hook input has no command");
     };
     let cwd = message
@@ -110,6 +137,27 @@ pub(super) fn decide(
          same thing: tell the person what you wanted to run and why.\n{}",
         rating.report.trim_end()
     ))
+}
+
+/// Some harnesses ignore the hook's matcher and send every tool, such as
+/// `read_file`. Those carry no command, so there is nothing to rate. Anything
+/// that could be a shell, or holds a command in another field, doesn't count.
+fn names_another_tool(message: &Value) -> bool {
+    let Some(tool) = message.pointer("/tool_name").and_then(Value::as_str)
+    else {
+        return false;
+    };
+    let tool = tool.to_lowercase();
+    let is_shell = SHELL_TOOL_WORDS.iter().any(|word| tool.contains(word));
+    let holds_command = message
+        .pointer("/tool_input")
+        .and_then(Value::as_object)
+        .is_none_or(|input| {
+            input.keys().any(|key| {
+                COMMAND_FIELDS.contains(&key.to_lowercase().as_str())
+            })
+        });
+    !tool.is_empty() && !is_shell && !holds_command
 }
 
 /// Give the harness its answer, once. Returns the exit status.
@@ -178,6 +226,47 @@ mod tests {
                     String::from_utf8_lossy(input)
                 );
             }
+        }
+    }
+
+    #[test]
+    fn given_a_tool_that_is_not_a_shell_then_there_is_no_objection() {
+        for input in [
+            json!({ "tool_name": "read_file", "tool_input": { "path": "a" } }),
+            json!({ "tool_name": "Edit", "tool_input": { "file_path": "a" } }),
+        ] {
+            assert_eq!(
+                decide(harness("claude"), input.to_string().as_bytes(), None),
+                Outcome::Pass,
+                "{input}"
+            );
+        }
+    }
+
+    #[test]
+    fn given_anything_that_could_be_a_shell_then_no_command_still_stops() {
+        for input in [
+            json!({ "tool_name": "Bash", "tool_input": {} }),
+            json!({ "tool_name": "run_in_terminal", "tool_input": {} }),
+            json!({ "tool_name": "Monitor", "tool_input": {} }),
+            json!({ "tool_name": "mcp__x__exec", "tool_input": {} }),
+            json!({ "tool_name": "helper", "tool_input": { "cmd": "ls" } }),
+            json!({ "tool_name": "helper", "tool_input": { "Script": "ls" } }),
+            json!({ "tool_name": "helper" }),
+            json!({ "tool_name": "", "tool_input": {} }),
+            json!({ "tool_name": 7, "tool_input": {} }),
+        ] {
+            assert!(
+                matches!(
+                    decide(
+                        harness("claude"),
+                        input.to_string().as_bytes(),
+                        None
+                    ),
+                    Outcome::Stop(_)
+                ),
+                "{input}"
+            );
         }
     }
 

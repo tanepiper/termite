@@ -447,6 +447,10 @@ mod tests {
             "gh gist create notes.txt",
             "dig example.test",
             "aws s3 cp notes.txt s3://bucket/",
+            "command az account show",
+            "command -p curl https://example.test",
+            "ps eww",
+            "ps -o pid eww",
         ] {
             let (_, person) = checked(command.as_bytes(), PLAIN);
             let (text, stopped) = checked(command.as_bytes(), agent);
@@ -469,6 +473,9 @@ mod tests {
             "git push origin main",
             "curl http://localhost:3000/health",
             "echo https://example.test",
+            "command -v az",
+            "command -V curl",
+            "ps -o pid,etime,time,pcpu -p 7",
         ] {
             let (text, tally) = checked(command.as_bytes(), agent);
 
