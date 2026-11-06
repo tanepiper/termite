@@ -727,6 +727,17 @@ fn given_a_person_then_the_model_is_told_and_an_agent_gets_the_plain_prompt() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn given_a_delete_across_home_then_a_person_is_shown_it_but_it_cant_be_inserted()
+ {
+    let text = at_a_terminal("find /Users/me -name \"*tmite*\" -delete");
+
+    assert!(text.contains("\"kind\":\"held\""), "{text}");
+    assert!(text.contains("\"level\":4"), "{text}");
+    assert!(text.contains("\"insert\":false"), "{text}");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn given_a_person_at_a_terminal_then_level_3_comes_back_to_be_asked() {
     let text = at_a_terminal("rm -rf node_modules");
     assert!(text.contains("rm -rf node_modules"), "{text}");

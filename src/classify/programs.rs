@@ -2,6 +2,7 @@
 //! harm are listed: anything else is an ordinary change, level 2.
 
 use super::Level;
+use super::deletes;
 
 /// Programs that run the next word as a command.
 const WRAPPERS: &[&str] = &[
@@ -31,8 +32,17 @@ pub(super) const LANGUAGES: &[&str] = &[
 ];
 
 /// Programs that delete what they are given.
-pub(super) const DELETERS: &[&str] =
-    &["rm", "rmdir", "unlink", "shred", "srm", "truncate"];
+pub(super) const DELETERS: &[&str] = &[
+    "rm",
+    "rmdir",
+    "unlink",
+    "shred",
+    "srm",
+    "truncate",
+    "trash",
+    "trash-put",
+    "rimraf",
+];
 
 /// Programs that send data off the machine.
 pub(super) const SENDERS: &[&str] = &[
@@ -233,6 +243,9 @@ pub(super) fn level_of(
     if privileged_container(name, arguments) {
         return Some((Level::SystemDangerous, "gives a container the host"));
     }
+    if let Some(found) = deletes::by_tool(name, arguments) {
+        return Some(found);
+    }
     LOSES_DATA
         .iter()
         .find(|(program, _)| *program == name)
@@ -267,15 +280,27 @@ fn git(arguments: &[String]) -> Option<(Level, &'static str)> {
     let (verb, options) = rest.split_first()?;
     let has = |word: &str| options.iter().any(|option| option == word);
     let loses = (Level::ContainedDestructive, "loses uncommitted work");
+    let sweeps = (Level::SystemDangerous, deletes::LOOSE);
+    let deletes = (Level::ContainedDestructive, "deletes data");
     match verb.as_str() {
-        "push" if force_push(options) => {
+        "push" if force_push(options) || has("--delete") || has("-d") => {
             Some((Level::SystemDangerous, "overwrites a shared branch"))
         },
         "reset" if has("--hard") => Some(loses),
-        "clean" | "restore" => Some(loses),
+        "clean" if has("-n") || has("--dry-run") => Some(loses),
+        "clean" => Some(sweeps),
+        "restore" => Some(loses),
+        "rm" => Some(deletes),
+        "remote" | "worktree" if has("remove") || has("rm") => Some(deletes),
         "checkout" if has("--") || has("-f") || has("--force") => Some(loses),
-        "stash" if has("drop") || has("clear") => Some(loses),
-        "branch" if has("-D") => Some(loses),
+        "stash" if has("clear") => Some(sweeps),
+        "stash" if has("drop") => Some(loses),
+        "branch" if has("-D") || has("-d") || has("--delete") => Some(loses),
+        "tag" | "update-ref" if has("-d") || has("--delete") => Some(deletes),
+        "reflog" if has("expire") => Some(sweeps),
+        "gc" if options.iter().any(|one| one.starts_with("--prune")) => {
+            Some(sweeps)
+        },
         _ => None,
     }
 }

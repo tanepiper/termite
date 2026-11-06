@@ -1,0 +1,201 @@
+{"command": "rm src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "rm ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "rm /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "rm ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "rm -f src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "rm -f ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "rm -f /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "rm -f ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "unlink src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "unlink ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "unlink /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "unlink ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "shred src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "shred ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "shred /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "shred ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "srm src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "srm ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "srm /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "srm ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "truncate -s 0 src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "truncate -s 0 ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "truncate -s 0 /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "truncate -s 0 ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "rmdir src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "rmdir ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "rmdir /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "rmdir ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "trash src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "trash ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "trash /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "trash ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "trash-put src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "trash-put ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "trash-put /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "trash-put ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "rimraf src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "rimraf ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "rimraf /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "rimraf ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "git rm src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "git rm ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "git rm /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "git rm ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "git rm -f src/old.log", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "git rm -f ~/old.log", "action": "delete", "picks": "exact", "where": "home", "level": 4, "family": "delete-home", "targets": ["~/old.log"]}
+{"command": "git rm -f /etc/hosts", "action": "delete", "picks": "exact", "where": "system", "level": 4, "family": "delete-system", "targets": ["/etc/hosts"]}
+{"command": "git rm -f ../other/old.log", "action": "delete", "picks": "exact", "where": "sibling", "level": 4, "family": "delete-sibling", "targets": ["../other/old.log"]}
+{"command": "rm -r build", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-folder", "targets": ["build"]}
+{"command": "rm -r .", "action": "delete", "picks": "everything", "where": "project", "level": 4, "family": "delete-project", "targets": []}
+{"command": "rm -r ~", "action": "delete", "picks": "everything", "where": "home", "level": 4, "family": "delete-home", "targets": []}
+{"command": "rm -r /", "action": "delete", "picks": "everything", "where": "system", "level": 4, "family": "delete-all", "targets": []}
+{"command": "rm -rf build", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-folder", "targets": ["build"]}
+{"command": "rm -rf .", "action": "delete", "picks": "everything", "where": "project", "level": 4, "family": "delete-project", "targets": []}
+{"command": "rm -rf ~", "action": "delete", "picks": "everything", "where": "home", "level": 4, "family": "delete-home", "targets": []}
+{"command": "rm -rf /", "action": "delete", "picks": "everything", "where": "system", "level": 4, "family": "delete-all", "targets": []}
+{"command": "git rm -r build", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-folder", "targets": ["build"]}
+{"command": "git rm -r .", "action": "delete", "picks": "everything", "where": "project", "level": 4, "family": "delete-project", "targets": []}
+{"command": "git rm -r ~", "action": "delete", "picks": "everything", "where": "home", "level": 4, "family": "delete-home", "targets": []}
+{"command": "git rm -r /", "action": "delete", "picks": "everything", "where": "system", "level": 4, "family": "delete-all", "targets": []}
+{"command": "find src -name old.log -delete", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "find src -iname old.log -type f -delete", "action": "delete", "picks": "exact", "where": "project", "level": 3, "family": "delete-one-file", "targets": ["src/old.log"]}
+{"command": "find src -name '*.log' -delete", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find src -name '*.log' -exec rm {} +", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find ~ -name '*.log' -delete", "action": "delete", "picks": "pattern", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -iname 'old?.log' -delete", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find src -iname 'old?.log' -exec rm {} +", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find ~ -iname 'old?.log' -delete", "action": "delete", "picks": "pattern", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -name 'old[0-9].log' -delete", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find src -name 'old[0-9].log' -exec rm {} +", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find ~ -name 'old[0-9].log' -delete", "action": "delete", "picks": "pattern", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -path '*/tmp/*' -delete", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find src -path '*/tmp/*' -exec rm {} +", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find ~ -path '*/tmp/*' -delete", "action": "delete", "picks": "pattern", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -regex '.*old.*' -delete", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find src -regex '.*old.*' -exec rm {} +", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "find ~ -regex '.*old.*' -delete", "action": "delete", "picks": "pattern", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -not -name keep.txt -delete", "action": "delete", "picks": "inverted", "where": "project", "level": 4, "family": "delete-inverted", "targets": []}
+{"command": "find src -not -name keep.txt -exec rm {} +", "action": "delete", "picks": "inverted", "where": "project", "level": 4, "family": "delete-inverted", "targets": []}
+{"command": "find ~ -not -name keep.txt -delete", "action": "delete", "picks": "inverted", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src ! -name keep.txt -delete", "action": "delete", "picks": "inverted", "where": "project", "level": 4, "family": "delete-inverted", "targets": []}
+{"command": "find src ! -name keep.txt -exec rm {} +", "action": "delete", "picks": "inverted", "where": "project", "level": 4, "family": "delete-inverted", "targets": []}
+{"command": "find ~ ! -name keep.txt -delete", "action": "delete", "picks": "inverted", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -type f -delete", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find src -type f -exec rm {} +", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find ~ -type f -delete", "action": "delete", "picks": "attribute", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -mtime +7 -delete", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find src -mtime +7 -exec rm {} +", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find ~ -mtime +7 -delete", "action": "delete", "picks": "attribute", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -size +1M -delete", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find src -size +1M -exec rm {} +", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find ~ -size +1M -delete", "action": "delete", "picks": "attribute", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -empty -delete", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find src -empty -exec rm {} +", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find ~ -empty -delete", "action": "delete", "picks": "attribute", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -name old.log -o -name new.log -delete", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find src -name old.log -o -name new.log -exec rm {} +", "action": "delete", "picks": "attribute", "where": "project", "level": 4, "family": "delete-attribute", "targets": []}
+{"command": "find ~ -name old.log -o -name new.log -delete", "action": "delete", "picks": "attribute", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "find src -delete", "action": "delete", "picks": "everything", "where": "project", "level": 4, "family": "delete-everything", "targets": []}
+{"command": "find src -exec rm {} +", "action": "delete", "picks": "everything", "where": "project", "level": 4, "family": "delete-everything", "targets": []}
+{"command": "find ~ -delete", "action": "delete", "picks": "everything", "where": "home", "level": 4, "family": "delete-home-fuzzy", "targets": []}
+{"command": "rm src/*.log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "rm -f *.log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "rm src/old?.log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "rm src/old[0-9].log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "rm -rf build/*", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "shred src/*.log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "unlink src/*.log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "trash src/*.log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "git rm src/*.log", "action": "delete", "picks": "pattern", "where": "project", "level": 4, "family": "delete-pattern", "targets": []}
+{"command": "ls | xargs rm", "action": "delete", "picks": "piped", "where": "project", "level": 4, "family": "delete-piped", "targets": []}
+{"command": "cat list.txt | xargs rm", "action": "delete", "picks": "piped", "where": "project", "level": 4, "family": "delete-piped", "targets": []}
+{"command": "find src -type f | xargs rm", "action": "delete", "picks": "piped", "where": "project", "level": 4, "family": "delete-piped", "targets": []}
+{"command": "fd old src -x rm", "action": "delete", "picks": "piped", "where": "project", "level": 4, "family": "delete-piped", "targets": []}
+{"command": "rg -l old | xargs rm", "action": "delete", "picks": "piped", "where": "project", "level": 4, "family": "delete-piped", "targets": []}
+{"command": "find src -name old.log -exec rm {} +", "action": "delete", "picks": "exact", "where": "project", "level": 4, "family": "delete-exec", "targets": []}
+{"command": "rm $FILE", "action": "delete", "picks": "variable", "where": "project", "level": 4, "family": "delete-variable", "targets": []}
+{"command": "rm \"$FILE\"", "action": "delete", "picks": "variable", "where": "project", "level": 4, "family": "delete-variable", "targets": []}
+{"command": "rm $(cat list.txt)", "action": "delete", "picks": "piped", "where": "project", "level": 4, "family": "delete-piped", "targets": []}
+{"command": "docker rm web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "docker rmi web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "docker volume rm data", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "docker container rm web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "docker image rm web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "docker network rm web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "podman rm web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "kubectl delete pod web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "helm uninstall web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "helm delete web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "npm uninstall left-pad", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "npm remove left-pad", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "yarn remove left-pad", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "pnpm remove left-pad", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "pip uninstall left-pad", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "pip3 uninstall left-pad", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "brew uninstall wget", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "brew remove wget", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "cargo remove serde", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "cargo uninstall tool", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "apt remove wget", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git branch -d old", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git branch -D old", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git tag -d v1", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git remote remove old", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git worktree remove old", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git stash drop", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "gh repo delete me/old", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "aws s3 rm s3://bucket/key", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "gcloud storage rm gs://bucket/key", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "dropdb app", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "dropuser app", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "tar --remove-files -cf a.tar src/old.log", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "rsync --remove-source-files src/old.log out/", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "zip -m a.zip src/old.log", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "defaults delete com.example.app", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git update-ref -d refs/heads/old", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git checkout -- src/old.log", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "git restore src/old.log", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "redis-cli del key", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "gh release delete v1", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "gh issue delete 1", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "pipx uninstall tool", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "gem uninstall tool", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "snap remove tool", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "docker compose rm web", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "tmutil delete /Volumes/b/old", "action": "delete", "picks": "exact", "where": "tool", "level": 3, "family": "delete-named-by-tool", "targets": []}
+{"command": "docker system prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "docker container prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "docker image prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "docker volume prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "docker network prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "podman system prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "kubectl delete pods --all", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "kubectl delete pods -l app=web", "action": "delete", "picks": "attribute", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "git clean -f", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "git clean -fd", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "git clean -fdx", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "git stash clear", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "terraform destroy", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "brew autoremove", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "npm prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "apt autoremove", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "rsync -a --delete a/ b/", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "rsync -a --delete-after a/ b/", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "git push origin --delete old", "action": "delete", "picks": "exact", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "redis-cli flushall", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "redis-cli flushdb", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "git reflog expire --expire=now --all", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "git gc --prune=now", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "docker compose down -v", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "docker builder prune", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "pulumi destroy", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "tofu destroy", "action": "delete", "picks": "everything", "where": "tool", "level": 4, "family": "delete-unnamed-by-tool", "targets": []}
+{"command": "make clean", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}
+{"command": "cargo clean", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}
+{"command": "go clean", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}
+{"command": "mvn clean", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}
+{"command": "gradle clean", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}
+{"command": "npm cache clean --force", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}
+{"command": "brew cleanup", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}
+{"command": "pip cache purge", "action": "rebuild", "picks": "everything", "where": "build", "level": 2, "family": "rebuild", "targets": []}

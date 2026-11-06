@@ -3,6 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use super::Level;
+use super::deletes::{LOOSE, find_names_exactly};
 use super::parse::{Stage, parse};
 use super::paths::{Place, is_secret, is_system, path_forms};
 use super::programs::{
@@ -160,14 +161,22 @@ impl<'a> Walk<'a> {
     ) -> bool {
         let finds =
             name == "find" && arguments.iter().any(|word| word == "-delete");
-        if !finds && !DELETERS.contains(&name) {
+        let git_rm =
+            name == "git" && arguments.first().is_some_and(|w| w == "rm");
+        if !finds && !git_rm && !DELETERS.contains(&name) {
             if matches!(name, "chmod" | "chown" | "chgrp") {
                 self.ownership(name, arguments);
             }
             return false;
         }
+        if finds && !find_names_exactly(arguments) {
+            self.raise(Level::SystemDangerous, LOOSE);
+            return false;
+        }
         let words = if finds {
             find_roots(arguments)
+        } else if git_rm {
+            targets(&arguments[1..])
         } else {
             targets(arguments)
         };

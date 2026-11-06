@@ -102,6 +102,10 @@ The project is the git work tree. Outside a git work tree, it is the current fol
 
 A glob, a variable, or code inside `$(...)` raises the level, because the command isn't fully known until it runs. So `rm -rf build/*` is level 4.
 
+Every way of saying "delete" counts the same, such as `rm`, `trash`, `git rm`, `docker rm`, `kubectl delete` and `brew uninstall`. The more exactly a command names what it deletes, the lower its level. A delete of a named thing inside a project is level 3, and termite asks first. A delete chosen any other way is level 4 and is shown as text for you to type, even inside a project: by a pattern, by `-not`, by a file type or age, from a pipe, or a sweep such as `docker system prune`, `git clean` or `terraform destroy`. So `find src -name exact.log -delete` is level 3, and `find src -name '*.log' -delete` is level 4. Any delete with root, such as `sudo rm old.log`, is level 4. Removing what a build made is an ordinary change at level 2, because the next build makes it again: `make clean`, `cargo clean`, `npm cache clean`.
+
+`git clean` is level 4 in every folder, whether or not the folder is in a git repository. Outside a repository termite still shows it as text and tells you it would do nothing there.
+
 In an agent or CI, or with no terminal, nobody can answer a question. Levels 1, 3, 4 and 5 then fail with exit status 2 and no command in the output.
 
 termite knows an agent from the variables its harness sets, or from the missing terminal. The model has no part in this. An unknown harness that runs commands in a real terminal looks like a person, so it can see level 4 commands as text.

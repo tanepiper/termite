@@ -254,6 +254,79 @@ fn given_termites_own_files_then_reading_asks_and_changing_never_happens() {
 }
 
 #[test]
+fn given_find_delete_across_home_then_it_is_never_contained() {
+    let command = "find /Users/me -name \"*tmite*\" -type f -delete";
+    assert_eq!(level(command), Level::SystemDangerous);
+    for cwd in [HOME, "/", PROJECT] {
+        let found = classify(command, Path::new(cwd), Some(Path::new(HOME)));
+        assert_eq!(found.level, Level::SystemDangerous, "{cwd}");
+    }
+    let from_home =
+        classify("find . -delete", Path::new(HOME), Some(Path::new(HOME)));
+    assert_eq!(from_home.level, Level::SystemDangerous);
+}
+
+#[test]
+fn given_find_delete_by_a_pattern_then_a_person_must_type_it() {
+    each(
+        Level::SystemDangerous,
+        &[
+            "find . -name \"*tmite*\" -type f -delete",
+            "find src -name '*.log' -delete",
+            "find src -iname 'tmite?' -delete",
+            "find src -name 'a[0-9]' -delete",
+            "find src -path '*/tmp/*' -delete",
+            "find src -ipath 'src/*' -delete",
+            "find src -wholename 'src/*' -delete",
+            "find src -regex '.*tmite.*' -delete",
+            "find src -iregex 'tmite' -delete",
+            "find src -type f -name '*.log' -mtime +7 -delete",
+        ],
+    );
+}
+
+#[test]
+fn given_find_delete_by_an_exact_name_then_it_still_asks() {
+    each(
+        Level::ContainedDestructive,
+        &[
+            "find src -name exact.log -delete",
+            "find src -name 'exact.log' -type f -delete",
+            "find src -iname exact.log -delete",
+        ],
+    );
+}
+
+#[test]
+fn given_find_with_a_pattern_and_no_delete_then_it_only_reads() {
+    assert_eq!(level("find src -name '*.log'"), Level::Read);
+}
+
+#[test]
+fn given_a_delete_by_a_pattern_then_the_reason_says_so() {
+    let found = classify(
+        "find src -name '*.log' -delete",
+        Path::new(PROJECT),
+        Some(Path::new(HOME)),
+    );
+    let reasons = found.reasons.join(", ");
+    assert!(reasons.contains("pattern"), "{reasons}");
+    assert!(!reasons.contains("outside"), "{reasons}");
+}
+
+#[test]
+fn given_a_delete_word_in_a_file_name_or_search_then_it_is_no_delete() {
+    each(Level::Read, &["grep delete notes.txt", "ls remove"]);
+    each(Level::Change, &["mkdir delete", "git commit -m remove"]);
+    assert_eq!(level("docker ps"), Level::Read);
+}
+
+#[test]
+fn given_a_dry_run_of_git_clean_then_it_stays_at_level_3() {
+    assert_eq!(level("git clean -n"), Level::ContainedDestructive);
+}
+
+#[test]
 fn given_home_or_root_as_the_folder_then_nothing_is_contained() {
     for cwd in [HOME, "/"] {
         let found =
@@ -379,4 +452,35 @@ fn temp(name: &str) -> PathBuf {
     let _ = fs::remove_dir_all(&folder);
     fs::create_dir_all(&folder).expect("temp");
     folder
+}
+
+#[test]
+fn given_git_clean_outside_a_repository_then_only_the_reason_changes() {
+    let root = temp("no-repository");
+    let repository = root.join("repository");
+    fs::create_dir_all(repository.join(".git")).expect("git");
+    fs::create_dir_all(repository.join("src")).expect("src");
+    let home = Some(Path::new(HOME));
+    let says_nothing_to_do = |command: &str, cwd: &Path| {
+        let found = classify(command, cwd, home);
+        assert_eq!(found.level, Level::SystemDangerous, "{command}");
+        found.reasons.contains(&super::verdict::NO_REPOSITORY)
+    };
+
+    assert!(says_nothing_to_do("git clean -fdx", &root));
+    for command in [
+        "git -C repository clean -fdx",
+        "GIT_DIR=repository/.git git clean -fdx",
+        "cd repository && git clean -fdx",
+        "git init && git clean -fdx",
+        "sudo git clean -fdx",
+    ] {
+        assert!(!says_nothing_to_do(command, &root), "{command}");
+    }
+    assert!(!says_nothing_to_do("git clean -fdx", &repository));
+    assert!(!says_nothing_to_do(
+        "git clean -fdx",
+        &repository.join("src")
+    ));
+    fs::remove_dir_all(root).expect("clean");
 }

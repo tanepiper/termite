@@ -5,6 +5,7 @@
 //! the level. The read-only policy is the test for level 0, and the hazard
 //! signatures set a floor, so a shape this code misses is still caught.
 
+mod deletes;
 mod parse;
 mod paths;
 mod programs;
@@ -16,6 +17,7 @@ use std::path::Path;
 use crate::candidate::{Candidate, Risk};
 
 use paths::Place;
+use verdict::{NO_REPOSITORY, cleans_outside_a_repository};
 use walk::Walk;
 
 /// How far a command may go. Larger is stricter.
@@ -98,7 +100,11 @@ pub fn classify(
     let place = Place::find(cwd, home);
     let mut walk = Walk::new(&place, cwd);
     walk.line(command, 0);
-    walk.finish(command)
+    let mut found = walk.finish(command);
+    if cleans_outside_a_repository(command, cwd) {
+        found.reasons.push(NO_REPOSITORY);
+    }
+    found
 }
 
 /// [`classify`], raised by the level the model gave the command.

@@ -1,8 +1,31 @@
 //! The last steps: what the whole line shows that no one stage does.
 
+use std::env;
+use std::path::Path;
+
+use super::parse::parse;
 use super::walk::{ROOT, SECRETS, Walk};
 use super::{Classification, Level};
 use crate::hazard::hazards;
+
+pub(super) const NO_REPOSITORY: &str =
+    "there is no git repository here, so this would do nothing in this folder";
+
+/// A plain `git clean` in a folder that no repository covers. This only
+/// changes the explanation, never the level. Anything that could point git
+/// at another folder (`-C`, `GIT_DIR=`, `cd`, a second stage) doesn't count.
+pub(super) fn cleans_outside_a_repository(command: &str, cwd: &Path) -> bool {
+    let parsed = parse(command);
+    let [stage] = parsed.stages.as_slice() else {
+        return false;
+    };
+    let mut words = stage.text.split_whitespace();
+    let plain = words.next() == Some("git") && words.next() == Some("clean");
+    plain
+        && parsed.inner.is_empty()
+        && env::var_os("GIT_DIR").is_none()
+        && !cwd.ancestors().any(|folder| folder.join(".git").exists())
+}
 
 impl Walk<'_> {
     pub(super) fn finish(mut self, command: &str) -> Classification {
