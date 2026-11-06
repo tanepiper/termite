@@ -1,7 +1,8 @@
 name: Release
 
 # A tag such as v0.1.0 builds, signs and publishes a release, then moves main to
-# the next version. Run by hand, it only builds, to test the pipeline.
+# the next version through a pull request. Run by hand, it only builds, to test
+# the pipeline.
 
 on:
   push:
@@ -81,8 +82,10 @@ jobs:
       attestations: write
       contents: write
       id-token: write
+      pull-requests: write
     env:
       GH_TOKEN: ${{ github.token }}
+      BUMP_BRANCH: release/${{ github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,7 +113,10 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/tmite-*.tar.gz dist/SHA256SUMS \
             --verify-tag --title "termite ${GITHUB_REF_NAME#v}" --notes-file notes.md
           rm notes.md
-      - name: Move main to the next version
+      # main only takes pull requests. A pull request opened with this token starts
+      # no workflows, so ask for the checks. They attach to the commit, which is
+      # what the ruleset reads.
+      - name: Open the pull request that moves main to the next version
         run: |
           next=$(python3 -I scripts/release.py bump "$(date -u +%F)")
           git config user.name 'github-actions[bot]'
@@ -118,7 +124,21 @@ jobs:
           git add CHANGELOG.md Cargo.toml Cargo.lock site/public/releases.json
           git commit -m "Record $GITHUB_REF_NAME and start $next"
           git pull --rebase origin main
-          git push origin HEAD:main
-      # A push from this workflow starts no other workflow, so ask for the site.
+          git push origin "HEAD:refs/heads/$BUMP_BRANCH"
+          gh pr create --base main --head "$BUMP_BRANCH" \
+            --title "Record $GITHUB_REF_NAME and start $next" \
+            --body "Made by the release workflow for $GITHUB_REF_NAME. It merges when the checks pass."
+          gh workflow run ci.yml --ref "$BUMP_BRANCH"
+          gh pr merge "$BUMP_BRANCH" --auto --merge
+      # The site reads releases.json from main, so it waits for the merge. If this
+      # times out, merge the pull request, then run pages.yml by hand.
+      - name: Wait for the pull request to merge
+        timeout-minutes: 60
+        run: |
+          until [ "$(gh pr view "$BUMP_BRANCH" --json state --jq .state)" = MERGED ]; do
+            sleep 30
+          done
+          git push origin --delete "$BUMP_BRANCH"
+      # A merge from this workflow starts no other workflow, so ask for the site.
       - name: Publish the site
         run: gh workflow run pages.yml --ref main
