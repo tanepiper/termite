@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 
 use super::Level;
 use super::deletes::{LOOSE, find_names_exactly};
+use super::files::MAX_FILES;
 use super::parse::{Stage, parse};
 use super::paths::{Place, is_secret, is_system, path_forms};
 use super::programs::{
@@ -20,10 +21,10 @@ pub(super) const ROOT: &str = "needs root";
 
 /// What has been seen so far along a command line.
 pub(super) struct Walk<'a> {
-    place: &'a Place,
+    pub(super) place: &'a Place,
     /// The folder the next stage runs in. `None` after `cd` to a place that
     /// can't be worked out.
-    base: Option<PathBuf>,
+    pub(super) base: Option<PathBuf>,
     pub(super) level: Level,
     pub(super) reasons: Vec<&'static str>,
     pub(super) doubt: bool,
@@ -31,6 +32,7 @@ pub(super) struct Walk<'a> {
     pub(super) sends: bool,
     pub(super) leaves: bool,
     pub(super) names_network: bool,
+    pub(super) files_left: usize,
     pub(super) fetches: bool,
     pub(super) runs_fed_code: bool,
     /// Stages that aren't deletes inside the project.
@@ -49,6 +51,7 @@ impl<'a> Walk<'a> {
             sends: false,
             leaves: false,
             names_network: false,
+            files_left: MAX_FILES,
             fetches: false,
             runs_fed_code: false,
             uncontained: Vec::new(),
@@ -113,6 +116,7 @@ impl<'a> Walk<'a> {
         }
 
         self.notice(&name, arguments, stage);
+        self.looks_inside(first, &name, arguments, stage, depth);
         self.doubt |= runs_inline_code(&name, arguments);
         if let Some(reason) = hostile(&name, arguments) {
             self.raise(Level::Never, reason);

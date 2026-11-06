@@ -34,7 +34,7 @@ The exit status tells your harness what to do:
 
 Add this as a pre-command hook, a tool wrapper or a policy step, whichever your harness supports. Treat every status except 0 as a stop. `tmite` must be on your `PATH`.
 
-The check blocks only what it can see, so read [what it misses](using-termite.md#check-a-script-or-a-pipe). It can't see inside a file that a command runs, such as `python3 script.py` or `npm test`. It also can't see an agent's other tools, such as one that writes files or fetches web pages. To stop data leaving for certain, run the agent in a container or a virtual machine with no network.
+The check blocks only what it can see, so read [what it misses](using-termite.md#check-a-script-or-a-pipe). When a command runs a script, the check reads the script first, and stops one that reaches out or reads secrets, or that it can't read. Scripts that use many tools will often stop. A script can still hide what it does, and the check doesn't look inside `npm test`, `make` or what a script imports. It also can't see an agent's other tools, such as one that writes files or fetches web pages. To stop data leaving for certain, run the agent in a container or a virtual machine with no network.
 
 A command built from variables counts as risky, so some ordinary commands will also stop. `grep -r` also stops, because it can read secrets in the folder. `rg` skips ignored files, so it passes.
 

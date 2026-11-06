@@ -6,6 +6,7 @@
 //! signatures set a floor, so a shape this code misses is still caught.
 
 mod deletes;
+mod files;
 mod git;
 mod leaves;
 mod parse;
@@ -91,7 +92,8 @@ pub struct Classification {
     pub level: Level,
     /// Why, in plain words.
     pub reasons: Vec<&'static str>,
-    /// It can carry data to another machine, whatever its level.
+    /// It can carry data to another machine, whatever its level, or it runs
+    /// a script that does or that can't be read.
     pub leaves: bool,
 }
 
