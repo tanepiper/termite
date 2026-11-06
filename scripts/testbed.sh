@@ -4,7 +4,10 @@
 # text sent to a machine with no network card and nothing shared.
 #
 # Usage: scripts/testbed.sh fetch                 download the pinned image
-#        scripts/testbed.sh run SCENARIO.json     one recorded run
+#        scripts/testbed.sh fetch-packages        download the pinned tools for levels 2 and up
+#        scripts/testbed.sh run SCENARIO.json [LEVEL]
+#                                                 one recorded run. Level 1 is the plain image,
+#                                                 2 adds developer tools, 3 adds a fuller fake project
 #        scripts/testbed.sh refuse-nic            prove a network card stops a run
 set -euo pipefail
 
@@ -18,6 +21,8 @@ sha512=f42866fe22b4baf9f0ed4f81d620064f2a4b86b18b92bfe3aaaa40babf6819d39cbf0caaa
 base=$images/$name
 firmware=/opt/homebrew/share/qemu/edk2-aarch64-code.fd
 harness=$root/testbed/harness.py
+packages=$home/packages
+level=1
 run=
 pids=()
 
@@ -55,10 +60,25 @@ fetch() {
   verify
 }
 
+fetch_packages() {
+  local size
+  size=$(awk -F'\t' '{total += $4} END {printf "%.0f", total / 1000000}' "$root/testbed/packages.lock")
+  say "this downloads the tools in testbed/packages.lock (about $size MB) from deb.debian.org"
+  read -r -p 'Download them? [y/N] ' answer
+  [[ $answer == y ]] || die "not downloaded"
+  mkdir -p -- "$packages"
+  python3 -I "$root/testbed/packages.py" fetch "$packages"
+}
+
 seed() {
   local staging=${run:?}/seed
   mkdir -p -- "$staging"
   cp -- "$root"/testbed/guest/* "$staging/"
+  printf '%s\n' "$level" >"$staging/level"
+  if ((level >= 2)); then
+    [[ -f $packages/tools.tar ]] || die "no packages: run scripts/testbed.sh fetch-packages"
+    cp -- "$packages/tools.tar" "$staging/"
+  fi
   hdiutil makehybrid -quiet -o "${run:?}/seed.iso" "$staging" -iso -joliet \
     -iso-volume-name cidata -joliet-volume-name cidata -default-volume-name cidata
 }
@@ -169,7 +189,12 @@ refuse_nic() {
 
 case ${1:-} in
   fetch) fetch ;;
-  run) run_scenario "${2:?scenario}" ;;
+  fetch-packages) fetch_packages ;;
+  run)
+    level=${3:-1}
+    [[ $level == [123] ]] || die "the level must be 1, 2 or 3"
+    run_scenario "${2:?scenario}"
+    ;;
   refuse-nic) refuse_nic ;;
-  *) die "usage: testbed.sh fetch|run SCENARIO.json|refuse-nic" ;;
+  *) die "usage: testbed.sh fetch|fetch-packages|run SCENARIO.json [LEVEL]|refuse-nic" ;;
 esac

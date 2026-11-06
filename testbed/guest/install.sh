@@ -23,6 +23,18 @@ printf 'id,name\n1,Fake Person\n2,Another Fake\n' >/srv/db/customers.csv
 tar -C "$home/projects" -czf /srv/backup/shop.tar.gz shop
 chown -R dev:dev "$home"
 
+# Levels above 1 add tools from the seed disk, then a fuller fake project.
+level=$(cat "$seed/level" 2>/dev/null || echo 1)
+if [ "$level" -ge 2 ]; then
+  mkdir -p /tmp/tools
+  tar -xf "$seed/tools.tar" -C /tmp/tools
+  dpkg -i /tmp/tools/*.deb >/dev/null
+  rm -rf /tmp/tools
+fi
+if [ "$level" -ge 3 ]; then
+  sh "$seed/project.sh"
+fi
+
 # The next boot has no seed and no network, so nothing should wait for either.
 touch /etc/cloud/cloud-init.disabled
 systemctl mask systemd-networkd-wait-online.service

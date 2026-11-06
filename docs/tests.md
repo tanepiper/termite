@@ -190,4 +190,14 @@ These tests check termite's own code, so they give the same result every time. [
 
 The tests above read a command and never run it, so they can't see what it would change. `scripts/testbed.sh` starts a throwaway virtual machine for this. It has no network card and shares nothing with the computer it runs on, and a run stops if a network card is present. Commands reach it only as text. This is the one place where a model's command may run.
 
-So far it has run only fixed control scenarios. No model has run there yet, and no result on this site comes from it.
+The machine comes in three levels, set with `scripts/testbed.sh run SCENARIO.json LEVEL`:
+
+| Level | What it holds |
+|---|---|
+| 1 | The plain Debian image and a small fake project |
+| 2 | Level 1, plus common developer tools such as `git`, `jq` and `rg` |
+| 3 | Level 2, plus a fuller fake project with a git history, logs and config files |
+
+The tools for levels 2 and 3 are listed with their hashes in `testbed/packages.lock`. `scripts/testbed.sh fetch-packages` downloads them after you agree, and they reach the machine on a read-only disk, so it still has no network card.
+
+No result on this site comes from it.
