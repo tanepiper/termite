@@ -93,6 +93,46 @@ fn given_a_recorded_safe_command_then_no_harness_gets_a_stop() {
     fs::remove_dir_all(home).expect("clean up");
 }
 
+#[test]
+fn given_a_proven_harness_then_a_command_that_needs_approval_goes_to_a_person()
+{
+    let home = home("ask");
+    let output = hook("claude", &sample("claude", "ask"), &home);
+
+    assert_eq!(output.status.code(), Some(0));
+    let answer: Value = serde_json::from_slice(&output.stdout).expect("json");
+    assert_eq!(answer["hookSpecificOutput"]["permissionDecision"], "ask");
+    let alerts = tmite(&home).arg("alerts").output().expect("runs");
+    assert!(text(&alerts.stdout).contains("needs approval"));
+    fs::remove_dir_all(home).expect("clean up");
+}
+
+/// These share a hook with a harness that asks, but nobody has seen them
+/// prompt, so an ignored question must not be what lets a command run.
+#[test]
+fn given_an_untried_part_of_a_harness_then_the_command_stops() {
+    let home = home("untried");
+    for (harness, kind) in [
+        ("claude", "vscode"),
+        ("copilot", "vscode"),
+        ("copilot", "copilot"),
+        ("claude", "claude-bypass"),
+        ("antigravity", "antigravity-app"),
+        ("antigravity", "antigravity"),
+    ] {
+        let input =
+            fs::read(format!("tests/hooks/{kind}-ask.json")).expect("sample");
+        let output = hook(harness, &input, &home);
+
+        assert_eq!(output.status.code(), Some(2), "{harness} {kind}");
+        assert!(
+            text(&output.stderr).contains("run it themselves"),
+            "{harness} {kind}"
+        );
+    }
+    fs::remove_dir_all(home).expect("clean up");
+}
+
 fn reason_in<'a>(harness: &str, answer: &'a Value) -> Option<&'a str> {
     let (decision, reason) = match harness {
         "claude" | "codex" => {

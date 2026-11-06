@@ -100,7 +100,7 @@ harness ─▶ tmite hook NAME ─▶ adapter ─▶ check ─▶ answer in the 
 | Part | Job | Rule |
 |---|---|---|
 | `harness` | the table of harnesses: where each keeps its hooks, where its message holds the command, and how it is told to stop | a new harness is mostly a new row |
-| `adapter` | `tmite hook NAME`: reads the message, rates the command as `TERMITE_AGENT=1 tmite check` does, and answers | anything that is not a clean pass is a stop; a pass never approves anything |
+| `adapter` | `tmite hook NAME`: reads the message, rates the command as `TERMITE_AGENT=1 tmite check` does, and answers pass, needs approval or stop | a pass never approves anything; a question goes out only to a part of a harness that was tried, shown by the message itself; anything else is a stop |
 | `plan` | works out what installing or removing changes | writes nothing; the result is a list of files with their old and new text |
 | `entries` | builds the text of each hook | only builds text; the shell line stops the command if `tmite` is missing |
 | `json` | keeps the key order of a person's settings file | a change shows as a small change |

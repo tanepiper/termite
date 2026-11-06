@@ -1,0 +1,11 @@
+{
+  "hookEventName": "PreToolUse",
+  "toolCall": {
+    "name": "run_command",
+    "args": {
+      "CommandLine": "az vm list",
+      "Cwd": "/tmp/project"
+    }
+  },
+  "artifactDirectoryPath": "/home/a/.gemini/antigravity-cli/brain/5b252a21"
+}

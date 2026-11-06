@@ -309,7 +309,7 @@ impl<'a> Walk<'a> {
             && !shows_secrets(name, arguments)
             && !matches!(judged, Some(Err(refusal)) if only_reads(&refusal))
         {
-            self.raise(Level::Change, "changes something");
+            self.raise(Level::Change, "may change something");
         }
         let base = self.base.clone();
         let system = targets(arguments).iter().any(|word| {

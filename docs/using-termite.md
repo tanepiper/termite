@@ -292,7 +292,7 @@ tmite provenance accept config.json
 `bin` that termite has no record of. Accept a changed script the same way, or
 remove it.
 
-`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows who asked, the verdict and the reason, but not the request. For an agent, it also lists requests that the model declined, and each time `tmite check` or an [agent hook](agents.md#when-a-hook-stops-a-command) stopped something. It doesn't keep the command.
+`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows who asked, the verdict and the reason, but not the request. For an agent, it also lists requests that the model declined, each time `tmite check` or an [agent hook](agents.md#when-a-hook-stops-a-command) stopped something, and each time a hook [asked you to approve a command](agents.md#commands-that-need-approval). It doesn't keep the command or what you answered.
 
 The log has limits:
 

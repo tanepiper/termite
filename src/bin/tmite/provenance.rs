@@ -160,6 +160,15 @@ pub(crate) fn record_check(files: &[String]) {
     }
 }
 
+/// Note that a command went to a person. Nothing here says what they chose.
+pub(crate) fn record_ask(request: &str) {
+    let flags = vec!["needs approval".to_owned()];
+    if let Some(problem) = alert(request, flags, "ask", Caller::Agent.as_str())
+    {
+        eprintln!("tmite: this was not logged: {problem}");
+    }
+}
+
 pub(crate) fn alerts() -> ExitCode {
     let found = Home::from_env()
         .map_err(|error| error.to_string())

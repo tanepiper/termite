@@ -124,6 +124,7 @@ fn summary(harness: &Harness, place: &Place) -> Value {
             Err(problem) => problem.clone(),
         },
         "waiting_on": current.then(|| waiting_on(harness, place)).flatten(),
+        "asks_a_person": harness.ask.is_some(),
     })
 }
 
@@ -315,7 +316,10 @@ fn remove_file(path: &Path) -> std::io::Result<()> {
 fn stops(harness: &Harness, place: &Place, command: &str) -> bool {
     let message = sample(harness, command);
     let home = Some(place.home.as_path());
-    adapter::decide(harness, message.as_bytes(), home) != adapter::Outcome::Pass
+    matches!(
+        adapter::decide(harness, message.as_bytes(), home),
+        adapter::Outcome::Stop(_)
+    )
 }
 
 /// A message with `command` where this harness puts it.
@@ -350,6 +354,7 @@ fn verify(place: &Place, json: bool) -> ExitCode {
             "matches_install": same,
             "stops_risky_command": stops_risky,
             "passes_safe_command": passes,
+            "asks_a_person": harness.ask.is_some(),
             "waiting_on": waiting,
         }));
     }
@@ -363,7 +368,15 @@ fn verify(place: &Place, json: bool) -> ExitCode {
         }
         for item in &results {
             let mark = if item["ok"] == true { "✓" } else { "✗" };
-            println!("{mark} {}", item["name"].as_str().unwrap_or_default());
+            let approval = if item["asks_a_person"] == true {
+                "asks a person"
+            } else {
+                "stops"
+            };
+            println!(
+                "{mark} {} (a command that needs approval: {approval})",
+                item["name"].as_str().unwrap_or_default()
+            );
             if let Some(step) = item["waiting_on"].as_str() {
                 println!("  {step}");
             }
