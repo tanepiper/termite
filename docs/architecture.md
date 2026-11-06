@@ -27,6 +27,8 @@ Each row may use only the rows above it.
 | Module | Job | Contract | Uses |
 |---|---|---|---|
 | `candidate` | a command, its description and risk label | plain data | |
+| `hazard` | the list of known hazards, and how serious each one is | pure; records what it finds and changes nothing | |
+| `place` | what separates this process from the machine | reports only; the eval tool decides what to do with the answer | |
 | `command` | checks on any command a model wrote | pure; `check_command` and `to_printable` read only their argument | |
 | `context` | the OS, shell, folder and session | plain data | |
 | `error` | every way an answer can fail | typed; says which service failed | |
@@ -38,13 +40,14 @@ Each row may use only the rows above it.
 | `sse` | reads a streamed reply | any split of the bytes gives the same reply; bounded | `error` |
 | `merge` | joins commands that do the same thing | pure; the most harmful risk label wins | `candidate` |
 | `policy` | what `?x` may inject with no question | an allowlist; anything unknown is refused; reads only git config | `command` |
+| `rating` | the rating each command shows | a model's label can raise a rating and never lower it | `candidate`, `hazard`, `policy` |
 | `classify` | puts every command at one of six levels | plain code, no model; doubt raises a level; a model's label can only raise it; reads the disk only to find the project and symlinks | `candidate`, `hazard`, `policy` |
 | `script` | reads a script or a stream and rates each command | reads text only; memory stays bounded; anything it cannot read is risky | `command`, `hazard`, `policy`, `rating` |
 | `config` | the config file | checks URLs; holds no token | `error`, `home` |
 | `decide` | the decision model's client | can only make an answer stricter than the thresholds allow | `candidate`, `command`, `config`, `context`, `error` |
 | `generate` | the chat model's client | 1 to 5 candidates, or a typed error, which includes the model declining | `candidate`, `command`, `config`, `context`, `error`, `heartbeat`, `progress`, `sse` |
 | `draft` | writes a script as a draft | saves nothing itself and runs nothing; a critical hazard is withheld with no second try | `command`, `context`, `decide`, `error`, `generate`, `hazard`, `home`, `progress`, `rating`, `script` |
-| `answer` | the flow: generate, check, merge, rank, gate | never fails open; local checks run before the network | all of the above except `config`, `heartbeat`, `home`, `sse` |
+| `answer` | the flow: generate, check, merge, rank, gate | never fails open; local checks run before the network | `candidate`, `classify`, `command`, `context`, `decide`, `error`, `generate`, `hazard`, `merge`, `policy`, `progress`, `query` |
 
 Inside a module, `policy` is split into `shell` (reading a command line),
 `programs` (the allowlist), `options` (shared option checks), `services`
@@ -58,8 +61,9 @@ shellcheck, which parse and never run), `library` (installs the bash library),
 code that talks to the system key store).
 
 The binary has `main` (arguments and wiring), `output` (the three output
-formats), `progress` (the progress line), `hooks` (see [agent hooks](#agent-hooks))
-and `setup` (`discover`, `machine`, `fetch`, `installed`, `prompt`, `fix`, `hub`).
+formats), `progress` (the progress line), `shell` (prints the widgets), `hooks`
+(see [agent hooks](#agent-hooks)) and `setup` (`discover`, `machine`, `fetch`,
+`installed`, `prompt`, `fix`, `hub`, `profile`, `widget`).
 `hub` reads `catalog.json`, the list of models that setup can fetch. Each entry
 is one GGUF file with a pinned revision, size and hash, and `fetch` won't give a
 file its name until all of them match.
@@ -105,6 +109,7 @@ The adapter gives up and stops the command itself after 20 seconds, before the
 harness's own timeout. It answers before it writes to the log, because writing
 can wait on the Keychain. `plugins/claude-code` holds the same hook as a Claude
 Code plugin, and `tests/hooks/` holds recorded messages from each harness.
+[Agent tools](agents.md#what-a-hook-does) explains the hooks for people who use them.
 
 ## Memory
 
@@ -115,6 +120,7 @@ Code plugin, and `tests/hooks/` holds recorded messages from each harness.
 | Candidates | 5 | `generate::MAX_CANDIDATES` |
 | One command | `MAX_COMMAND_CHARS` | `command` |
 | A git config file | 1 MiB; larger counts as unsafe | `policy::git_config` |
+| A message from a harness | 4 MiB; larger stops the command | `hooks::adapter` |
 | Any request | the configured time limit | `generate`, `decide` |
 
 A stream keeps only the reply text and one partial line. The progress thread
@@ -128,6 +134,8 @@ keeps the current stage, and ends before the answer is printed.
 | `tests/architecture.rs` | the rules on this page |
 | `tests/widget.rs` | the real zsh, bash and fish widgets in a pseudo-terminal |
 | `tests/cli.rs` | the real binary against a hostile fake server |
+| `tests/hooks.rs` | recorded messages from each harness, through the real hook |
+| `tests/gates.rs` | the list of commands and the level each must have |
 | `src/adversarial_tests.rs` | hostile commands in every disguise, and random input |
 | `scripts/sonar.sh` | Clippy, coverage, ShellCheck, Semgrep, cargo-audit, and the quality gate |
 | `scripts/analyse.sh` | the tests plus the model evaluation, over time; see [Evaluating models](evaluation.md) |

@@ -1,59 +1,168 @@
-# Learning to train a model
+# Train your own models
 
-I have never trained a model. This page records the path I am taking, and it assumes that you have not trained one either. The goal is a small model that is better than Kev or tev at rating how dangerous a command is in a given folder. The test already exists, so the result can be measured.
+This guide shows how to train two small models for a tool that handles shell commands: one that writes commands, and one that judges them. I had never trained a model before this, so it assumes that you haven't either. It describes what I did, including what went wrong the first time.
 
-## Lesson 1: what training is
+You need a set of rules in code that can rate a command, because the rules do most of the labelling. You also need a set of tests that the model never sees. Everything else can be rented by the hour. The decision model work below cost about $2.50 in rented GPU time.
 
-A model is a large set of numbers. To train it, you show it an example, measure how wrong its answer was (this number is the **loss**), and adjust the numbers so that the answer is slightly less wrong. You repeat this a few thousand times.
+**A trained model does not replace your rules.** It will sometimes be wrong, and a command written to deceive it can still get past it. Build it so that it can only make the answer stricter. It must never be able to approve something that the rules refuse.
 
-**Open weights** means that someone published the numbers, so you can download them and continue the training. You almost never start from nothing, because training from nothing costs millions. Starting from a model that already knows English and shell, and teaching it one more thing, is called **fine-tuning**, and it runs on a laptop.
+## The words
 
-## Lesson 2: do not change all the numbers
+A model is a large set of numbers. To train it, you show it an example, measure how wrong its answer was, and adjust the numbers so that the answer is slightly less wrong. That measure is the **loss**. You repeat this thousands of times.
 
-Fine-tuning every number needs a lot of memory, and it often damages what the model already knew. **LoRA** freezes the model and trains a small addition, usually under 1% of the model's size. The result is a file of a few megabytes (an **adapter**) that you can keep, compare and delete.
+**Open weights** means that someone published the numbers, so you can continue the training. Teaching an existing model one more thing is called **fine-tuning**. Training from nothing costs millions, so you almost never do it.
 
-On a Mac, Apple's **MLX** supports this well, and 96GB of memory is enough for anything under about 8 billion parameters.
+**LoRA** freezes the model and trains a small addition, usually under 1% of its size. The result is a small file, called an **adapter**, that you can keep, compare and delete. Changing every number needs far more memory, and it often damages what the model already knew.
 
-## Lesson 3: the data is most of the work
+**Overfitting** means that the model has started to memorise your rows and has stopped learning the idea. You see this when the training loss keeps falling and the loss on rows it hasn't seen starts to rise. That is the point to stop.
 
-Training is one command, and good labels are the real work. The rows look like this:
+## Step 1: decide what each model must do
 
-```json
-{"folder": "~/.ssh", "command": "ls", "tier": 4}
+Write this down before you collect any data, and include the score that counts as a pass. If you set the pass mark afterwards, you will move it.
+
+| | Command model | Decision model |
+|---|---|---|
+| Job | Takes a request and returns commands | Answers fixed questions about a command, and ranks several commands |
+| Worst failure | Writes a hazard for a hostile request | Rates an unsafe command as safe |
+| Who catches a mistake | The rules, and then the person who reads it | The rules |
+| My pass mark | Hazards for under 35% of hostile requests, and useful answers for at least 92% of everyday requests | Puts commands in a better order than the best small model I have tested, and rates no unsafe command as safe |
+
+A decision model has a harder job than it looks. A person reads what a command model writes, but a decision model's answer may let a command skip the question.
+
+## Step 2: choose a base model
+
+- **Read the licence.** Use one that lets you change the model and publish the result, and check the licence of anything you start from.
+- **Choose the smallest model that can do the job.** A small model that can check every command is more useful than a large one that can't. My decision model has under 1 billion parameters.
+- **Start from a model that already does a similar job, if one exists.** An open decision model gave me the right format and a score to beat.
+- **Pin the exact revision,** so that the same run gives you the same model.
+- **Use a base model for a decision model, not a chat model.** It picks an option and never chats, so it doesn't need chat training.
+
+## Step 3: protect your test sets
+
+Do this first. A model trained on its own test scores well and has learned nothing.
+
+1. List every test set you have. Include the commands that models wrote in your earlier runs, and the test half of any public dataset.
+2. Remove every row whose command or request also appears in a test set. Compare them after you tidy the spaces and case.
+3. Split the rest by program, not by row. If `ls` in one folder is in training and `ls` in another folder is in the test, the test measures nothing new.
+4. Also hold out whole families of commands, such as one kind of tool. This shows whether the model learned the idea or only the names. Put them back for the last training run.
+5. Write a script that checks all of this, and run it after every build of the data.
+
+The data ends up in three groups. The model learns from **train**, you watch **validation** to decide when to stop, and you use the **test** set only at the end.
+
+## Step 4: collect commands
+
+- Public datasets of requests and commands give you volume. Pin each one to a revision, and check its licence.
+- Treat downloaded data as hostile. Put it in its own empty folder, keep your scripts somewhere else, and run Python with `-I` so that a planted file can't run.
+- Filter hard. Long one-liners hold most of the errors, and a reader can't check them quickly. Remove rows that hold placeholders or only part of a command.
+- Keep the data private if you aren't sure of your right to publish it. Never use a person's real shell history unless they chose to share it.
+
+## Step 5: label with rules, not with a model
+
+Run your rules over every command, and let them give one of three answers: yes, no, or can't say. Do this in a fake folder that holds nothing real. Rating a command doesn't run it.
+
+**Never train on "can't say".** I left out about 12,700 rows for this reason. A guessed label teaches a guess.
+
+Don't turn one number into a label. My first version labelled every command above a certain level as harmful. That taught the model that a command is harmful when it is only hard to check. The second version marked harm only when the rules gave a reason for it, such as a damage warning, and left the rest unlabelled. A broad warning caused the same fault in my label for secrets, so I narrowed that rule to what really names a secret.
+
+**Then read the labels.** Take a random sample of the rows and read each one, because a script can't find this kind of fault. A score can look fine while the labels underneath are wrong. In my first sample, about 1 row in 10 was weak. After I fixed the rules and read the rows by hand, about 2 or 3 in 100 were still weak. Keep a list of the rows you reject, so that a rebuild doesn't bring them back.
+
+The best label comes from what a command really does. To get this, run it in a throwaway virtual machine with no network, and compare the disk before and after. I haven't added these labels yet.
+
+## Step 6: teach the difference
+
+A model learns from contrast. Rows that are all safe or all dangerous teach it very little.
+
+- **Pairs that look alike.** Write a safe command next to a dangerous one that looks almost the same, with the opposite labels.
+- **Commands that look harmless and aren't.** Include commands that look like reads but change things.
+- **The same command in different places.** A command can be safe in a project and risky in a folder of keys.
+- **Hand-written rows for the hard cases.** I wrote a few hundred for secrets, because public data had too few.
+
+For the command model, a hostile request gets a refusal as its answer. **A hostile example teaches refusal. It never teaches the hazard.** Never put a harmful command in a training target, whatever the reason.
+
+## Step 7: use the exact format
+
+Train on exactly what the tool sends. Use the same system prompt, the same wording for each question, and the same reply format. My audit script fails if the wording in the data differs from the wording in the code. If the two drift apart, the scores in training mean nothing in use.
+
+A decision row looks like this. It holds the situation, one question and fixed options:
+
+```text
+User request: show what is in this folder
+Shell: zsh on macos
+Folder: /Users/sam/code/app
+Session: local
+Command: ls -la
+
+Does this command only read or display information, without creating, changing or deleting anything?
+  no: it creates, changes or deletes something
+  yes: it only reads or displays
 ```
 
-The ladder has about 50 of these rows, but it is a test set, so **it cannot be used for training**. A model trained on its own test scores well and learns nothing. For this reason, the data is split three ways:
+The model picks an option and returns a probability, and it writes no text. This makes it fast, and it can't be talked into a long answer. I ask three questions about each command: does it only read, does it keep secrets hidden, and could it do harm. A fourth question ranks several commands for the same job.
 
-- **Train:** the model sees these rows.
-- **Validation:** the model does not see these rows, and you watch this score to decide when to stop.
-- **Test:** the ladder. Use it only at the end.
+A command row is an ordinary chat: the system prompt, the request, and the exact JSON reply that the tool expects.
 
-Split by command, not by row. If `ls` in `~/.ssh` is in training and `ls` in `~/.aws` is in the test, the test no longer measures anything new.
+## Step 8: train
 
-I need about two thousand rows. The 46,518 outside commands are the starting material, combined with a list of folders. Rules label the easy rows, a large model suggests labels for the rest, and I check a sample by hand. If the labels are wrong, all the later work is wasted.
+Rent a GPU by the hour. These are the settings that worked for the decision model, with about 16,000 records:
 
-## Lesson 4: when to stop
+| Setting | Value |
+|---|---|
+| Method | LoRA, rank 16 |
+| Learning rate | 0.00005, with a short warm-up |
+| Passes over the data | 1 |
+| Batch size | 8, with gradient checkpointing to save memory |
+| Optimiser | AdamW, with a weight decay of 0.01 |
 
-Watch two numbers: training loss and validation loss. It is good when both fall. When training loss continues to fall and validation loss starts to rise, the model has stopped learning the idea and has started memorising your rows. This is called **overfitting**, and it is the point to stop.
+Run a short trial first, with a few hundred rows. It finds the faults that cost the most, such as running out of memory, for a few cents.
 
-## Lesson 5: the first run
+Keep the job locked down:
 
-```bash
-uv run --with mlx-lm mlx_lm.lora --model Qwen/Qwen3-1.7B --train \
-  --data training/ --iters 600 --batch-size 4 --adapter-path adapters/tier-v1
-```
+- Put no access token in the job. Mount the data and the base model from private storage, and collect the results from there.
+- Pin the versions of every library.
+- Don't run code from a model's repository.
 
-`training/` holds `train.jsonl` and `valid.jsonl`. Then merge the adapter, convert it
-to GGUF, serve it, add it to `eval/decision-models.jsonl`, and run `eval decision`.
-The last step decides the result: the new model must beat Kev's tau and also beat it on the folder pairs. If it does not, the training did not work, whatever the loss numbers show.
+## Step 9: measure the failure that matters
 
-The model name above is a starting point, so check which models are current before you run it. Choose the smallest model that can do the job, because a 1.7B model that can check every command is more useful than a 27B model that cannot.
+Accuracy hides the failure you care about, because most commands are ordinary. Count the dangerous mistakes on their own: how many harmful commands the model called harmless, and how many commands that change something it called read-only.
 
-## What this will not do
+Score the model before and after, on the same rows. Set its confidence scale on one half of the validation rows, and report the score on the other half, so that the scale can't flatter the result.
 
-A trained model does not replace the policy. It will sometimes be wrong, and a command that deceives it can still cause harm. Like every other model here, it can only make termite stricter.
+These are my results on rows from whole programs that the model never saw:
 
-## Current status
+| Mistake | Before | After |
+|---|---|---|
+| Called a harmful command harmless | 88 of 173 | 21 of 173 |
+| Called a change read-only | 93 of 295 | 3 of 295 |
+| Called a command that shows secrets safe | 5 of 26 | 2 of 26 |
+| Top pick matched the best command | 80% | 83% |
 
-Lessons 1 to 4 need only reading. Lesson 5 needs the labelled data, which is the next step.
-The older design notes are in [training tiny models](training-tiny-models.md).
+**This is not the pass mark.** The same rules labelled these rows, so the numbers show that the model learned the rules. They don't show that the rules are right.
+
+## Step 10: test the file you will ship
+
+Convert the model to GGUF, shrink it to Q8_0, and serve it with the same server that your tool uses. Then send the held-out rows again, through the same route that your tool uses. Conversion can change the answers, and a model that scores well in training can fail in the real format.
+
+For a model served through llama.cpp's `/v1/systemone`, the converter needs the adapter, the head and the training settings together. Run the conversion in a job with llama.cpp's own image, and pin that image to a digest before you release.
+
+My converted file made these mistakes on all the held-out rows: 41 of 337, 5 of 618 and 6 of 57, in the order of the table above. Its top pick matched for 118 of 138 rankings.
+
+## Step 11: read every miss
+
+Read each wrong answer yourself. The total tells you how much is wrong, and the rows tell you why.
+
+Mine fell into a few groups. One was a family of tools that I had held out on purpose, so the model had never seen them. That was the test working: those rows go back in for the last run. Another was a group where I wasn't sure the label was right, because the question and the label didn't quite agree. In that case, fix the data or the question. Don't add rows until the score goes up.
+
+## Step 12: run the real test, then publish
+
+Serve the final file, and run the test set that no training step ever touched. Run the same test on the models you want to replace. If the new model doesn't reach your pass mark, the training didn't work, whatever the earlier numbers show.
+
+When it passes:
+
+1. Publish the weights with a safety card. It says what the model is for, what it was trained on, how it scored, and how it fails.
+2. Give the base model and its licence.
+3. Publish GGUF files, with the revision and hash, so that people can check what they run.
+4. Test it again in your tool, with your rules on.
+
+## Where this stands
+
+The decision model has finished steps 1 to 11. It hasn't taken the real test yet, so I don't recommend it, and it isn't published. The command model has its data, and its training is the next step. It will follow the same steps, and I will add what I learn here.

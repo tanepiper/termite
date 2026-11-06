@@ -10,7 +10,9 @@ These instructions are hard to remember, so many people ask an AI model to write
 
 termite checks the instruction before it reaches your computer. The model writes the instruction. termite explains what it does, and warns you if it looks dangerous. termite never carries out the instruction. Only you can do that.
 
-termite has a second purpose. It tests AI models by sending them harmful requests and recording what they write.
+termite can also watch an AI agent, which is a program that runs instructions by itself. Before the agent runs an instruction, termite checks it and stops the risky ones.
+
+termite has one more purpose. It tests AI models by sending them harmful requests and recording what they write.
 
 ## If you are deciding whether to use a model
 
@@ -24,6 +26,8 @@ termite has a second purpose. It tests AI models by sending them harmful request
 |---|---|
 | **Model** | An AI program. On this site, usually a small one that runs on your own computer |
 | **Command** | One typed instruction to the computer |
+| **Agent** | A program that uses a model to do a job, and runs commands by itself |
+| **Hook** | A step that runs before an agent's command, so that termite can stop it |
 | **Prompt** | The place in the terminal where you type. A command at the prompt has not run yet |
 | **Hazard** | A command that could cause real harm, such as deleting files, showing passwords or giving someone else access |
 | **Hostile request** | A request that asks a model to do something harmful on purpose |

@@ -4,7 +4,7 @@ This page describes each test: what it sends, what it records, where it ran, and
 
 ## What every model test has in common
 
-- **Nothing runs.** A model's commands are recorded and checked. No command that a model wrote is ever run.
+- **Nothing runs.** A model's commands are recorded and checked. No command that a model wrote runs in any of these tests.
 - **Each request starts fresh.** A model sees no earlier request, unless the test adds text on purpose.
 - **Time limit.** A model has 120 seconds to answer. After that, the trial ends as a Timeout.
 - **One row for each trial.** Every trial records the model, the machine, the code version and how the trial ended.
@@ -158,7 +158,7 @@ The commands are sorted into [seven tiers](safety-ladder.md), from harmless to c
 - **Order.** Whether the harm scores rise with the tiers, measured with Kendall's tau.
 - **Folder.** Whether the score rises when the same command is in a riskier folder.
 
-**Where it ran:** on the Local Sandbox on Mac, and on Hugging Face (ZeroGPU and CPU). 17 models ran this test.
+**Where it ran:** on the Local Sandbox on Mac, and on Hugging Face (ZeroGPU and CPU). 25 models ran this test.
 
 **What it cannot show:** the tiers are my own judgement of harm. 52 commands are a small sample. A model is scored on one command at a time, without a real session around it.
 
@@ -181,4 +181,13 @@ These tests check termite's own code, so they give the same result every time. [
 - **Edge tests.** Each fixed command is padded to lengths just under, at and just over the 500-character limit, and then far over it. Every copy of a command that must be blocked has to stay blocked. The test suite also sends broken replies from a fake server, and none of them can make a command count as safe. This shows that the limits hold for these commands. It cannot show that no other input gets through.
 - **Build agreement.** The same commands go to termite built for macOS, and for Linux with glibc and with musl, on ARM and on x86. The Linux builds run in containers with no network. Each difference is a finding. If all the builds agree, it does not prove that they are right, because they can all be wrong in the same way.
 - **Agent hooks.** Recorded messages from each harness go to `tmite hook`. Each harness must stop a risky command, pass a safe one, and stop when the input is bad or `tmite` is missing.
+- **Gate list.** 201 commands, each with the level it must have, go straight to the code that sets levels. Each is tried again with harmless words in front of it, such as `time`, which must not change its level. A private list of ways to carry data off a machine must also stop an agent, line by line.
 - **Unit and fuzz tests.** These check that the code does what it says, including with random input.
+
+## The test machine
+
+**Question:** what does a command really do to a machine?
+
+The tests above read a command and never run it, so they can't see what it would change. `scripts/testbed.sh` starts a throwaway virtual machine for this. It has no network card and shares nothing with the computer it runs on, and a run stops if a network card is present. Commands reach it only as text. This is the one place where a model's command may run.
+
+So far it has run only fixed control scenarios. No model has run there yet, and no result on this site comes from it.

@@ -2,14 +2,22 @@
 
 termite is one command, `tmite`. You give it a request in plain English, a model on your own machine writes a shell command, and termite tells you what the command does and how risky it looks. termite does not run the command; you decide whether to run it.
 
+## Set it up with your agent
+
+Copy this prompt and give it to any agent, such as Claude Code or Codex. The agent finds your system, your harnesses and the models that fit. You type y for each change in your own terminal, and then the agent proves that the checks work. [Read about agent tools](agents.md).
+
+[Read the prompt](agent-setup-prompt.txt)
+
+To set it up by hand, follow the steps below.
+
 ## Install
 
-You need Rust 1.87 or newer and a program that serves a model. These steps use Ollama because it needs the fewest steps.
+You need Rust 1.87 or newer and llama.cpp, which serves the models. Setup can download models for llama.cpp. If you already run Ollama or LM Studio, setup finds them and lists their models, but it doesn't download models for them.
 
 ### macOS
 
 ```bash
-brew install rust ollama
+brew install rust llama.cpp
 ```
 
 ```bash
@@ -18,7 +26,7 @@ cargo install --locked --git https://github.com/tanepiper/termite
 
 ### Linux
 
-Install Rust with [rustup](https://rustup.rs), because the `cargo` package in your distribution may be older than 1.87. Install Ollama from the [Ollama download page](https://ollama.com/download).
+Install Rust with [rustup](https://rustup.rs), because the `cargo` package in your distribution may be older than 1.87. Install llama.cpp from its [releases page](https://github.com/ggml-org/llama.cpp/releases), and make sure `llama-server` is on your `PATH`.
 
 ```bash
 cargo install --locked --git https://github.com/tanepiper/termite

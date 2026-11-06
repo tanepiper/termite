@@ -15,7 +15,7 @@ tmite '? what is using my disk space'
 ```
 
 ```text
-⚠ changes things  Lists the biggest folders under your home folder.
+✓ reads only  Lists the biggest folders under your home folder.
   du -sh ~/* | sort -h
 ```
 
@@ -177,8 +177,7 @@ A clean result does not prove that a script is safe. The check misses these case
 - **Steps on separate lines:** `curl -o a https://…` then `sh a` is rated as two
   commands that change things.
 - **Harm that depends on a value:** `rm -rf "$folder"` shows as a deletion, but termite cannot know what `$folder` holds.
-- **Anything it has no rule for:** `git push --force` or
-  `docker run -v /:/host` only show as changing things.
+- **Anything it has no rule for:** a command that does harm in a way that no rule names only shows as changing things.
 - **Files the script fetches or calls:** it reads only the text you give it.
 
 Read the script before you run it.
@@ -293,7 +292,7 @@ tmite provenance accept config.json
 `bin` that termite has no record of. Accept a changed script the same way, or
 remove it.
 
-`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows who asked, the verdict and the reason, but not the request. For an agent, it also lists requests that the model declined, and commands that `tmite check` or an [agent hook](agents.md#add-termite-to-your-agent-harness) stopped.
+`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows who asked, the verdict and the reason, but not the request. For an agent, it also lists requests that the model declined, and each time `tmite check` or an [agent hook](agents.md#when-a-hook-stops-a-command) stopped something. It doesn't keep the command.
 
 The log has limits:
 
@@ -325,13 +324,13 @@ If the decision model refuses a command, termite shows it as blocked, and the co
 
 ## Before you press Enter
 
-termite warns you about a risky command, but it does not stop you. If you approve the command, it goes to your prompt, even if it is `sudo` or `rm -rf`. It does not run until you press Enter.
+termite warns you about a risky command at levels 1 to 3, but it does not stop you. If you approve the command, it goes to your prompt, and it does not run until you press Enter.
 
 1. Read the command.
 2. If you are not sure what it does, press Ctrl+C to clear it.
 3. Press Enter only if you would type that command yourself.
 
-termite blocks a command only when the decision model refuses it. Blocking by level is on the [roadmap](safety-ladder.md).
+Commands at levels 4 and 5 never reach your prompt. A level 4 command is shown as text for you to type yourself, and a level 5 command is withheld. termite also blocks a command when the decision model refuses it.
 
 ## If the widget does not match tmite
 

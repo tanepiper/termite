@@ -1,0 +1,19 @@
+---
+import setupPrompt from "../../../docs/agent-setup-prompt.txt?raw";
+---
+
+<button type="button" id="copy-prompt">Copy the prompt</button>
+<pre id="setup-prompt">{setupPrompt}</pre>
+
+<script>
+  const button = document.getElementById("copy-prompt");
+  const prompt = document.getElementById("setup-prompt");
+  button?.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(prompt?.textContent ?? "");
+    if (button) button.textContent = "Copied";
+  });
+</script>
+
+<style>
+  #setup-prompt { white-space: pre-wrap; }
+</style>

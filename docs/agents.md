@@ -58,9 +58,21 @@ tmite hooks verify
 tmite hooks remove
 ```
 
-`tmite hooks install` and `tmite hooks remove` take harness names, such as `tmite hooks install claude codex`. The first change keeps the file as it was, next to the new one, with `.termite-backup` added to its name. Later changes leave that copy alone. `tmite hooks verify` checks that each hook is the one `tmite` would write, sends it a risky and a safe command, and says what you still need to do. It runs neither command.
+| Command | What it does |
+|---|---|
+| `tmite hooks` | Lists every harness, whether it is on this machine, and whether its hook is installed, not installed, or different from what `tmite` would write. It also lists what you still need to do. Add `--json` for scripts |
+| `tmite hooks install [NAME...]` | Shows the change for each harness and makes it if you type y. With no names, it offers every harness found on this machine |
+| `tmite hooks remove [NAME...]` | Takes the hook out in the same way. With no names, it offers every harness |
+| `tmite hooks verify` | Checks that each installed hook is the one `tmite` would write, sends it a risky and a safe command, and says what you still need to do. It runs neither command. Add `--json` for scripts |
+| `tmite hook NAME` | What the harness runs before a command. You don't need to run it yourself |
+
+Names are the ones in the table below, such as `tmite hooks install claude codex`. `install` and `remove` change nothing without a person at a terminal, and Enter on its own means no. `tmite hooks verify` exits with status 0 if every hook is ready, and 2 if one isn't or none are installed.
+
+The first change keeps the file as it was, next to the new one, with `.termite-backup` added to its name. Later changes leave that copy alone.
 
 Hooks can only stop a command. A command that passes still goes through your harness's own approval rules.
+
+If you moved a settings folder with `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, `COPILOT_HOME` or `HERMES_HOME`, the hook goes in that folder instead. The variable must hold a full path.
 
 | Harness | Name | Where the hook goes | What it can see | If the hook fails |
 |---|---|---|---|---|
@@ -84,11 +96,65 @@ Two harnesses skip a new hook until you approve it, and `tmite hooks verify` tel
 
 The hook uses the full path of the `tmite` that installed it. Install from the `tmite` you keep, not from a build folder. If you move `tmite`, every shell command stops and `tmite hooks verify` fails until you run `tmite hooks install` again. Restart your harness after you install a hook, because most read their hooks when they start.
 
+### What a hook does
+
+Each time the agent wants to run a shell command, the harness starts `tmite hook NAME` and sends it a JSON message on standard input. The hook then:
+
+1. Reads the message, up to 4 MiB.
+2. Finds the command and the working folder, in the place where that harness puts them.
+3. Rates the command with the same rules as `TERMITE_AGENT=1 tmite check`. No model takes part, and nothing runs.
+4. Answers in the harness's own format.
+5. Writes a log entry if it stopped something.
+
+The hook stops the command if:
+
+- The command is risky under the [agent rules](#stop-an-agent-running-destructive-commands-or-sending-data-out).
+- The message is too large, isn't valid JSON, or holds an empty command.
+- The message holds no command, and the tool [could run one](#harnesses-that-send-every-tool).
+- The working folder isn't known.
+- The check takes more than 20 seconds.
+- `tmite` is missing or crashes.
+
+In every other case, the hook has no objection. This is not an approval: most harnesses get no output at all. Cursor, Antigravity and Hermes Agent need a reply, so they get the word that leaves their own rules in charge. The hook never uses a word that approves a command.
+
+| Harness | Hook event | Filter | Where the command is | How it is told to stop |
+|---|---|---|---|---|
+| Claude Code | `PreToolUse` | `Bash\|Monitor` | `tool_input.command` | `permissionDecision: deny` in `hookSpecificOutput` |
+| Codex | `PreToolUse` | `^Bash$` | `tool_input.command` | `permissionDecision: deny` in `hookSpecificOutput` |
+| Gemini CLI | `BeforeTool` | `^run_shell_command$` | `tool_input.command` | `decision: deny` |
+| Cursor | `beforeShellExecution` | None | `command` | `permission: deny` |
+| Antigravity | `PreToolUse` | `^run_command$` | `toolCall.args.CommandLine` | `decision: deny` |
+| GitHub Copilot CLI | `PreToolUse` | `Bash` | `tool_input.command` | `permissionDecision: deny` |
+| Hermes Agent | `pre_tool_call` | `^terminal$` | `tool_input.command` | `decision: block` |
+| goose | `PreToolUse` | `^shell$` | `tool_input.command` | `decision: block` |
+| OpenCode | `tool.execute.before` | The `bash` tool | `tool_input.command`, sent by the plugin | The plugin throws an error |
+| Windsurf | `pre_run_command` | None | `tool_info.command_line` | Exit status only |
+
+Every harness also gets exit status 2 and the reason on standard error, so a stop works in whichever way the harness reads it. Antigravity documents only a decision on standard output, so its hook line always exits with status 0 and a decision.
+
+Each hook has a 30 second limit where the harness lets `tmite` set one. Windsurf has no such setting. The hook stops the command itself at 20 seconds, before that limit.
+
+What `tmite` writes depends on the harness:
+
+- **Shared JSON settings:** Claude Code, Codex, Gemini CLI, Cursor, Antigravity and Windsurf get one entry, and the rest of the file keeps its order.
+- **A shared YAML file:** Hermes Agent gets a marked block. It runs the hook without a shell, so `fail_closed` stops the command if `tmite` fails.
+- **Files of its own:** GitHub Copilot CLI, goose and OpenCode get files that belong to termite alone. OpenCode's is a small plugin that sends each `bash` command to `tmite hook opencode`.
+
+In the shell lines, `|| exit 2` stops the command if `tmite` can't start.
+
 ### When a hook stops a command
 
-The agent gets the level, the reason and the command, and it is told not to try another way. If you want the command to run, read it, then run it yourself in your own terminal.
+The agent gets the level, the reason and the command, and it is told not to try another way:
 
-`tmite alerts` lists the commands that hooks stopped. If a stop can't be logged, the agent's message says so, and `tmite provenance verify` tells you why.
+```text
+termite stopped this command. Don't try another way to do the same thing: tell the person what you wanted to run and why.
+✗ command:1  level 4, critical: sends data off the machine, can carry data off the machine, changes something
+    curl -d @notes.txt https://example.com/upload
+```
+
+If you want the command to run, read it, then run it yourself in your own terminal.
+
+`tmite alerts` shows when hooks stopped something. It doesn't keep the command, so read the command in the agent's session. If a stop can't be logged, the hook prints a line on standard error, which your harness may not show. `tmite provenance verify` tells you why.
 
 A hook has no setting that lets one command through. If an ordinary command keeps stopping, it may be a rule that is too strict, so [open an issue](https://github.com/tanepiper/termite/issues).
 

@@ -1,11 +1,12 @@
 ---
 import { getCollection } from "astro:content";
+import SetupPrompt from "../../components/SetupPrompt.astro";
 import Base from "../../layouts/Base.astro";
 import { page } from "../../lib/results";
 
 const titles: Record<string, string> = {
-  "plain-english": "In plain English",
   "getting-started": "Getting started",
+  "plain-english": "In plain English",
   "using-termite": "Using termite",
   "safety-ladder": "The safety ladder",
   "red-team": "Red-teaming a model",
@@ -14,8 +15,7 @@ const titles: Record<string, string> = {
   tests: "The tests",
   failures: "Failure types",
   architecture: "How it is built",
-  "learning-to-train": "Learning to train a model",
-  "training-tiny-models": "Training tiny models: notes",
+  "learning-to-train": "Train your own models",
 };
 const order = Object.keys(titles);
 
@@ -27,6 +27,8 @@ export async function getStaticPaths() {
 const { doc } = Astro.props;
 // Links between files in `docs/` become links between pages.
 const html = (doc.rendered?.html ?? "").replace(/href="([\w-]+)\.md(#[^"]*)?"/g, 'href="../$1/$2"');
+// On GitHub this is a link to the prompt; here it becomes the prompt itself.
+const [before, after] = html.split('<p><a href="agent-setup-prompt.txt">Read the prompt</a></p>');
 const docs = (await getCollection("docs")).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 const title = titles[doc.id] ?? doc.id;
 ---
@@ -41,7 +43,11 @@ const title = titles[doc.id] ?? doc.id;
       ))}
       <a href={page("standards/")}>Against the standards</a>
     </nav>
-    <article set:html={html} />
+    <article>
+      <Fragment set:html={before} />
+      {after !== undefined && <SetupPrompt />}
+      <Fragment set:html={after} />
+    </article>
   </div>
 </Base>
 

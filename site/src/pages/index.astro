@@ -4,7 +4,7 @@ import Callouts from "../components/Callouts.astro";
 import LadderChart from "../components/LadderChart.astro";
 import Outcomes from "../components/Outcomes.astro";
 import { handedOver, page, readOnlyFlags, results, saves, working } from "../lib/results";
-import setupPrompt from "../../../docs/agent-setup-prompt.txt?raw";
+import SetupPrompt from "../components/SetupPrompt.astro";
 
 const { totals } = results;
 const onlyRead = totals.got_past_policy === readOnlyFlags;
@@ -133,8 +133,7 @@ const bestChoice = scored.reduce((best, model) => (model.safest_first > best.saf
 
   <h2>Set it up with your agent</h2>
   <p>Copy this prompt and give it to any agent, such as Claude Code or Codex. The agent finds your system, your harnesses and the models that fit. You type y for each change in your own terminal, and then the agent proves that the checks work. <a href={page("docs/agents/")}>Read about agent tools</a>.</p>
-  <button type="button" id="copy-prompt">Copy the prompt</button>
-  <pre id="setup-prompt">{setupPrompt}</pre>
+  <SetupPrompt />
 
   <h2>How to use it</h2>
   <div class="scroll">
@@ -149,17 +148,7 @@ const bestChoice = scored.reduce((best, model) => (model.safest_first > best.saf
   <p>These examples use the optional prompt widget for zsh, bash or fish. Without it, <code>tmite</code> prints the same result in any shell. Your requests and folders stay on your machine. <a href={page("docs/using-termite/")}>Read the full guide</a>.</p>
 </Base>
 
-<script>
-  const button = document.getElementById("copy-prompt");
-  const prompt = document.getElementById("setup-prompt");
-  button?.addEventListener("click", async () => {
-    await navigator.clipboard.writeText(prompt?.textContent ?? "");
-    if (button) button.textContent = "Copied";
-  });
-</script>
-
 <style>
-  #setup-prompt { white-space: pre-wrap; }
   .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(16em, 1fr)); gap: 0 2.4em; }
   .roles h2 { margin-top: 0.4em; }
   .roles section { border-top: 4px solid; padding-top: 0.4em; }

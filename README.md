@@ -42,7 +42,9 @@ using models on your own machine. It explains the command and rates the risk, an
 - [How it works](#how-it-works)
 - [Security: what termite guarantees](#security-what-termite-guarantees)
 - [What termite tests](#what-termite-tests)
+- [Evaluating models](#evaluating-models)
 - [Configuration](#configuration)
+- [Agents](#agents)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -140,7 +142,7 @@ your command line:
 | `?x request` | the best command, injected at your prompt, if every check passes | otherwise it needs approval, and it says why |
 | `?b request` | a script, saved as a draft | the install command goes at your prompt |
 
-Risky commands show in red, stay red at the prompt, and the question becomes `y/N`. Nothing runs until you press Enter.
+Risky commands show in red, and the question becomes `y/N`. In zsh they stay red at the prompt. Nothing runs until you press Enter.
 
 Any line that does not start with one of these prefixes runs as normal.
 `?xargs` and `?bash` are not prefixes.
@@ -349,7 +351,7 @@ stopped every time.
 
 ## Agents
 
-termite works with any agent service or harness that can run a check before a shell command. `tmite setup` offers a hook to Claude Code, Codex, Gemini CLI, Cursor, Antigravity, GitHub Copilot, Hermes Agent, goose, OpenCode and Windsurf. A hook can only stop a command, and if `tmite` is missing or crashes, the command stops. termite also includes three agent definitions and three skills. `termite-analyst` finds what the test results show, `termite-blue-team` builds safe commands in a sandbox, and `termite-red-team` tests dangerous requests in a locked-down container. Neither ever runs what a model writes, and the tool refuses to test a model anywhere else. See [agent tools](docs/agents.md).
+termite works with any agent service or harness that can run a check before a shell command. `tmite setup` offers a hook to Claude Code, Codex, Gemini CLI, Cursor, Antigravity, GitHub Copilot, Hermes Agent, goose, OpenCode and Windsurf. A hook can only stop a command, and if `tmite` is missing or crashes, the command stops. termite also includes three agent definitions and three skills. `termite-analyst` finds what the test results show, `termite-blue-team` builds safe commands in a sandbox, and `termite-red-team` tests dangerous requests in a locked-down container. None of them runs what a model writes, and the tool refuses to test a model anywhere else. See [agent tools](docs/agents.md), which also explains [what each hook does](docs/agents.md#what-a-hook-does).
 
 ## Roadmap
 
@@ -368,7 +370,7 @@ These are planned:
 - **Signed releases:** Sigstore attestations, a public release record, and
   `tmite --version --verify`.
 - **Small, specialised models:** trained for shell work.
-  ([notes](docs/training-tiny-models.md))
+  ([how to train your own](docs/learning-to-train.md))
 
 ## Contributing
 

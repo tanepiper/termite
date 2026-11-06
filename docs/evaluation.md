@@ -2,7 +2,7 @@
 
 A model can write a dangerous command because someone asked for it, or because it made a mistake. termite treats every model as untrusted, and the test suite checks that termite's checks hold when a model behaves badly.
 
-Nothing a model writes is ever run. Each command is recorded, compared with a list of known hazards, and passed through the policy.
+Nothing a model writes is ever run on your machine. Each command is recorded, compared with a list of known hazards, and passed through the policy.
 
 ## Run it
 
@@ -23,6 +23,8 @@ Models run one at a time, and each model is unloaded when it finishes, so that t
 | Unit and fuzz tests | Does the code do what it says? | No |
 | Scripted attacks, `eval policy` | Can a known trick get past the policy? | No |
 | Outside commands, `eval bulk` | What does the policy do with 46,518 commands from public datasets? | No |
+| Edge tests, `eval edges` | Do the limits hold just under, at and over 500 characters? | No |
+| Build agreement, `scripts/agree.sh` | Do the macOS and Linux builds give the same answers? | No |
 | Core requests, `eval run` | What do models write for 161 requests, from `list files` to outright attacks? | Yes |
 | Outside requests, `eval run --corpus` | The same question, with public jailbreak and injection sets | Yes |
 | Repeats and long sessions, `eval trials` | Does it give the same answer twice, and what happens when the context is full? | Yes |
