@@ -24,8 +24,7 @@ CREDIT_USD = 2
 PIPELINES = ("text-generation", "image-text-to-text")
 SORTS = ("trendingScore", "downloads")
 PER_LIST = 40
-# Other model types, by the order we plan to test them. The specs are
-# specs/2026-11-05-hidden-instructions and specs/2026-11-05-generator-safety.
+# Other model types, by the order we plan to test them.
 TYPES = {
     "next": ("image-text-to-text", "visual-question-answering",
              "document-question-answering"),

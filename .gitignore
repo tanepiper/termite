@@ -12,3 +12,4 @@ eval/downloads/
 site/public/data/
 sandbox/confine/target/
 /eval/corpus
+/specs

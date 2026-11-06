@@ -35,6 +35,7 @@ using models on your own machine. It explains the command and rates the risk, an
 ## Contents
 
 - [Why](#why)
+- [What termite does](#what-termite-does)
 - [Install](#install)
 - [Quick start](#quick-start)
 - [Usage](#usage)
@@ -58,9 +59,20 @@ This is not safe with small local models. In testing they wrote `rm -rf ~/*`, pr
 - **Never run.** termite stops at your prompt, and only you can press Enter.
 - **Rated.** Every command is marked in words and colour, and risky commands turn red whatever the model says.
 
+## What termite does
+
+termite sits between a model and your shell, and catches a bad command before it runs. It does four things:
+
+| | What it does | How you use it |
+|---|---|---|
+| **Ask** | A local model writes the command or script for a job you describe | `?`, `??`, `?x`, `?b` |
+| **Check** | Fixed rules rate any command or script, with no model | `tmite check`, or pipe text into `tmite` |
+| **Gate** | Six levels decide what happens to a command. You decide for yourself. An agent gets only what is safe with nobody reading it | Always on |
+| **Test** | Rates how models behave with dangerous requests, in a sandbox | [The results](https://tanepiper.github.io/termite/) |
+
 ## Install
 
-termite is at an early stage, so install it from source. Signed release binaries and a Homebrew tap are planned ([release provenance spec](specs/2026-11-04-release-provenance/spec.md)).
+termite is at an early stage, so install it from source. Signed release binaries and a Homebrew tap are planned.
 
 ```bash
 cargo install --locked --git https://github.com/tanepiper/termite
@@ -260,7 +272,8 @@ termite logs what it installs and what it stops, as hashes, in a signed chain. S
 ### What termite does not protect against
 
 - **Levels 1 to 3 still reach your prompt if you say yes.** A contained delete such as `rm -rf node_modules` asks first, but a yes puts it at your prompt, so read every command before you press Enter. Root commands and commands that reach outside the project never reach your prompt.
-- **`tmite check` still uses the three ratings,** not the six levels.
+- **A person's `tmite check` result is a rating.** It shows the level, but the exit status follows the rating. An agent is held to the levels. See [agent tools](docs/agents.md).
+- **termite only sees what passes through it.** It is not a sandbox. To stop an agent reaching other machines for certain, run the agent somewhere with no network.
 - **The read-only policy matches paths as written.** It does not follow
   symlinks, and with zsh's `GLOB_DOTS` on, `cat *` can reach hidden files.
 - **Malware running as your user** can do anything you can, including
@@ -301,7 +314,7 @@ termite is also a red-team tool. Test a model before you trust it: `scripts/anal
 
 Not built yet: red-team levels 8 to 10 (a hostile model trying to escape a
 container or reach a malware server), which need a sealed container and must be
-stopped every time ([spec](specs/2026-11-04-intents-and-confirm-card/spec.md#6-red-team-tests-in-a-sandbox)).
+stopped every time.
 
 ## Configuration
 
@@ -338,11 +351,10 @@ termite works with any agent service or harness that can run a check before a sh
 
 ## Roadmap
 
-These are designed and specified, with tickets:
+These are planned:
 
 - **Intents:** `tmite ask | choose | run | script`. `?` gets a trigger
   you choose.
-  ([spec](specs/2026-11-04-intents-and-confirm-card/spec.md))
 - **A confirm card:** the [six levels](docs/using-termite.md#levels) are
   built. A card drawn by `tmite` itself will replace the widget's questions.
 - **Checks on input and output:**
@@ -353,15 +365,12 @@ These are designed and specified, with tickets:
   - termite detects containers, CI and root.
 - **Signed releases:** Sigstore attestations, a public release record, and
   `tmite --version --verify`.
-  ([spec](specs/2026-11-04-release-provenance/spec.md))
 - **Small, specialised models:** trained for shell work.
   ([notes](docs/training-tiny-models.md))
 
 ## Contributing
 
-Issues and pull requests are welcome. The project works spec-first: each
-feature has a spec under [`specs/`](specs), with owner answers and numbered
-tickets, and each ticket starts with its tests.
+Issues and pull requests are welcome. Start each change with its tests.
 
 Before sending a change:
 

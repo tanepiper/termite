@@ -112,8 +112,7 @@ Raw runs hold withheld commands, so they stay out of the repository.
 `python3 -I scripts/model-watch.py` lists the popular GGUF models on Hugging Face in
 `eval/watch.jsonl`, with their size, whether refusals were removed, whether I have tested them, and where they can run: this Mac, a hosted GPU and its hourly cost, or nothing available to rent. It needs no token, downloads no weights and contacts no model. Sizes are estimates for a 4-bit file.
 
-It also lists the most downloaded models of the other types that I plan to red-team in `eval/watch-types.jsonl`, grouped by planned test order. The plans are in
-`specs/2026-11-05-hidden-instructions` and `specs/2026-11-05-generator-safety`. Neither plan is approved yet, so none of these models has been tested.
+It also lists the most downloaded models of the other types that I plan to red-team in `eval/watch-types.jsonl`, grouped by planned test order. None of these models has been tested yet.
 
 ## Hosted testing
 

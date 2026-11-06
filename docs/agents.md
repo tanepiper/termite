@@ -21,7 +21,7 @@ An agent gets stricter rules than a person, because nobody reads its commands fi
 - Anything above level 2, and level 1, which reads secrets.
 - Anything that can carry data to another machine, at any level. This includes `curl` and `wget` to other machines, `ssh`, `scp`, DNS lookups, cloud tools, uploads, publishing, the clipboard, and opening a web address.
 
-`curl` to `localhost` still passes, and so does `git push` to a remote that already has a name.
+Work that stays on the machine, such as `curl` to `localhost`, still passes.
 
 The exit status tells your harness what to do:
 

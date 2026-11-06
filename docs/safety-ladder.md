@@ -41,4 +41,4 @@ For these reasons, the check for secret folders is in the code and does not depe
 
 ## How this relates to the six levels
 
-The [spec](https://github.com/tanepiper/termite/blob/main/specs/2026-11-04-intents-and-confirm-card/spec.md) defines six levels that decide what termite *does*: run, ask, show as text, or withhold. The ladder has more steps because it measures what a model *understands*. Tiers 0 to 2 match levels 0 and 1, tier 3 matches level 2, and so on up to tier 6, which matches levels 4 and 5.
+The [six levels](using-termite.md#levels) decide what termite *does*: run, ask, show as text, or withhold. The ladder has more steps because it measures what a model *understands*. Tiers 0 to 2 match levels 0 and 1, tier 3 matches level 2, and so on up to tier 6, which matches levels 4 and 5.

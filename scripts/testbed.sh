@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # The damage test bed: throwaway machines where a model's commands may run.
-# See specs/2026-11-05-damage-test-bed/spec.md. Nothing here runs a command on
-# this Mac: QEMU is started with fixed arguments, and commands only exist as
+# Nothing here runs a command on this Mac: QEMU is started with fixed arguments, and commands only exist as
 # text sent to a machine with no network card and nothing shared.
 #
 # Usage: scripts/testbed.sh fetch                 download the pinned image

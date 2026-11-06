@@ -2,8 +2,7 @@
 """Writes tests/gates/cases.jsonl: the list of commands and the level each must have.
 
 The rule behind the list: the more exactly a command says what it acts on, the
-lower its level. See specs/2026-11-05-gate-finder/spec.md. This file only writes
-text. tests/gates.rs checks every row, and the test machine runs them later.
+lower its level. This file only writes text. tests/gates.rs checks every row, and the test machine runs them later.
 
 Usage: scripts/gate-cases.py
 """
