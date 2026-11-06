@@ -9,7 +9,7 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process::Command;
 
-use termite::{Home, PRIVATE_FILE_MODE, write_private};
+use termite::{Home, PRIVATE_FILE_MODE, PROVENANCE_FILE, write_private};
 
 use crate::script_tools::run_tool;
 
@@ -55,6 +55,12 @@ fn from_file(home: &Home) -> Result<Vec<u8>, String> {
     match fs::read_to_string(&path) {
         Ok(text) => Ok(text.trim().as_bytes().to_vec()),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if has_entries(home) {
+                return Err(format!(
+                    "the key that signed {PROVENANCE_FILE} can't be found, \
+                     and a new key would break it"
+                ));
+            }
             let key = new_key()?;
             home.ensure().map_err(|error| error.to_string())?;
             write_private(
@@ -68,6 +74,12 @@ fn from_file(home: &Home) -> Result<Vec<u8>, String> {
         },
         Err(error) => Err(format!("{}: {error}", path.display())),
     }
+}
+
+/// A log with entries already has a key, even if this run can't reach it.
+fn has_entries(home: &Home) -> bool {
+    fs::metadata(home.root().join(PROVENANCE_FILE))
+        .is_ok_and(|log| log.len() > 0)
 }
 
 /// `Ok(None)` means there's no store on this machine. A store that's there
@@ -195,6 +207,24 @@ mod tests {
             .permissions()
             .mode();
         assert_eq!(mode & 0o777, 0o600);
+        fs::remove_dir_all(&root).expect("clean up");
+    }
+
+    #[test]
+    fn given_a_log_with_entries_then_a_second_key_is_never_made() {
+        // nosemgrep: rust.lang.security.temp-dir.temp-dir
+        let root = std::env::temp_dir()
+            .join(format!("tmite-second-key-{}", std::process::id()));
+        // Left over from an earlier failed run.
+        let _ = fs::remove_dir_all(&root);
+        let home = Home::at(&root).expect("home");
+        home.ensure().expect("folders");
+        fs::write(root.join(PROVENANCE_FILE), "{}\n").expect("log");
+
+        let found = key(&home);
+
+        assert!(found.is_err());
+        assert!(!root.join(KEY_FILE).exists());
         fs::remove_dir_all(&root).expect("clean up");
     }
 }

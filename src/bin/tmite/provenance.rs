@@ -153,7 +153,11 @@ pub(crate) fn record_stop(answer: &Answer, request: &str, caller: Caller) {
 /// Log that `tmite check` stopped an agent. Hashes the file names only.
 pub(crate) fn record_check(files: &[String]) {
     let flags = vec!["risky, or no commands found".to_owned()];
-    let _ = alert(&files.join(" "), flags, "check", Caller::Agent.as_str());
+    if let Some(problem) =
+        alert(&files.join(" "), flags, "check", Caller::Agent.as_str())
+    {
+        eprintln!("tmite: this was not logged: {problem}");
+    }
 }
 
 pub(crate) fn alerts() -> ExitCode {

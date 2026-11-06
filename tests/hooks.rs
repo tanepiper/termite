@@ -414,6 +414,7 @@ fn the_opencode_plugin_throws_on_a_stop_and_when_tmite_is_missing() {
         Command::new("node")
             .args(["--input-type=module", "-e", &script])
             .env("HOME", &home)
+            .env("TERMITE_HOME", home.join(".config/termite"))
             .output()
             .expect("runs")
             .status
