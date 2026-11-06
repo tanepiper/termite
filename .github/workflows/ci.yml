@@ -37,7 +37,7 @@ jobs:
           rustup update stable --no-self-update
           rustup default stable
           rustup component add clippy rustfmt
-          echo "RUSTC=$(rustc --version | cut -d' ' -f2)" >> "$GITHUB_ENV"
+          echo "RUST_VERSION=$(rustc --version | cut -d' ' -f2)" >> "$GITHUB_ENV"
       - uses: actions/cache@v4
         with:
           path: |
@@ -45,8 +45,8 @@ jobs:
             ~/.cargo/registry/cache
             ~/.cargo/git/db
             target
-          key: ${{ runner.os }}-rust-${{ env.RUSTC }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-rust-${{ env.RUSTC }}-
+          key: ${{ runner.os }}-rust-${{ env.RUST_VERSION }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-rust-${{ env.RUST_VERSION }}-
       - name: Format
         if: runner.os == 'Linux'
         run: cargo fmt --check
