@@ -2,8 +2,9 @@
 name: Docs site
 
 # The site goes out for two reasons: a release, which starts this workflow when it
-# finishes, and new data, which can arrive without a release. Changes to the docs or
-# to how the site looks wait for one of those. Run it by hand for anything else.
+# finishes, and new data pushed to main, which can arrive without a release. Run it by
+# hand to send the data again. Either way the pages and docs come from the latest
+# release, so docs for work that hasn't been released stay off the site.
 on:
   push:
     branches: [main]
@@ -25,6 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Use the latest release's pages with the newest data
+        run: |
+          tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null) || exit 0
+          rm -rf site docs
+          git checkout "$tag" -- site docs
+          git checkout "$GITHUB_SHA" -- site/src/data site/public/releases.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22

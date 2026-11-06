@@ -12,17 +12,24 @@ To set it up by hand, follow the steps below.
 
 ## Install
 
-Download a release, or build termite from source. Either way, you also need llama.cpp, which serves the models.
+There are two ways to install termite, and both give you the same program:
+
+- **Download a release.** This is the quickest way, and you don't need Rust.
+- **Build it yourself.** This takes longer, and you can read the code that you build. Use this if you want the newest changes, or if there is no release for your system.
+
+Either way, you also need llama.cpp, which serves the models. Setup can download models for it. If you already run Ollama or LM Studio, setup finds them and uses them instead.
 
 ### Download a release
 
-Choose your system: `macos-arm64`, `macos-x86_64`, `linux-x86_64` or `linux-arm64`. The Linux builds run on any distribution. This example is for an Apple silicon Mac:
+Choose your system: `macos-arm64`, `macos-x86_64`, `linux-x86_64` or `linux-arm64`. The Linux builds run on any distribution. These commands are for a Mac with Apple silicon, so change the name if yours is different.
+
+Download it:
 
 ```bash
 curl -fLO https://github.com/tanepiper/termite/releases/latest/download/tmite-macos-arm64.tar.gz
 ```
 
-Check the download with the [GitHub CLI](https://cli.github.com). If this fails, delete the file and do not run it:
+Check that it is a real release. You need the [GitHub CLI](https://cli.github.com) for this. If the check fails, delete the file and do not run it.
 
 ```bash
 gh attestation verify tmite-macos-arm64.tar.gz --repo tanepiper/termite
@@ -34,13 +41,13 @@ Unpack it, and put `tmite` in a folder on your `PATH`:
 tar -xzf tmite-macos-arm64.tar.gz && mkdir -p ~/.local/bin && mv tmite ~/.local/bin/
 ```
 
-The macOS builds are not signed by Apple. A file downloaded with `curl` runs normally. A file downloaded in a browser is blocked, so use `curl`.
+The macOS builds are not signed by Apple. macOS blocks a file that you download in a browser, so use `curl` as shown here.
 
-[Releases](/termite/releases/) lists every version, with the hash of each file.
+[Releases](/termite/releases/) lists the newest version, with the hash of each file.
 
-### Build from source
+### Build it yourself
 
-You need Rust 1.87 or newer and llama.cpp, which serves the models. Setup can download models for llama.cpp. If you already run Ollama or LM Studio, setup finds them and lists their models, but it doesn't download models for them.
+You need Rust 1.87 or newer.
 
 #### macOS
 

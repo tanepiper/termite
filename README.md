@@ -74,7 +74,7 @@ termite sits between a model and your shell, and catches a bad command before it
 
 ## Install
 
-termite is at an early stage. [Download a signed release](docs/getting-started.md#download-a-release) for macOS or Linux, or install it from source:
+termite is at an early stage. You can [download a signed release](docs/getting-started.md#download-a-release) for macOS or Linux, or build it yourself with Rust 1.87 or newer:
 
 ```bash
 cargo install --locked --git https://github.com/tanepiper/termite termite

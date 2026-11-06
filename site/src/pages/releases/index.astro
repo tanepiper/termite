@@ -64,5 +64,8 @@ const systems: [string, string][] = [
 <style>
   th[scope="row"] { font-weight: 500; color: var(--ink); }
   code { overflow-wrap: anywhere; }
-  .changes :global(h1), .changes :global(#unreleased:has(+ h2)) { display: none; }
+  /* The page and its title, and anything not released yet. */
+  .changes :global(h1),
+  .changes :global(#unreleased),
+  .changes :global(#unreleased ~ :not(h2:not(#unreleased), h2:not(#unreleased) ~ *)) { display: none; }
 </style>
