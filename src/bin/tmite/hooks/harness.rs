@@ -22,6 +22,12 @@ pub(super) enum Install {
     },
     /// `hooks.EVENT[] = handler` in a shared JSON file.
     Flat { event: &'static str },
+    /// `termite.EVENT[] = {matcher, hooks: [handler]}` in a shared JSON file,
+    /// where the top-level keys name hooks.
+    Named {
+        event: &'static str,
+        matcher: &'static str,
+    },
     /// Files that belong to termite alone.
     OwnFiles,
     /// A marked block in a shared YAML file.
@@ -62,8 +68,10 @@ pub(crate) struct Harness {
     pub(super) cwd_at: &'static str,
     pub(super) deny: Deny,
     /// Printed on standard output when the check finds nothing. Must never
-    /// approve anything. Cursor reads no output as a stop, so it needs a word
-    /// here, and its agent acts only on `deny`: its own approval rules run.
+    /// approve anything. Cursor and Antigravity read no output as a stop, so
+    /// they need a word here. Cursor's agent acts only on `deny`, and
+    /// Antigravity's `allow` hands over to its normal rules; `auto_approve`
+    /// is its word for approving, and is never used.
     pub(super) no_objection: &'static str,
     /// What the person must do after installing, if anything.
     pub(super) next_step: &'static str,
@@ -143,6 +151,27 @@ pub(crate) const HARNESSES: &[Harness] = &[
         deny: Deny::Permission,
         no_objection: "{\"permission\":\"allow\"}",
         next_step: "Restart Cursor so it reads the hook.",
+    },
+    Harness {
+        id: "antigravity",
+        name: "Antigravity",
+        programs: &["agy", "antigravity", "agy-ide", "antigravity-ide"],
+        apps: &[
+            "/Applications/Antigravity.app",
+            "/Applications/Antigravity IDE.app",
+        ],
+        folder_variable: None,
+        folder: ".gemini/config",
+        file: "hooks.json",
+        install: Install::Named {
+            event: "PreToolUse",
+            matcher: "^run_command$",
+        },
+        command_at: "/toolCall/args/CommandLine",
+        cwd_at: "/toolCall/args/Cwd",
+        deny: Deny::Decision("deny"),
+        no_objection: "{\"decision\":\"allow\"}",
+        next_step: "Restart Antigravity so it reads the hook.",
     },
     Harness {
         id: "copilot",

@@ -13,8 +13,16 @@ use serde_json::{Value, json};
 const TMITE: &str = env!("CARGO_BIN_EXE_tmite");
 
 const HARNESSES: &[&str] = &[
-    "claude", "codex", "gemini", "cursor", "copilot", "hermes", "goose",
-    "opencode", "windsurf",
+    "claude",
+    "codex",
+    "gemini",
+    "cursor",
+    "copilot",
+    "hermes",
+    "goose",
+    "opencode",
+    "windsurf",
+    "antigravity",
 ];
 
 fn home(name: &str) -> PathBuf {
@@ -77,6 +85,7 @@ fn given_a_recorded_safe_command_then_no_harness_gets_a_stop() {
         let said = text(&output.stdout);
         match *harness {
             "cursor" => assert_eq!(said, r#"{"permission":"allow"}"#),
+            "antigravity" => assert_eq!(said, r#"{"decision":"allow"}"#),
             "hermes" => assert_eq!(said, "{}"),
             _ => assert_eq!(said, "", "{harness}"),
         }
@@ -94,7 +103,7 @@ fn reason_in<'a>(harness: &str, answer: &'a Value) -> Option<&'a str> {
                 &inner["permissionDecisionReason"],
             )
         },
-        "gemini" => {
+        "gemini" | "antigravity" => {
             assert_eq!(answer["decision"], "deny");
             return answer["reason"].as_str();
         },
@@ -180,7 +189,7 @@ fn given_a_stop_then_the_alert_log_has_it() {
 /// find it, and `|| exit 2` makes that a stop.
 #[test]
 fn given_tmite_is_missing_then_the_shell_line_stops() {
-    let line = "/no/such/place/tmite hook claude || exit 2";
+    let line = "{ /no/such/place/tmite hook claude || exit 2; }";
 
     let output = Command::new("sh")
         .args(["-c", line])
@@ -190,6 +199,71 @@ fn given_tmite_is_missing_then_the_shell_line_stops() {
         .expect("runs");
 
     assert_eq!(output.status.code(), Some(2));
+}
+
+/// Cursor runs the line with its message added as a here-document, and it
+/// reads Claude Code's settings too, so the message must reach `tmite`.
+#[test]
+fn given_a_here_document_after_the_line_then_tmite_still_reads_it() {
+    let home = home("heredoc");
+    let message = text(&sample("cursor", "allow")).replace('\n', " ");
+    let line =
+        format!("{{ {TMITE} hook cursor || exit 2; }} <<'EOF'\n{message}\nEOF");
+
+    let output = Command::new("sh")
+        .args(["-c", &line])
+        .env("HOME", &home)
+        .env("TERMITE_HOME", home.join(".config/termite"))
+        .output()
+        .expect("runs");
+
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    assert_eq!(text(&output.stdout), r#"{"permission":"allow"}"#);
+    fs::remove_dir_all(home).expect("clean up");
+}
+
+/// Antigravity's line always exits 0 with exactly one decision on standard
+/// output, whatever `tmite` did.
+#[test]
+fn given_antigravity_then_its_line_always_gives_one_decision() {
+    let home = home("antigravity");
+    let line = |program: &str| {
+        format!(
+            "{program} hook antigravity || [ $? -eq 2 ] || printf '%s' \
+             '{{\"decision\":\"deny\",\"reason\":\"termite could not run\"}}'"
+        )
+    };
+    let decide = |program: &str, input: Vec<u8>| {
+        let mut child = Command::new("sh")
+            .args(["-c", &line(program)])
+            .env("HOME", &home)
+            .env("TERMITE_HOME", home.join(".config/termite"))
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("starts");
+        child
+            .stdin
+            .take()
+            .expect("stdin")
+            .write_all(&input)
+            .unwrap_or_default();
+        let output = child.wait_with_output().expect("finishes");
+        assert_eq!(output.status.code(), Some(0));
+        let answer: Value =
+            serde_json::from_slice(&output.stdout).expect("one decision");
+        answer["decision"].as_str().expect("a word").to_owned()
+    };
+
+    assert_eq!(decide(TMITE, sample("antigravity", "allow")), "allow");
+    assert_eq!(decide(TMITE, sample("antigravity", "stop")), "deny");
+    assert_eq!(decide(TMITE, b"not json".to_vec()), "deny");
+    assert_eq!(
+        decide("/no/such/place/tmite", sample("antigravity", "allow")),
+        "deny"
+    );
+    fs::remove_dir_all(home).expect("clean up");
 }
 
 /// A check that can't finish stops by itself, before the harness's timeout.
@@ -253,7 +327,7 @@ fn given_a_copilot_hook_then_verify_proves_it_and_a_stale_one_fails() {
     let home = home("verify");
     let file = home.join(".copilot/hooks/termite.json");
     fs::create_dir_all(file.parent().expect("parent")).expect("folder");
-    let line = format!("{TMITE} hook copilot || exit 2");
+    let line = format!("{{ {TMITE} hook copilot || exit 2; }}");
     let hook = json!({
         "matcher": "Bash",
         "hooks": [{ "type": "command", "bash": line, "timeoutSec": 30 }],
@@ -293,7 +367,7 @@ fn the_plan_reads_the_machine_and_changes_nothing() {
     let plan: Value = serde_json::from_slice(&output.stdout).expect("json");
     assert!(plan["machine"]["memory"].as_u64().expect("memory") > 0);
     assert!(plan["models"]["chat"]["revision"].is_string(), "{plan}");
-    assert_eq!(plan["harnesses"].as_array().expect("list").len(), 9);
+    assert_eq!(plan["harnesses"].as_array().expect("list").len(), 10);
     assert_eq!(fs::read_dir(&home).expect("home").count(), 0);
     fs::remove_dir_all(home).expect("clean up");
 }
@@ -309,7 +383,7 @@ fn the_claude_plugin_stops_when_tmite_fails() {
 
     assert_eq!(group["matcher"], "Bash|Monitor");
     assert_eq!(hook["onFailure"], "block");
-    assert_eq!(hook["command"], "tmite hook claude || exit 2");
+    assert_eq!(hook["command"], "{ tmite hook claude || exit 2; }");
 }
 
 /// Run the OpenCode plugin file as OpenCode would, against the real `tmite`.

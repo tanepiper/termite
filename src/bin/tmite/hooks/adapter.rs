@@ -217,10 +217,10 @@ mod tests {
         }
     }
 
-    /// A pass must never read as an approval, except where the harness
-    /// treats silence as a stop.
+    /// A pass must never read as an approval. Two harnesses treat silence as
+    /// a stop, and get the word that leaves their own rules in charge.
     #[test]
-    fn given_a_pass_then_no_harness_but_cursor_gets_any_decision() {
+    fn given_a_pass_then_no_harness_is_told_to_approve() {
         for harness in HARNESSES {
             let (mut out, mut err) = (Vec::new(), Vec::new());
             let status =
@@ -229,7 +229,8 @@ mod tests {
             assert_eq!(status, 0);
             assert!(err.is_empty());
             let text = String::from_utf8(out).expect("text");
-            if harness.id != "cursor" {
+            assert!(!text.contains("auto_approve"));
+            if !["cursor", "antigravity"].contains(&harness.id) {
                 assert!(
                     text.is_empty() || text == "{}",
                     "{} said {text}",

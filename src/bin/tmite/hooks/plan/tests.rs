@@ -100,6 +100,28 @@ fn given_other_hooks_then_they_survive_in_order_and_removal_restores_the_file()
     fs::remove_dir_all(&place.home).expect("clean up");
 }
 
+/// Antigravity's top-level keys are hook names, so termite's is one more.
+#[test]
+fn given_antigravity_hooks_then_termite_is_one_more_named_hook() {
+    let harness = harness("antigravity");
+    let place = place("named");
+    let path = harness.path_in(&place.home);
+    let original = "{\n  \"mine\": {\n    \"Stop\": []\n  }\n}\n";
+    let folder = path.parent().expect("parent");
+    fs::create_dir_all(folder).expect("folder");
+    fs::write(&path, original).expect("file");
+
+    write(&install(harness, &place).expect("install"));
+    let text = fs::read_to_string(&path).expect("file");
+    assert!(text.contains("\"termite\": {"), "{text}");
+    assert!(text.contains("^run_command$"), "{text}");
+    assert_eq!(state(harness, &place), Ok(State::Current));
+
+    write(&remove(harness, &place).expect("remove"));
+    assert_eq!(fs::read_to_string(&path).expect("file"), original);
+    fs::remove_dir_all(&place.home).expect("clean up");
+}
+
 #[test]
 fn given_a_moved_program_then_the_hook_is_different_and_install_replaces_it() {
     let harness = harness("codex");
@@ -176,6 +198,7 @@ fn given_each_harness_then_a_failed_hook_stops_the_command() {
         ("copilot", "|| exit 2"),
         ("windsurf", "|| exit 2"),
         ("hermes", "fail_closed: true"),
+        ("antigravity", "termite could not run"),
         ("goose", "\"on_failure\": \"block\""),
         ("opencode", "run.status !== 0"),
     ] {

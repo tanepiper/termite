@@ -18,6 +18,9 @@ pub(crate) struct Place {
     pub(crate) program: PathBuf,
 }
 
+/// The key of termite's entry, where hooks have names.
+const HOOK_NAME: &str = "termite";
+
 /// One file to change. `new` of `None` removes it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct Change {
@@ -126,6 +129,14 @@ fn parse(
 
 /// A shared JSON file with termite's hook taken out.
 fn without_hook(harness: &Harness, root: &mut Json) -> bool {
+    if matches!(harness.install, Install::Named { .. }) {
+        let mut found = Vec::new();
+        if let Some(entry) = root.get(HOOK_NAME) {
+            our_commands(harness, entry, &mut found);
+        }
+        root.remove(HOOK_NAME);
+        return !found.is_empty();
+    }
     let Some(Json::Object(events)) = root.get_mut("hooks") else {
         return false;
     };
@@ -144,19 +155,25 @@ fn without_hook(harness: &Harness, root: &mut Json) -> bool {
     changed
 }
 
+fn json_group(matcher: &str, handler: Json) -> Json {
+    Json::Object(vec![
+        ("matcher".to_owned(), Json::String(matcher.to_owned())),
+        ("hooks".to_owned(), Json::Array(vec![handler])),
+    ])
+}
+
 fn with_hook(harness: &Harness, root: &mut Json, place: &Place) -> Option<()> {
     let (event, item) = match harness.install {
         Install::Grouped { event, matcher } => {
-            let group = Json::Object(vec![
-                ("matcher".to_owned(), Json::String(matcher.to_owned())),
-                (
-                    "hooks".to_owned(),
-                    Json::Array(vec![handler(harness, place)]),
-                ),
-            ]);
-            (event, group)
+            (event, json_group(matcher, handler(harness, place)))
         },
         Install::Flat { event } => (event, handler(harness, place)),
+        Install::Named { event, matcher } => {
+            let group = json_group(matcher, handler(harness, place));
+            let hook = root.entry(HOOK_NAME, Json::Object(Vec::new()))?;
+            hook.entry(event, Json::Array(vec![group]))?;
+            return Some(());
+        },
         Install::OwnFiles | Install::YamlBlock => return None,
     };
     if harness.id == "cursor" {
@@ -212,7 +229,9 @@ pub(crate) fn state(harness: &Harness, place: &Place) -> Result<State, String> {
                 State::Absent
             })
         },
-        Install::Grouped { .. } | Install::Flat { .. } => {
+        Install::Grouped { .. }
+        | Install::Flat { .. }
+        | Install::Named { .. } => {
             let Some(text) = read(&path)? else {
                 return Ok(State::Absent);
             };
@@ -266,7 +285,9 @@ pub(super) fn install(
                 path,
             }])
         },
-        Install::Grouped { .. } | Install::Flat { .. } => {
+        Install::Grouped { .. }
+        | Install::Flat { .. }
+        | Install::Named { .. } => {
             let old = read(&path)?;
             let mut root = match &old {
                 Some(text) => parse(harness, &path, text, place)?,
@@ -329,7 +350,9 @@ pub(super) fn remove(
                 path,
             }])
         },
-        Install::Grouped { .. } | Install::Flat { .. } => {
+        Install::Grouped { .. }
+        | Install::Flat { .. }
+        | Install::Named { .. } => {
             let Some(text) = read(&path)? else {
                 return Ok(Vec::new());
             };

@@ -10,14 +10,23 @@ use super::json::Json;
 use super::plan::Place;
 
 /// The command as a shell line. `|| exit 2` stops the command when `tmite` is
-/// missing or crashes, in harnesses that let other exit statuses through.
+/// missing or crashes, in harnesses that let other exit statuses through. The
+/// braces matter: Cursor adds its message to the line as a here-document, and
+/// without them that goes to `exit`, so `tmite` would read nothing.
+///
+/// Antigravity documents a decision on standard output and no exit statuses.
+/// So its line always exits 0 with a decision: `tmite`'s own when it ran (2 is
+/// a stop it has already written), and a stop when it couldn't.
 pub(super) fn shell_line(harness: &Harness, place: &Place) -> String {
     let program = place.program.to_string_lossy();
-    format!(
-        "{} hook {} || exit 2",
-        shell_words::quote(&program),
-        harness.id
-    )
+    let program = shell_words::quote(&program);
+    if harness.id == "antigravity" {
+        return format!(
+            "{program} hook antigravity || [ $? -eq 2 ] || printf '%s' \
+             '{{\"decision\":\"deny\",\"reason\":\"termite could not run\"}}'"
+        );
+    }
+    format!("{{ {program} hook {} || exit 2; }}", harness.id)
 }
 
 /// One hook handler, in the words each harness reads. Each asks the harness

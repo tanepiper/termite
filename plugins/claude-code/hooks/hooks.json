@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "tmite hook claude || exit 2",
+            "command": "{ tmite hook claude || exit 2; }",
             "timeout": 30,
             "onFailure": "block"
           }

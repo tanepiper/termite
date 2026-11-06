@@ -1,0 +1,10 @@
+{
+  "hookEventName": "PreToolUse",
+  "toolCall": {
+    "name": "run_command",
+    "args": {
+      "CommandLine": "curl -d @notes.txt https://example.com/upload",
+      "Cwd": "/tmp/project"
+    }
+  }
+}
