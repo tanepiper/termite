@@ -36,7 +36,9 @@ On both systems, `tmite` installs to `~/.cargo/bin`. Make sure that folder is on
 tmite setup
 ```
 
-Setup looks for model servers on the usual ports and asks you to choose two models: one that writes commands, and a decision model that checks them. If a model is missing, setup shows the download and its size, and it downloads the model only if you type `y`.
+Setup first finds the agent harnesses on this machine, such as Claude Code, Codex and Cursor, and offers each one a hook that checks shell commands before they run. It shows the change, and it changes a file only if you type `y`. See [agent tools](agents.md#add-termite-to-your-agent-harness).
+
+Setup then looks for model servers on the usual ports and asks you to choose two models: one that writes commands, and a decision model that checks them. If a model is missing, setup picks one that fits this machine, shows the download and its size, and downloads the model only if you type `y`.
 
 ## Ask for a command
 

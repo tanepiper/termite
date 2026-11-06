@@ -101,7 +101,8 @@ fn waiting_on(harness: &Harness, place: &Place) -> Option<String> {
                 .is_ok_and(|text| text.contains(&key))
         },
         "hermes" => {
-            let hook = format!("{} hook hermes", place.program.display());
+            let program = place.program.to_string_lossy();
+            let hook = format!("{} hook hermes", shell_words::quote(&program));
             fs::read_to_string(folder.join("shell-hooks-allowlist.json"))
                 .is_ok_and(|text| text.contains(&hook))
         },
@@ -228,6 +229,14 @@ pub(crate) fn offer(
     for change in &changes {
         println!("\n{}", shown(change));
     }
+    if action == Action::Install && in_build_folder(&place.program) {
+        println!(
+            "This hook runs {}, which is in a build folder. If that file \
+             goes, every shell command stops. Install from the `tmite` you \
+             keep.",
+            place.program.display()
+        );
+    }
     let verb = match action {
         Action::Install => "Add the termite hook to",
         Action::Remove => "Remove the termite hook from",
@@ -245,6 +254,14 @@ pub(crate) fn offer(
         println!("{}", harness.next_step);
     }
     true
+}
+
+/// Whether a program is in Cargo's `target/debug` or `target/release`.
+fn in_build_folder(program: &Path) -> bool {
+    let folders: Vec<_> = program.iter().collect();
+    folders.windows(2).any(|pair| {
+        pair[0] == "target" && (pair[1] == "debug" || pair[1] == "release")
+    })
 }
 
 /// A change as the person reads it: the file, then only the lines that differ.
@@ -365,10 +382,10 @@ fn verify(place: &Place, json: bool) -> ExitCode {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use super::harness::Harness;
-    use super::{Action, Place, offer, plan, sample};
+    use super::{Action, Place, in_build_folder, offer, plan, sample};
     use crate::setup::prompt::Prompt;
 
     fn place(name: &str) -> Place {
@@ -431,6 +448,14 @@ mod tests {
         );
         assert!(path.with_extension("json.termite-backup").exists());
         fs::remove_dir_all(&place.home).expect("clean up");
+    }
+
+    #[test]
+    fn given_a_build_folder_then_it_is_told_apart_from_a_kept_program() {
+        assert!(in_build_folder(Path::new("/code/target/debug/tmite")));
+        assert!(in_build_folder(Path::new("/code/target/release/tmite")));
+        assert!(!in_build_folder(Path::new("/home/a/.cargo/bin/tmite")));
+        assert!(!in_build_folder(Path::new("/target/tmite")));
     }
 
     #[test]

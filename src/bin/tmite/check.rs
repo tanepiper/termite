@@ -453,6 +453,9 @@ mod tests {
             "az keyvault show --name https://example.test/x",
             "ps eww",
             "ps -o pid eww",
+            "ps -Eww",
+            "ps -axE",
+            "ps axo pid eww",
         ] {
             let (_, person) = checked(command.as_bytes(), PLAIN);
             let (text, stopped) = checked(command.as_bytes(), agent);
@@ -495,6 +498,8 @@ mod tests {
             "command -v az",
             "command -V curl",
             "ps -o pid,etime,time,pcpu -p 7",
+            "ps -eo pid,user",
+            "ps axo pid,user",
             "az keyvault show --name vault -g group",
             "az role assignment list --scope /subscriptions/a --all",
         ] {

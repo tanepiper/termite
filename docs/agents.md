@@ -58,7 +58,7 @@ tmite hooks verify
 tmite hooks remove
 ```
 
-`tmite hooks install` and `tmite hooks remove` take harness names, such as `tmite hooks install claude codex`. The old file is kept next to the new one, with `.termite-backup` added to its name. `tmite hooks verify` checks that each hook is the one `tmite` would write, sends it a risky and a safe command, and says what you still need to do. It runs neither command.
+`tmite hooks install` and `tmite hooks remove` take harness names, such as `tmite hooks install claude codex`. The first change keeps the file as it was, next to the new one, with `.termite-backup` added to its name. Later changes leave that copy alone. `tmite hooks verify` checks that each hook is the one `tmite` would write, sends it a risky and a safe command, and says what you still need to do. It runs neither command.
 
 Hooks can only stop a command. A command that passes still goes through your harness's own approval rules.
 
@@ -82,7 +82,34 @@ Two harnesses skip a new hook until you approve it, and `tmite hooks verify` tel
 - **Codex:** run `/hooks` in Codex and trust the hook.
 - **Hermes Agent:** answer yes when Hermes asks, then run `hermes hooks doctor`. The gateway, cron and `hermes acp` don't ask, so run Hermes once at a terminal first.
 
-The hook uses the full path of `tmite`. If you move `tmite`, `tmite hooks verify` fails until you run `tmite hooks install` again. Restart your harness after you install a hook, because most read their hooks when they start.
+The hook uses the full path of the `tmite` that installed it. Install from the `tmite` you keep, not from a build folder. If you move `tmite`, every shell command stops and `tmite hooks verify` fails until you run `tmite hooks install` again. Restart your harness after you install a hook, because most read their hooks when they start.
+
+### When a hook stops a command
+
+The agent gets the level, the reason and the command, and it is told not to try another way. If you want the command to run, read it, then run it yourself in your own terminal.
+
+`tmite alerts` lists the commands that hooks stopped. If a stop can't be logged, the agent's message says so, and `tmite provenance verify` tells you why.
+
+A hook has no setting that lets one command through. If an ordinary command keeps stopping, it may be a rule that is too strict, so [open an issue](https://github.com/tanepiper/termite/issues).
+
+### Harnesses that send every tool
+
+Some harnesses ignore the hook's filter and send every tool to the hook, not only shell commands. A tool that has no command, such as one that reads a file, has nothing to check, so the hook lets it continue. If a tool's name suggests that it can run something, or it has a field that can hold a command, and the hook can't find the command, the tool stops. Some tools that run nothing will stop for this reason.
+
+### VS Code
+
+GitHub Copilot in VS Code can read hooks from several places. These two settings decide which:
+
+- `chat.hookFilesLocations` lists the files and folders that it reads.
+- `chat.useClaudeHooks` lets it read Claude Code's settings files.
+
+If both include Claude Code's settings, every Claude Code hook also runs in VS Code, including the termite hook and any others you have. To keep the two apart, set `chat.useClaudeHooks` to `false`, remove the `.claude` entries from `chat.hookFilesLocations`, and keep `~/.copilot/hooks`. Then install the Copilot hook, which VS Code reads from that folder:
+
+```bash
+tmite hooks install copilot
+```
+
+Start a new chat after you change these settings. This hook hasn't been tested in VS Code yet, so check it by asking the agent to run the `curl` command from the prompt above. VS Code's newer Copilot session target finds hooks in a different way from the local one, so test it there too if you use it.
 
 To use the Claude Code plugin instead of the settings file, `tmite` must be on the `PATH` that Claude Code gets:
 
@@ -131,7 +158,7 @@ An agent gets stricter rules than a person, because nobody reads its commands fi
 - Anything above level 2, and level 1, which reads secrets.
 - Anything that can carry data to another machine, at any level. This includes `curl` and `wget` to other machines, `ssh`, `scp`, DNS lookups, cloud tools, uploads, publishing, the clipboard, and opening a web address.
 
-Work that stays on the machine, such as `curl` to `localhost`, still passes.
+Work that stays on the machine, such as `curl` to `localhost`, still passes. So does a short list of `az` commands that only show settings, never secrets or tokens. Every other cloud command stops, so run it yourself.
 
 The exit status tells your harness what to do:
 

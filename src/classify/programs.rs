@@ -319,14 +319,20 @@ pub(super) fn shows_secrets(name: &str, arguments: &[String]) -> bool {
     }
 }
 
-/// `ps e`, with no dash, prints each process's environment. The word after
-/// `-o` or `-p` only names columns or processes.
+/// `ps e`, with no dash, and `ps -E` on macOS print each process's environment.
+/// The word after an `o`, `O` or `p` that ends a group of letters, as in `-o`,
+/// `-eo` or `axo`, only names columns or processes.
 fn ps_shows_environment(arguments: &[String]) -> bool {
     let mut names_something = false;
     arguments.iter().any(|word| {
         let named = names_something;
-        names_something = matches!(word.as_str(), "-o" | "-O" | "-p");
-        !named && !word.starts_with('-') && word.contains('e')
+        names_something = !named
+            && !word.starts_with("--")
+            && word.ends_with(['o', 'O', 'p']);
+        let dashed = word.starts_with('-');
+        !named
+            && ((dashed && word.contains('E'))
+                || (!dashed && word.contains('e')))
     })
 }
 

@@ -150,7 +150,12 @@ pub(crate) fn run() -> ExitCode {
 /// The models for this machine, saying so when even the smallest may not fit.
 fn picks_for(machine: &Machine) -> Option<(HubModel, HubModel, bool)> {
     let picks = pick(&catalog(), machine);
-    if let Some((chat, decision, false)) = &picks {
+    if machine.memory == 0 {
+        println!(
+            "Couldn't read this machine's memory, so setup offers the \
+             smallest models."
+        );
+    } else if let Some((chat, decision, false)) = &picks {
         println!(
             "This machine has little memory for models. The smallest pair \
              needs about {}: expect them to be slow, or to fail to load.",

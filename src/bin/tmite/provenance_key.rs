@@ -58,7 +58,8 @@ fn from_file(home: &Home) -> Result<Vec<u8>, String> {
             if has_entries(home) {
                 return Err(format!(
                     "the key that signed {PROVENANCE_FILE} can't be found, \
-                     and a new key would break it"
+                     and a new key would break it. Put the key back, or \
+                     move the log away to start a new one"
                 ));
             }
             let key = new_key()?;

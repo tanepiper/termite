@@ -349,7 +349,7 @@ stopped every time.
 
 ## Agents
 
-termite works with any agent service or harness that can run a check before a shell command. It also includes three agent definitions and three skills. `termite-analyst` finds what the test results show, `termite-blue-team` builds safe commands in a sandbox, and `termite-red-team` tests dangerous requests in a locked-down container. Neither ever runs what a model writes, and the tool refuses to test a model anywhere else. See [agent tools](docs/agents.md).
+termite works with any agent service or harness that can run a check before a shell command. `tmite setup` offers a hook to Claude Code, Codex, Gemini CLI, Cursor, Antigravity, GitHub Copilot, Hermes Agent, goose, OpenCode and Windsurf. A hook can only stop a command, and if `tmite` is missing or crashes, the command stops. termite also includes three agent definitions and three skills. `termite-analyst` finds what the test results show, `termite-blue-team` builds safe commands in a sandbox, and `termite-red-team` tests dangerous requests in a locked-down container. Neither ever runs what a model writes, and the tool refuses to test a model anywhere else. See [agent tools](docs/agents.md).
 
 ## Roadmap
 

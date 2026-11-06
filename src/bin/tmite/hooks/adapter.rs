@@ -33,20 +33,32 @@ const SHELL_TOOL_WORDS: &[&str] = &[
     "bash",
     "cmd",
     "command",
+    "commands",
+    "eval",
     "exec",
+    "execute",
+    "fish",
     "monitor",
     "powershell",
+    "process",
+    "pwsh",
     "run",
+    "script",
+    "sh",
     "shell",
+    "spawn",
     "terminal",
+    "zsh",
 ];
 
 /// Fields that hold a command, whatever the tool is called.
 const COMMAND_FIELDS: &[&str] = &[
     "cmd",
+    "cmds",
     "command",
     "command_line",
     "commandline",
+    "commands",
     "script",
     "shell",
 ];
@@ -88,10 +100,13 @@ pub(crate) fn run(name: Option<&str>) -> ExitCode {
         Ok(_) => decide(harness, &input, home.as_deref()),
         Err(_) => stop("the hook input could not be read"),
     };
+    // The answer goes first: logging can wait on the Keychain, and the agent
+    // must still get the real reason.
+    let status = answer(harness, &outcome);
     if matches!(outcome, Outcome::Stop(_)) {
         crate::provenance::record_check(&[format!("hook {}", harness.id)]);
     }
-    ExitCode::from(answer(harness, &outcome))
+    ExitCode::from(status)
 }
 
 fn stop(why: &str) -> Outcome {
@@ -147,17 +162,44 @@ fn names_another_tool(message: &Value) -> bool {
     else {
         return false;
     };
-    let tool = tool.to_lowercase();
-    let is_shell = SHELL_TOOL_WORDS.iter().any(|word| tool.contains(word));
+    let is_shell = words_of(tool)
+        .iter()
+        .any(|word| SHELL_TOOL_WORDS.contains(&word.as_str()));
     let holds_command = message
         .pointer("/tool_input")
-        .and_then(Value::as_object)
-        .is_none_or(|input| {
-            input.keys().any(|key| {
-                COMMAND_FIELDS.contains(&key.to_lowercase().as_str())
-            })
-        });
+        .filter(|input| input.is_object())
+        .is_none_or(has_command_field);
     !tool.is_empty() && !is_shell && !holds_command
+}
+
+/// The lower-case words in a name such as `run_in_terminal` or `runTests`.
+fn words_of(name: &str) -> Vec<String> {
+    let mut words = vec![String::new()];
+    let mut after_lower = false;
+    for letter in name.chars() {
+        if !letter.is_alphanumeric() || (after_lower && letter.is_uppercase()) {
+            words.push(String::new());
+        }
+        if let Some(word) =
+            words.last_mut().filter(|_| letter.is_alphanumeric())
+        {
+            word.extend(letter.to_lowercase());
+        }
+        after_lower = letter.is_lowercase();
+    }
+    words
+}
+
+/// Whether a command field is anywhere in this value, however deep.
+fn has_command_field(value: &Value) -> bool {
+    match value {
+        Value::Object(fields) => fields.iter().any(|(key, inner)| {
+            COMMAND_FIELDS.contains(&key.to_lowercase().as_str())
+                || has_command_field(inner)
+        }),
+        Value::Array(items) => items.iter().any(has_command_field),
+        _ => false,
+    }
 }
 
 /// Give the harness its answer, once. Returns the exit status.
@@ -234,6 +276,8 @@ mod tests {
         for input in [
             json!({ "tool_name": "read_file", "tool_input": { "path": "a" } }),
             json!({ "tool_name": "Edit", "tool_input": { "file_path": "a" } }),
+            json!({ "tool_name": "truncate_file", "tool_input": { "p": "a" } }),
+            json!({ "tool_name": "prune", "tool_input": {} }),
         ] {
             assert_eq!(
                 decide(harness("claude"), input.to_string().as_bytes(), None),
@@ -250,6 +294,12 @@ mod tests {
             json!({ "tool_name": "run_in_terminal", "tool_input": {} }),
             json!({ "tool_name": "Monitor", "tool_input": {} }),
             json!({ "tool_name": "mcp__x__exec", "tool_input": {} }),
+            json!({ "tool_name": "sh", "tool_input": { "line": "ls" } }),
+            json!({ "tool_name": "runTests", "tool_input": {} }),
+            json!({ "tool_name": "ExecCode", "tool_input": {} }),
+            json!({ "tool_name": "helper", "tool_input": { "commands": [] } }),
+            json!({ "tool_name": "helper", "tool_input": { "a": { "cmd": "ls" } } }),
+            json!({ "tool_name": "helper", "tool_input": [{ "cmd": "ls" }] }),
             json!({ "tool_name": "helper", "tool_input": { "cmd": "ls" } }),
             json!({ "tool_name": "helper", "tool_input": { "Script": "ls" } }),
             json!({ "tool_name": "helper" }),

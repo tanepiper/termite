@@ -174,8 +174,9 @@ fn apply(file: &Path, block: &str) -> io::Result<()> {
     replace_file(file, &new)
 }
 
-/// Replace a file the person owns, keeping the old one beside it. A link is
-/// followed, and the new file arrives in one step with the same mode.
+/// Replace a file the person owns. The first change keeps the file as it was
+/// beside it, and later changes leave that copy alone. A link is followed, and
+/// the new file arrives in one step with the same mode.
 pub(crate) fn replace_file(file: &Path, new: &str) -> io::Result<()> {
     let target = fs::canonicalize(file).unwrap_or_else(|_| file.to_owned());
     let mode = match fs::metadata(&target) {
@@ -186,7 +187,7 @@ pub(crate) fn replace_file(file: &Path, new: &str) -> io::Result<()> {
     if let Some(folder) = target.parent() {
         fs::create_dir_all(folder)?;
     }
-    if target.exists() {
+    if target.exists() && !backup_of(file).exists() {
         fs::copy(&target, backup_of(file))?;
     }
 

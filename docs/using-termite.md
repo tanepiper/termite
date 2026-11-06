@@ -274,6 +274,8 @@ tmite provenance verify
 This reports the line where an entry was edited, removed from the middle, moved or
 forged. If the log is broken, termite does not add to it and does not install anything. To start again, move the file to another location, and keep it as evidence.
 
+If `verify` says that the first line's signature is wrong, the key may have changed, not the log. A `provenance.key` file takes the place of the key in your Keychain or Secret Service. If your log was signed with that key, move `provenance.key` to another location and run `verify` again. If the key for a log is missing, termite won't make a new one, because a new key would break the log.
+
 See one file's history:
 
 ```bash
@@ -291,7 +293,7 @@ tmite provenance accept config.json
 `bin` that termite has no record of. Accept a changed script the same way, or
 remove it.
 
-`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows who asked, the verdict and the reason, but not the request. For an agent, it also lists requests that the model declined, and commands that `tmite check` stopped.
+`tmite alerts` lists the last 20 times termite stopped something, such as a blocked command or a withheld script. It shows who asked, the verdict and the reason, but not the request. For an agent, it also lists requests that the model declined, and commands that `tmite check` or an [agent hook](agents.md#add-termite-to-your-agent-harness) stopped.
 
 The log has limits:
 

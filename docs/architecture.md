@@ -58,9 +58,11 @@ shellcheck, which parse and never run), `library` (installs the bash library),
 code that talks to the system key store).
 
 The binary has `main` (arguments and wiring), `output` (the three output
-formats), `progress` (the progress line), `hooks` (the adapter `tmite hook` that agent harnesses run, the table of
-harnesses, and installing and removing hooks) and `setup` (`discover`, `machine`, `fetch`, `installed`,
-`prompt`, `fix`, `hub`).
+formats), `progress` (the progress line), `hooks` (see [agent hooks](#agent-hooks))
+and `setup` (`discover`, `machine`, `fetch`, `installed`, `prompt`, `fix`, `hub`).
+`hub` reads `catalog.json`, the list of models that setup can fetch. Each entry
+is one GGUF file with a pinned revision, size and hash, and `fetch` won't give a
+file its name until all of them match.
 
 ## Flow
 
@@ -81,6 +83,28 @@ into place.
 `scripts/team.sh` is the only route the [agent tools](agents.md) use. `place.rs` says
 what separates this process from the machine, and the eval tool's `gate.rs` decides
 whether a model test may start. Keep those two checks in code, never in a prompt.
+
+## Agent hooks
+
+```text
+harness ─▶ tmite hook NAME ─▶ adapter ─▶ check ─▶ answer in the harness's shape
+             person ─▶ tmite hooks ─▶ plan ─▶ shown ─▶ y ─▶ settings file changes
+```
+
+`hooks` has these parts:
+
+| Part | Job | Rule |
+|---|---|---|
+| `harness` | the table of harnesses: where each keeps its hooks, where its message holds the command, and how it is told to stop | a new harness is mostly a new row |
+| `adapter` | `tmite hook NAME`: reads the message, rates the command as `TERMITE_AGENT=1 tmite check` does, and answers | anything that is not a clean pass is a stop; a pass never approves anything |
+| `plan` | works out what installing or removing changes | writes nothing; the result is a list of files with their old and new text |
+| `entries` | builds the text of each hook | only builds text; the shell line stops the command if `tmite` is missing |
+| `json` | keeps the key order of a person's settings file | a change shows as a small change |
+
+The adapter gives up and stops the command itself after 20 seconds, before the
+harness's own timeout. It answers before it writes to the log, because writing
+can wait on the Keychain. `plugins/claude-code` holds the same hook as a Claude
+Code plugin, and `tests/hooks/` holds recorded messages from each harness.
 
 ## Memory
 
