@@ -1,7 +1,8 @@
 name: Release
 
 # A tag such as v0.1.0 builds, signs and publishes a release, then moves main to
-# the next version. Run by hand, it only builds, to test the pipeline.
+# the next version through a pull request. Run by hand, it only builds, to test
+# the pipeline.
 
 on:
   push:
@@ -81,8 +82,10 @@ jobs:
       attestations: write
       contents: write
       id-token: write
+      pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
+      BUMP_BRANCH: release/${{ github.ref_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,6 +93,13 @@ jobs:
           fetch-depth: 0
       - name: Check the tag is on main
         run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      # Stop here if the token is missing or expired, before anything is published.
+      - name: Check the pull request token
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN"
+          gh api "repos/$GITHUB_REPOSITORY" --silent
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist
@@ -110,7 +120,12 @@ jobs:
           gh release create "$GITHUB_REF_NAME" dist/tmite-*.tar.gz dist/SHA256SUMS \
             --verify-tag --title "termite ${GITHUB_REF_NAME#v}" --notes-file notes.md
           rm notes.md
-      - name: Move main to the next version
+      # main only takes pull requests. A pull request opened with the job's own token
+      # starts no checks, and checks started by hand don't count towards the ruleset,
+      # so this step uses RELEASE_PR_TOKEN.
+      - name: Open the pull request that moves main to the next version
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
         run: |
           next=$(python3 -I scripts/release.py bump "$(date -u +%F)")
           git config user.name 'github-actions[bot]'
@@ -118,7 +133,20 @@ jobs:
           git add CHANGELOG.md Cargo.toml Cargo.lock site/public/releases.json
           git commit -m "Record $GITHUB_REF_NAME and start $next"
           git pull --rebase origin main
-          git push origin HEAD:main
-      # A push from this workflow starts no other workflow, so ask for the site.
+          git push origin "HEAD:refs/heads/$BUMP_BRANCH"
+          gh pr create --base main --head "$BUMP_BRANCH" \
+            --title "Record $GITHUB_REF_NAME and start $next" \
+            --body "Made by the release workflow for $GITHUB_REF_NAME. It merges when the checks pass."
+          gh pr merge "$BUMP_BRANCH" --auto --merge
+      # The site reads releases.json from main, so it waits for the merge. If this
+      # times out, merge the pull request, then run pages.yml by hand.
+      - name: Wait for the pull request to merge
+        timeout-minutes: 60
+        run: |
+          until [ "$(gh pr view "$BUMP_BRANCH" --json state --jq .state)" = MERGED ]; do
+            sleep 30
+          done
+          git push origin --delete "$BUMP_BRANCH"
+      # A change to releases.json alone doesn't start the site, so ask for it.
       - name: Publish the site
         run: gh workflow run pages.yml --ref main
