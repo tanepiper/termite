@@ -220,7 +220,8 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
         let home = Home::at(&root).expect("home");
         home.ensure().expect("folders");
-        fs::write(root.join(PROVENANCE_FILE), "{}\n").expect("log");
+        write_private(&root, PROVENANCE_FILE, b"{}\n", PRIVATE_FILE_MODE)
+            .expect("log");
 
         let found = key(&home);
 
