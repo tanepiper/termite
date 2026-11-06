@@ -899,13 +899,16 @@ fn given_a_request_and_a_pipe_then_the_request_wins() {
 
 /// Skips the test when the tools a script needs aren't here.
 fn script_tools_here() -> bool {
-    ["bash", "shellcheck"].iter().all(|tool| {
-        Command::new(tool)
-            .arg("--version")
-            .stdout(Stdio::null())
-            .status()
-            .is_ok()
-    })
+    let new_bash = Command::new("bash")
+        .args(["-c", "((BASH_VERSINFO[0] * 100 + BASH_VERSINFO[1] >= 503))"])
+        .status()
+        .is_ok_and(|status| status.success());
+    let shellcheck = Command::new("shellcheck")
+        .arg("--version")
+        .stdout(Stdio::null())
+        .status()
+        .is_ok();
+    new_bash && shellcheck
 }
 
 fn script_reply(name: &str, script: &str) -> Replies {

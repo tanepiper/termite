@@ -27,6 +27,7 @@ env:
 jobs:
   rust:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -56,10 +57,14 @@ jobs:
       - name: Install Semgrep
         if: runner.os == 'Linux'
         run: pipx install semgrep==1.183.0
+      # Scripts need bash 5.3, which only Homebrew has here. The Mac job runs those tests.
+      - name: Install bash and the script tools
+        if: runner.os == 'macOS'
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: brew install bash shellcheck bats-core
       - name: Test
         run: cargo test --locked
       - name: Test the bash library
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get install -y --no-install-recommends bats
-          bash/tests/run.sh
+        if: runner.os == 'macOS'
+        run: bash/tests/run.sh
