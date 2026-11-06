@@ -1,0 +1,68 @@
+---
+import Base from "../../layouts/Base.astro";
+import Explain from "../../components/Explain.astro";
+import { results } from "../../lib/results";
+---
+
+<Base title="Every test run" description="Every test of every model: what ran, where it ran, its settings and the result." current="models">
+  <h1>Every test run</h1>
+  <p>
+    This table lists every test of every model: what ran, where it ran, its settings, the
+    command that started it, and the result. No command from a model was ever run. Hazard
+    counts are out of the hostile requests where the model wrote a command.
+  </p>
+  <Explain summary="What each column in this table means" terms={[
+    ["Test", "Commands means the model wrote commands for requests. Decision means the model scored the safety ladder."],
+    ["Weights", "The model file that was used."],
+    ["Ran on", "The machine or service that ran the model. Local Sandbox on Mac is an M3 Mac with 96 GB of memory."],
+    ["Temperature", "How much randomness the model used. 0 means the least randomness."],
+    ["Seed", "The starting number for that randomness. The same seed helps a run repeat."],
+    ["Could refuse", "Whether the reply format allowed the model to decline a request."],
+    ["Command", "The command that started the run."],
+    ["Commit", "The version of termite that ran the test."],
+    ["Hazards written", "Hostile requests where the model wrote at least one hazard."],
+    ["Handed over", "Requests where the model's top answer was the hazard, so a user would receive it."],
+    ["Ladder order", "How well the decision model's order matched the ladder, where 1 is the same order."],
+    ["Failed", "Requests that did not finish."],
+    ["Run", "One model going through one test, from start to finish. Each row of this table is one run."],
+  ]} />
+  <form class="run-filters" id="run-filters" aria-label="Filter runs">
+    <label>Model <input type="search" name="model" /></label>
+    <label>Ran on <select name="ran_on"><option value="">All</option>{[...new Set(results.runs.map((run) => run.ran_on))].sort().map((name) => <option>{name}</option>)}</select></label>
+    <label>Test <select name="test"><option value="">All</option><option>Commands</option><option>Decision</option></select></label>
+    <label>Could refuse <select name="refuse"><option value="">All</option><option>Yes</option><option>No</option></select></label>
+  </form>
+  <p class="note" id="run-count" role="status">{results.runs.length} runs</p>
+  <div class="scroll"><table id="runs">
+    <thead><tr><th scope="col">Date</th><th scope="col">Model</th><th scope="col">Test</th><th scope="col">Weights</th><th scope="col">Ran on</th><th scope="col">Temperature</th><th scope="col">Seed</th><th scope="col">Could refuse</th><th scope="col">Command</th><th scope="col">Commit</th><th scope="col" class="number">Hazards written</th><th scope="col" class="number">Handed over</th><th scope="col" class="number">Ladder order</th><th scope="col" class="number">Failed</th></tr></thead>
+    <tbody>{results.runs.map((run) => {
+      const test = run.tau === null ? "Commands" : "Decision";
+      const refuse = run.could_refuse === null ? "" : run.could_refuse ? "Yes" : "No";
+      return <tr data-model={run.model.toLowerCase()} data-ran_on={run.ran_on} data-test={test} data-refuse={refuse}><td>{new Date(run.started * 1000).toISOString().slice(0, 10)}</td><th scope="row">{run.model}</th><td>{test}</td><td>{run.weights}</td><td>{run.ran_on}</td><td>{run.temperature ?? ""}</td><td>{run.tau === null ? (run.seed ?? "None") : ""}</td><td>{refuse}</td><td><code>{run.how}</code></td><td>{run.commit}</td><td class="number">{run.hostile === null ? "" : run.hostile === 0 ? "No result" : `${run.wrote_hazard} of ${run.hostile}`}</td><td class="number">{run.handed_over ?? ""}</td><td class="number">{run.tau === null ? "" : run.failed === run.requests ? "No result" : run.tau.toFixed(2)}</td><td class="number">{run.failed} of {run.requests}</td></tr>;
+    })}</tbody>
+  </table></div>
+</Base>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>("#run-filters");
+  const count = document.querySelector("#run-count");
+  const rows = [...document.querySelectorAll<HTMLTableRowElement>("#runs tbody tr")];
+  const apply = () => {
+    if (!form || !count) return;
+    const chosen = new FormData(form);
+    const text = String(chosen.get("model") ?? "").toLowerCase();
+    const matches = (row: HTMLTableRowElement) =>
+      (row.dataset.model ?? "").includes(text) &&
+      ["ran_on", "test", "refuse"].every((name) => !chosen.get(name) || row.dataset[name] === chosen.get(name));
+    const shown = rows.filter((row) => {
+      row.hidden = !matches(row);
+      return !row.hidden;
+    }).length;
+    count.textContent = `${shown} of ${rows.length} runs`;
+  };
+  form?.addEventListener("input", apply);
+</script>
+
+<style>
+  th[scope="row"] { font-weight: 500; color: var(--ink); }
+</style>

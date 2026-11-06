@@ -1,0 +1,130 @@
+---
+import Base from "../../layouts/Base.astro";
+import Callouts from "../../components/Callouts.astro";
+import LadderChart from "../../components/LadderChart.astro";
+import Sectioned from "../../components/Sectioned.astro";
+import Outcomes from "../../components/Outcomes.astro";
+import { handedOver, page, readOnlyFlags, results, saves, working } from "../../lib/results";
+
+const { totals } = results;
+const onlyRead = totals.got_past_policy === readOnlyFlags;
+/** Models are not all on the same set of requests: each counts by its newest run. */
+const newest = new Map<string, (typeof results.runs)[number]>();
+for (const run of results.runs) {
+  const seen = newest.get(run.model);
+  if (run.hostile !== null && (!seen || run.started > seen.started)) newest.set(run.model, run);
+}
+const sizes = working.map((model) => newest.get(model.name)?.requests ?? 0);
+const requestSets = [...new Set(sizes)].sort((a, b) => b - a)
+  .map((size) => `${sizes.filter((other) => other === size).length} got ${size} requests`)
+  .join(", ").replace(/, ([^,]*)$/, " and $1");
+const scored = results.decision.filter((model) => model.pairs > 0);
+const unscored = results.decision.length - scored.length;
+const sum = (value: (model: (typeof scored)[number]) => number) => scored.reduce((total, model) => total + value(model), 0);
+const bestChoice = scored.reduce((best, model) => (model.safest_first > best.safest_first ? model : best));
+---
+
+<Base title="Test results" current="results" description="What termite's tests found: the commands models wrote, what termite did with them, and how well models judged risk.">
+  <h1>Test results</h1>
+  <Sectioned sections={[
+    ["found", "What the tests found"],
+    ["wrote", "What the command models wrote"],
+    ["did", "What termite did with the commands"],
+    ["judged", "How the decision models judged risk"],
+  ]}>
+      <h2 id="found">What the tests found</h2>
+      <p>
+        I tested {working.length} command models, which write commands, and
+        {" "}{results.decision.length} decision models, which score how risky a command is.
+      </p>
+      <Callouts featured />
+
+      <h2 id="wrote">What the command models wrote</h2>
+      <p>
+        I sent requests to {working.length} command models, from "list the files" to direct
+        attacks. {requestSets[0].toUpperCase() + requestSets.slice(1)}.
+      </p>
+      <p>
+        They wrote {totals.commands_written} commands, and {totals.hazardous} of them were hazards.
+        A hazard is a command that could cause harm, and that the request did not need.
+        These are the kinds of harm those commands could cause.
+      </p>
+
+      <div class="saves">
+        {saves.map((save) => (
+          <section>
+            <div class="head">
+              <h3>{save.title}</h3>
+              <p class="count"><strong>{save.count}</strong> times, {save.models} of {working.length} models</p>
+            </div>
+            <span class="tally" role="img" aria-label={`${save.count} times`}>
+              {Array.from({ length: save.count }, () => <i></i>)}
+            </span>
+            <p class="note">{save.detail}</p>
+            {save.example && (
+              <div class="exchange">
+                <p class="you">{save.example.request}</p>
+                <pre><code>{save.example.command}</code></pre>
+                <p class="note">Written by {save.example.model}.</p>
+              </div>
+            )}
+          </section>
+        ))}
+      </div>
+
+      <h2 id="did">What termite did with the commands</h2>
+      <Outcomes harmless={totals.commands_written - totals.hazardous} held={totals.stopped_by_policy} through={totals.got_past_policy} onlyRead={onlyRead} />
+      <p>
+        {totals.got_past_policy === 0
+          ? `None of those ${totals.hazardous} hazards could reach your prompt without approval.`
+          : onlyRead
+            ? `${totals.got_past_policy} could reach your prompt without approval; these only read a file and run nothing.`
+            : `${totals.got_past_policy} could reach your prompt without approval.`}{" "}
+        With no model involved, I also ran {totals.policy_refused + totals.policy_escaped} known
+        attacks against the policy, and {totals.policy_escaped} passed.{" "}
+        <a href={page("policy/")}>Read about the policy tests</a>.
+      </p>
+      <p>
+        In {handedOver} cases, the model's top answer was the dangerous command, so it was handed
+        over. termite marks these commands in red and makes no the default answer. It does not
+        block them: if you approve one, it goes to your prompt, so read it before you press Enter.
+      </p>
+
+      <h2 id="judged">How the decision models judged risk</h2>
+      <p>
+        A decision model gives each command a harm score. termite uses that score to rank commands
+        and to decide whether to ask for approval.
+      </p>
+      <p>
+        I tested these models with the safety ladder. It sorts commands and folders into seven
+        tiers, from tier 0 to tier 6, by how much harm they can do. A model that judges risk well
+        gives a higher score at each higher tier.
+        {unscored > 0 && ` ${unscored} of the ${results.decision.length} models gave no usable score, so the chart shows the other ${scored.length}.`}
+      </p>
+      <LadderChart />
+      <p>
+        Given one command in two folders, the models gave the riskier folder the higher score in
+        {" "}{sum((model) => model.folder_right)} of {sum((model) => model.folder_pairs)} tests. Given
+        several ways to do a job, the best model put the safest way first in
+        {" "}{bestChoice.safest_first} of {bestChoice.choices} tests. For this reason, termite checks
+        the folder itself and does not rely on these scores.
+        {" "}<a href={`${page("models/")}#decision-models`}>Read more about the decision models</a>.
+      </p>
+  </Sectioned>
+</Base>
+
+<style>
+  .saves { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24em), 1fr)); gap: 0 3em; }
+  .saves section { padding: 1.4em 0; border-top: 1px solid var(--line); min-width: 0; }
+  .tally { display: flex; flex-wrap: wrap; gap: 3px; margin: 0.7em 0; }
+  .tally i { width: 9px; height: 9px; background: var(--gallery); border-radius: 1px; }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 1em; align-items: baseline; }
+  .head h3 { margin: 0; font-size: 1.35rem; }
+  .count { margin: 0; color: var(--ink-soft); }
+  .count strong { color: var(--ink); font-size: 1.3rem; }
+  .saves .note { margin: 0.2em 0; }
+  .exchange { margin-top: 0.7em; }
+  .you { font-family: var(--serif); font-style: italic; margin: 0 0 0.3em; }
+  .you::before { content: "You: "; font-style: normal; color: var(--ink-soft); }
+  .exchange pre { margin: 0.2em 0; }
+</style>

@@ -1,0 +1,15 @@
+---
+/** A long page: a list of its sections beside the sections themselves. */
+interface Props {
+  /** Each section's id and name, in page order. */
+  sections: [string, string][];
+}
+const { sections } = Astro.props;
+---
+
+<div class="sectioned">
+  <nav class="contents" aria-label="On this page">
+    {sections.map(([id, name]) => <a href={`#${id}`}>{name}</a>)}
+  </nav>
+  <div class="story"><slot /></div>
+</div>

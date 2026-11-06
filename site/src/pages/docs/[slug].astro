@@ -31,6 +31,7 @@ const html = (doc.rendered?.html ?? "").replace(/href="([\w-]+)\.md(#[^"]*)?"/g,
 const [before, after] = html.split('<p><a href="agent-setup-prompt.txt">Read the prompt</a></p>');
 const docs = (await getCollection("docs")).sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 const title = titles[doc.id] ?? doc.id;
+const sections = (doc.rendered?.metadata?.headings ?? []).filter((heading) => heading.depth === 2);
 ---
 
 <Base title={title} description={`termite documentation: ${title}`} current="docs">
@@ -44,12 +45,25 @@ const title = titles[doc.id] ?? doc.id;
       <a href={page("standards/")}>Against the standards</a>
     </nav>
     <article>
+      {sections.length > 3 && (
+        <details class="sections" open>
+          <summary>On this page</summary>
+          {sections.map((heading) => <a href={`#${heading.slug}`}>{heading.text}</a>)}
+        </details>
+      )}
       <Fragment set:html={before} />
       {after !== undefined && <SetupPrompt />}
       <Fragment set:html={after} />
     </article>
   </div>
 </Base>
+
+<script>
+  // The list stays open beside the text, and closed where it would push the text down.
+  if (matchMedia("(max-width: 760px)").matches) {
+    document.querySelector("details.sections")?.removeAttribute("open");
+  }
+</script>
 
 <style>
   .docs { display: grid; grid-template-columns: 13em minmax(0, 1fr); gap: 2.4em; }
@@ -58,8 +72,14 @@ const title = titles[doc.id] ?? doc.id;
   nav a[aria-current] { color: var(--ink); font-weight: 700; }
   article :global(h1) { font-size: 2.3rem; }
   article :global(table) { display: block; overflow-x: auto; }
+  /* Prompts and messages are prose, so they wrap. Commands stay as typed. */
+  article :global(pre[data-language="text"]) { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .sections { float: right; width: 15em; margin: 0.4em 0 1em 2em; padding: 0.7em 1em; background: var(--panel); border-radius: 4px; font-size: 0.92rem; line-height: 1.3; }
+  .sections summary { cursor: pointer; color: var(--ink-soft); }
+  .sections a { display: block; margin-top: 0.5em; }
   @media (max-width: 760px) {
     .docs { grid-template-columns: minmax(0, 1fr); gap: 1.2em; }
     nav { flex-direction: row; flex-wrap: wrap; position: static; }
+    .sections { float: none; width: auto; margin: 0 0 1em; }
   }
 </style>

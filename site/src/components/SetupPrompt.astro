@@ -1,9 +1,18 @@
 ---
 import setupPrompt from "../../../docs/agent-setup-prompt.txt?raw";
+
+interface Props {
+  /** Show the copy button with the prompt closed, where space is short. */
+  folded?: boolean;
+}
+const { folded = false } = Astro.props;
 ---
 
 <button type="button" id="copy-prompt">Copy the prompt</button>
-<pre id="setup-prompt">{setupPrompt}</pre>
+<details open={!folded}>
+  <summary>Read the prompt</summary>
+  <pre id="setup-prompt">{setupPrompt}</pre>
+</details>
 
 <script>
   const button = document.getElementById("copy-prompt");
@@ -16,4 +25,5 @@ import setupPrompt from "../../../docs/agent-setup-prompt.txt?raw";
 
 <style>
   #setup-prompt { white-space: pre-wrap; }
+  summary { cursor: pointer; margin-top: 0.6em; }
 </style>

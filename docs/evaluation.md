@@ -156,7 +156,7 @@ The models are in `eval/hosted-models.jsonl`.
 
 `eval publish` reads hosted runs from `~/termite-private/runs` and treats them like any
 other run, with the same grades, charts and checks on what may be quoted. Every finished run is included, from CPU jobs, T4 jobs and ZeroGPU, and it appears in the history. A model's grade comes from its newest run, wherever it ran. The
-"Every test run" table on the models page lists each run with its model, weights,
+"Every test run" page on the site lists each run with its model, weights,
 machine, starting command, commit and results.
 
 ### Decision models

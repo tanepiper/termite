@@ -522,7 +522,7 @@ function testNote(name: string): string {
   const mine = rows.filter((row) => row.suite === note.suite && row.model_kind === kind && (note.anchor !== "repeated-requests" || row.fill === 0) && (note.anchor !== "long-sessions" || row.fill > 0));
   const models = new Set(mine.map((row) => row.model)).size;
   const base = $("count").dataset.base ?? "/";
-  return `<div class="test-note"><h3>About this test: ${esc(note.name)}</h3>${reading([
+  return `<div class="test-note"><h2>About this test: ${esc(note.name)}</h2>${reading([
     ["What was sent", note.sent],
     ["How it was scored", note.scored],
     ["Where it ran", `${models} ${models === 1 ? "model" : "models"}, on ${sortedSet(mine.map((row) => row.ran_on)).map(esc).join("; ")}.`],

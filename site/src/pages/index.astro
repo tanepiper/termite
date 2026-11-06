@@ -1,172 +1,118 @@
 ---
 import Base from "../layouts/Base.astro";
-import Callouts from "../components/Callouts.astro";
-import LadderChart from "../components/LadderChart.astro";
-import Outcomes from "../components/Outcomes.astro";
-import { handedOver, page, readOnlyFlags, results, saves, working } from "../lib/results";
+import { page, readOnlyFlags, results, working } from "../lib/results";
 import SetupPrompt from "../components/SetupPrompt.astro";
 
 const { totals } = results;
 const onlyRead = totals.got_past_policy === readOnlyFlags;
-/** Models are not all on the same set of requests: each counts by its newest run. */
-const newest = new Map<string, (typeof results.runs)[number]>();
-for (const run of results.runs) {
-  const seen = newest.get(run.model);
-  if (run.hostile !== null && (!seen || run.started > seen.started)) newest.set(run.model, run);
-}
-const sizes = working.map((model) => newest.get(model.name)?.requests ?? 0);
-const requestSets = [...new Set(sizes)].sort((a, b) => b - a)
-  .map((size) => `${sizes.filter((other) => other === size).length} got ${size} requests`)
-  .join(", ").replace(/, ([^,]*)$/, " and $1");
 const scored = results.decision.filter((model) => model.pairs > 0);
-const unscored = results.decision.length - scored.length;
 const sum = (value: (model: (typeof scored)[number]) => number) => scored.reduce((total, model) => total + value(model), 0);
-const bestChoice = scored.reduce((best, model) => (model.safest_first > best.safest_first ? model : best));
+const answers = [
+  { tone: "status-ok", word: "Pass", command: "ls -la", text: "Your harness's own rules decide." },
+  { tone: "status-warn", word: "Needs approval", command: "az vm list", text: "Claude Code asks you. Yes runs the command, and no doesn't. Other harnesses stop it, because an ignored question would let it run." },
+  { tone: "status-bad", word: "Stop", command: "sudo ls", text: "The command stops, and nobody is asked." },
+];
 ---
 
 <Base title="termite" description="termite finds shell commands and scripts with AI models on your own machine, and it checks them for you and your agents. It never runs them.">
-  <h1>Find and check shell commands with local AI models</h1>
-  <p class="lead">
-    termite uses AI models on your own machine to find shell commands and scripts, and it
-    checks each one before you use it. termite never runs these commands, and it can stop
-    agents from running destructive ones.
-  </p>
-  <p>
-    It supports both sides of computer security: the blue team, who defend systems, and the
-    red team, who attack systems to find weaknesses first.{" "}
-    <a href={page("docs/plain-english/")}>Read the introduction in plain English</a>.
-  </p>
-  <div class="roles">
-    <section class="blue">
-      <h2>Blue team: get safe commands</h2>
-      <p>Ask for a command in plain English, using AI models on your own machine. termite treats every model as untrusted: it explains each command, marks risky commands in red, and never runs anything.</p>
-      <p><a href={page("docs/getting-started/")}>Install termite</a></p>
-    </section>
-    <section class="red">
-      <h2>Red team: test a model</h2>
-      <p>Test an AI model before you trust it. termite sends the model hostile requests, records which requests get a dangerous command, grades the result, and shows you what to block or restrict.</p>
-      <p><a href={page("docs/red-team/")}>Test a model</a></p>
-    </section>
+  <div class="hero">
+    <div>
+      <h1>Find and check shell commands with local AI models</h1>
+      <p class="lead">
+        termite uses AI models on your own machine to find shell commands and scripts, and it
+        checks each one before you use it. termite never runs these commands, and it can stop
+        agents from running destructive ones.
+      </p>
+      <p>
+        It supports both sides of computer security: the blue team, who defend systems, and the
+        red team, who attack systems to find weaknesses first.{" "}
+        <a href={page("docs/plain-english/")}>Read the introduction in plain English</a>.
+      </p>
+    </div>
+    <img class="demo" src={page("assets/ask.gif")} width="1200" height="600"
+      alt="Typing a question mark and a request at a zsh prompt; termite explains a find command and asks Y or n; approving it puts it at the prompt, and it does not run" />
   </div>
 
-  <img class="demo" src={page("assets/ask.gif")} width="1200" height="600"
-    alt="Typing a question mark and a request at a zsh prompt; termite explains a find command and asks Y or n; approving it puts it at the prompt, and it does not run" />
+  <section class="team blue">
+    <h2>Blue team: get safe commands</h2>
+    <p>Ask for a command in plain English, using AI models on your own machine. termite treats every model as untrusted: it explains each command, marks risky commands in red, and never runs anything.</p>
+    <p><a href={page("docs/getting-started/")}>Install termite</a></p>
+    <div class="pair">
+      <section>
+        <h3>At your prompt</h3>
+        <dl class="uses">
+          <dt><code>? what is using my disk space</code></dt>
+          <dd>One command, explained. If you approve it, it goes to your prompt.</dd>
+          <dt><code>?? what is on port 8080</code></dt>
+          <dd>Every sensible way to do it, explained. Choose one, ask again or cancel.</dd>
+          <dt><code>?x show disk usage</code></dt>
+          <dd>Injected at your prompt with no question, if it only reads and every check passes.</dd>
+        </dl>
+        <p>These examples use the optional prompt widget for zsh, bash or fish. Without it, <code>tmite</code> prints the same result in any shell. Your requests and folders stay on your machine. <a href={page("docs/using-termite/")}>Read the full guide</a>.</p>
+      </section>
+      <section>
+        <h3>For your agents</h3>
+        <p>A hook checks each shell command before your agent runs it. The hook never approves a command. It gives one of three answers:</p>
+        <dl class="uses">
+          {answers.map((answer) => (
+            <dt><span class:list={["status", answer.tone]}>{answer.word}</span> <code>{answer.command}</code></dt>
+            <dd>{answer.text}</dd>
+          ))}
+        </dl>
+        <p><a href={page("docs/agents/#commands-that-need-approval")}>See what each harness does</a>.</p>
+      </section>
+    </div>
+  </section>
+
+  <div class="pair next">
+  <section class="team setup">
+    <h2>Set it up with your agent</h2>
+    <p>Copy this prompt and give it to any agent, such as Claude Code or Codex. The agent finds your system, your harnesses and the models that fit. You type y for each change in your own terminal, and then the agent proves that the checks work. <a href={page("docs/agents/")}>Read about agent tools</a>.</p>
+    <SetupPrompt folded />
+  </section>
+
+  <section class="team red">
+    <h2>Red team: test a model</h2>
+    <p>Test an AI model before you trust it. termite sends the model hostile requests, records which requests get a dangerous command, grades the result, and shows you what to block or restrict.</p>
+    <p><a href={page("docs/red-team/")}>Test a model</a></p>
+  </section>
+  </div>
 
   <h2>What the tests found</h2>
   <p>
     I tested {working.length} command models, which write commands, and
     {" "}{results.decision.length} decision models, which score how risky a command is.
+    {" "}<a href={page("results/")}>Read the test results</a>.
   </p>
-  <Callouts featured />
-
-  <h2>What the command models wrote</h2>
-  <p>
-    I sent requests to {working.length} command models, from "list the files" to direct
-    attacks. {requestSets[0].toUpperCase() + requestSets.slice(1)}.
-  </p>
-  <p>
-    They wrote {totals.commands_written} commands, and {totals.hazardous} of them were hazards.
-    A hazard is a command that could cause harm, and that the request did not need.
-    These are the kinds of harm those commands could cause.
-  </p>
-
-  <div class="saves">
-    {saves.map((save) => (
-      <section>
-        <div class="head">
-          <h3>{save.title}</h3>
-          <p class="count"><strong>{save.count}</strong> times, {save.models} of {working.length} models</p>
-        </div>
-        <span class="tally" role="img" aria-label={`${save.count} times`}>
-          {Array.from({ length: save.count }, () => <i></i>)}
-        </span>
-        <p class="note">{save.detail}</p>
-        {save.example && (
-          <div class="exchange">
-            <p class="you">{save.example.request}</p>
-            <pre><code>{save.example.command}</code></pre>
-            <p class="note">Written by {save.example.model}.</p>
-          </div>
-        )}
-      </section>
-    ))}
-  </div>
-
-  <h2>What termite did with the commands</h2>
-  <Outcomes harmless={totals.commands_written - totals.hazardous} held={totals.stopped_by_policy} through={totals.got_past_policy} onlyRead={onlyRead} />
-  <p>
-    {totals.got_past_policy === 0
-      ? `None of those ${totals.hazardous} hazards could reach your prompt without approval.`
+  <ul class="found">
+    <li><a href={page("results/#wrote")}>What the command models wrote</a>: {totals.commands_written} commands, and {totals.hazardous} of them were hazards.</li>
+    <li><a href={page("results/#did")}>What termite did with the commands</a>: {totals.got_past_policy === 0
+      ? `none of those ${totals.hazardous} hazards could reach your prompt without approval.`
       : onlyRead
-        ? `${totals.got_past_policy} could reach your prompt without approval; these only read a file and run nothing.`
-        : `${totals.got_past_policy} could reach your prompt without approval.`}{" "}
-    With no model involved, I also ran {totals.policy_refused + totals.policy_escaped} known
-    attacks against the policy, and {totals.policy_escaped} passed.{" "}
-    <a href={page("policy/")}>Read about the policy tests</a>.
-  </p>
-  <p>
-    In {handedOver} cases, the model's top answer was the dangerous command, so it was handed
-    over. termite marks these commands in red and makes no the default answer. It does not
-    block them: if you approve one, it goes to your prompt, so read it before you press Enter.
-  </p>
-
-  <h2>How the decision models judged risk</h2>
-  <p>
-    A decision model gives each command a harm score. termite uses that score to rank commands
-    and to decide whether to ask for approval.
-  </p>
-  <p>
-    I tested these models with the safety ladder. It sorts commands and folders into seven
-    tiers, from tier 0 to tier 6, by how much harm they can do. A model that judges risk well
-    gives a higher score at each higher tier.
-    {unscored > 0 && ` ${unscored} of the ${results.decision.length} models gave no usable score, so the chart shows the other ${scored.length}.`}
-  </p>
-  <LadderChart />
-  <p>
-    Given one command in two folders, the models gave the riskier folder the higher score in
-    {" "}{sum((model) => model.folder_right)} of {sum((model) => model.folder_pairs)} tests. Given
-    several ways to do a job, the best model put the safest way first in
-    {" "}{bestChoice.safest_first} of {bestChoice.choices} tests. For this reason, termite checks
-    the folder itself and does not rely on these scores.
-    {" "}<a href={`${page("models/")}#decision-models`}>Read more about the decision models</a>.
-  </p>
-
-  <h2>Set it up with your agent</h2>
-  <p>Copy this prompt and give it to any agent, such as Claude Code or Codex. The agent finds your system, your harnesses and the models that fit. You type y for each change in your own terminal, and then the agent proves that the checks work. <a href={page("docs/agents/")}>Read about agent tools</a>.</p>
-  <SetupPrompt />
-
-  <h2>How to use it</h2>
-  <div class="scroll">
-    <table>
-      <tbody>
-        <tr><th scope="row"><code>? what is using my disk space</code></th><td>One command, explained. If you approve it, it goes to your prompt.</td></tr>
-        <tr><th scope="row"><code>?? what is on port 8080</code></th><td>Every sensible way to do it, explained. Choose one, ask again or cancel.</td></tr>
-        <tr><th scope="row"><code>?x show disk usage</code></th><td>Injected at your prompt with no question, if it only reads and every check passes.</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p>These examples use the optional prompt widget for zsh, bash or fish. Without it, <code>tmite</code> prints the same result in any shell. Your requests and folders stay on your machine. <a href={page("docs/using-termite/")}>Read the full guide</a>.</p>
+        ? `${totals.got_past_policy} could reach your prompt without approval, and these only read a file.`
+        : `${totals.got_past_policy} could reach your prompt without approval.`}</li>
+    <li><a href={page("results/#judged")}>How the decision models judged risk</a>: the riskier folder got the higher score in {sum((model) => model.folder_right)} of {sum((model) => model.folder_pairs)} tests.</li>
+  </ul>
 </Base>
 
 <style>
-  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(16em, 1fr)); gap: 0 2.4em; }
-  .roles h2 { margin-top: 0.4em; }
-  .roles section { border-top: 4px solid; padding-top: 0.4em; }
-  .roles .blue { border-color: #3f8cff; }
-  .roles .red { border-color: #ef4d4d; }
-  .demo { display: block; width: 100%; height: auto; border-radius: 6px; margin-top: 1.6em; }
-  th[scope="row"] { white-space: nowrap; font-weight: 400; }
-  .saves { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 30em), 1fr)); gap: 0 3em; }
-  .saves section { padding: 1.4em 0; border-top: 1px solid var(--line); min-width: 0; }
-  .tally { display: flex; flex-wrap: wrap; gap: 3px; margin: 0.7em 0; }
-  .tally i { width: 9px; height: 9px; background: var(--gallery); border-radius: 1px; }
-  .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 1em; align-items: baseline; }
-  .head h3 { margin: 0; font-size: 1.35rem; }
-  .count { margin: 0; color: var(--ink-soft); }
-  .count strong { color: var(--ink); font-size: 1.3rem; }
-  .saves .note { margin: 0.2em 0; }
-  .exchange { margin-top: 0.7em; }
-  .you { font-family: var(--serif); font-style: italic; margin: 0 0 0.3em; }
-  .you::before { content: "You: "; font-style: normal; color: var(--ink-soft); }
-  .exchange pre { margin: 0.2em 0; }
+  .hero { display: grid; gap: 1.4em 3em; align-items: center; }
+  .demo { display: block; width: 100%; height: auto; border-radius: 6px; }
+  .team { border-top: 4px solid; padding-top: 0.4em; margin-top: 3em; }
+  .team h2 { margin-top: 0.4em; }
+  .team.blue { border-color: #3f8cff; }
+  .team.red { border-color: #ef4d4d; }
+  .pair { display: grid; gap: 0 3em; }
+  .pair section { min-width: 0; }
+  .uses { margin: 0.8em 0; }
+  .uses dt { margin-top: 0.9em; }
+  .uses dd { margin: 0.2em 0 0; color: var(--ink-soft); max-width: 60ch; }
+  .team.setup { border-color: var(--line); }
+  .next .team { margin-top: 3em; }
+  .found { padding-left: 1.2em; }
+  .found li { margin: 0.4em 0; }
+  @media (min-width: 60em) {
+    .hero { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); }
+    .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
 </style>
