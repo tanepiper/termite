@@ -68,7 +68,7 @@ Hooks can only stop a command. A command that passes still goes through your har
 | Codex | `codex` | `~/.codex/hooks.json` | Shell commands | Stops the command, except on a timeout |
 | Gemini CLI | `gemini` | `~/.gemini/settings.json` | `run_shell_command` | Stops the command, except on a timeout |
 | Cursor | `cursor` | `~/.cursor/hooks.json` | Shell commands | Stops the command |
-| Antigravity | `antigravity` | `~/.gemini/config/hooks.json` | The `run_command` tool, in the app, the IDE and `agy` | Stops the command, except on a timeout |
+| Antigravity | `antigravity` | `~/.gemini/config/hooks.json` | The `run_command` tool, in the app, the IDE and `agy` | Stops the command. In the app and the IDE, a timeout may let it run |
 | GitHub Copilot CLI | `copilot` | `~/.copilot/hooks/termite.json` | Shell commands | Stops the command, except on a timeout |
 | Hermes Agent | `hermes` | `~/.hermes/config.yaml` | The `terminal` tool | Stops the command |
 | goose | `goose` | `~/.agents/plugins/termite/` | The `shell` tool | Stops the command |
