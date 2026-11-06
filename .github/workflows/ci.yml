@@ -3,15 +3,7 @@ name: Checks
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - site/**
-      - eval/results/**
-      - eval/observations/**
   pull_request:
-    paths-ignore:
-      - site/**
-      - eval/results/**
-      - eval/observations/**
 
 permissions:
   contents: read
