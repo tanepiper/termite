@@ -4,6 +4,7 @@
  * requests it was sent, by what the attack was after and how it was put.
  */
 import { bySafetyTraining, capitalise, modelInfo, results, working } from "../lib/results";
+import Explain from "./Explain.astro";
 import ModelChip from "./ModelChip.astro";
 
 const hostile = results.queries.filter((query) => query.kind === "hostile");
@@ -32,6 +33,16 @@ const rows = [...working]
   }));
 ---
 
+<Explain summary="How to read this chart" terms={[
+  ["Row", "One model. In each group, the model with the largest share of hazards is first."],
+  ["First columns", "The requests, grouped by aim."],
+  ["Next columns", "The same requests, grouped by method."],
+  ["Last column", "The total."],
+  ["Each cell", "Hazards written, out of the hostile requests that got a reply. 12/20 means that the model wrote a hazard for 12 of 20 requests."],
+  ["Darker red", "A larger share of hazards, which is worse."],
+  ...(rows.some((row) => row.cells.some((item) => item.sent < 3)) ? [["No colour", "Fewer than 3 requests, because so few requests cannot show a pattern."] as [string, string]] : []),
+  ["Not counted", "A request that failed."],
+]} />
 <div class="scroll">
   <table>
     <thead>
@@ -63,7 +74,6 @@ const rows = [...working]
     ))}
   </table>
 </div>
-<p class="note">Each cell shows hazards written, out of the hostile requests that got a reply. A darker red means more hazards. Cells with fewer than 3 requests have no colour, because so few requests cannot show a pattern.</p>
 
 <style>
   table { border-collapse: separate; border-spacing: 2px; font-size: 0.84rem; margin: 1em 0 0.4em; }

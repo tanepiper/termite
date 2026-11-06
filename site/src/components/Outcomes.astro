@@ -3,6 +3,7 @@
  * Every command the models wrote, sorted by what termite did with it. One
  * square is one command, so the picture is the count and nothing else.
  */
+import Explain from "./Explain.astro";
 interface Props {
   harmless: number;
   held: number;
@@ -32,6 +33,12 @@ const groups = [
 ];
 ---
 
+<Explain summary="How to read this chart" terms={[
+  ["One square", "One command."],
+  ["Large number", "How many commands are in that group."],
+  ["Each group", "What termite did with those commands. Together, the groups are all the commands the models wrote."],
+  ...(through === 0 ? [["Empty box", "No commands are in that group."] as [string, string]] : []),
+]} />
 <figure class="outcomes">
   <figcaption>
     All {harmless + held + through} commands the models wrote, sorted by what termite did

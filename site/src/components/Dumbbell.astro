@@ -1,34 +1,66 @@
 ---
 /** The same model with and without safety training: one line between the two. */
+import Explain from "./Explain.astro";
+
 interface Props {
-  rows: { name: string; before: number; after: number }[];
+  rows: { name: string; before: number; after: number; clear: boolean }[];
 }
 const { rows } = Astro.props;
+/** The largest rise comes first, so the models that fell end the chart together. */
+const sorted = [...rows].sort((a, b) => b.after - b.before - (a.after - a.before));
 ---
 
+<Explain summary="How to read this chart" terms={[
+  ["Row", "One model, in two versions. The model with the largest rise is first."],
+  ["Grey dot", "The original model."],
+  ["Orange dot", "The copy with safety training removed."],
+  ["Position", "The share of hostile requests where that version wrote a hazard, out of the requests that both versions replied to. Further right means more hazards, which is worse."],
+  ["Orange right of grey", "The copy wrote more hazards than the original."],
+  ["Orange left of grey", "The copy wrote fewer hazards than the original."],
+  ["Figures", "The first is the original model, and the second is the copy."],
+  ["Thick line", "A clear difference, compared request by request."],
+  ["Thin line", "The gap could be chance."],
+  ["One run each", "Each dot comes from one test run."],
+]} />
 <div class="pairs">
-  {rows.map((row) => (
+  <p class="note key">
+    <span><i class="dot before"></i>Original</span>
+    <span><i class="dot after"></i>Safety training removed</span>
+    <span>Share of hostile requests that got a hazard. Further right is worse.</span>
+  </p>
+  <div class="pair scale" aria-hidden="true">
+    <span class="ticks"><b>0%</b><b>50%</b><b>100%</b></span>
+  </div>
+  {sorted.map((row) => (
     <div class="pair">
       <span class="name">{row.name}</span>
       <span class="line">
-        <i class="join" style={`left:${Math.min(row.before, row.after)}%;width:${Math.abs(row.after - row.before)}%`}></i>
+        <i class:list={["join", { clear: row.clear }]} style={`left:${Math.min(row.before, row.after)}%;width:${Math.abs(row.after - row.before)}%`}></i>
         <i class="dot before" style={`left:${row.before}%`} title={`Original: ${row.before}%`}></i>
         <i class="dot after" style={`left:${row.after}%`} title={`Safety training removed: ${row.after}%`}></i>
       </span>
       <span class="text">{row.before}% to {row.after}%</span>
     </div>
   ))}
-  <p class="note key"><span><i class="dot before"></i>Original</span> <span><i class="dot after"></i>Safety training removed</span></p>
 </div>
 
 <style>
   .pair { display: grid; grid-template-columns: minmax(9em, 14em) 1fr 7em; gap: 1em; align-items: center; padding: 0.7em 0; }
+  .scale { padding: 0; }
+  .ticks { grid-column: 2; display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--ink-soft); }
+  .ticks b { font-weight: 400; }
   .line { position: relative; height: 18px; border-bottom: 1px solid var(--line); }
-  .join { position: absolute; top: 15px; height: 4px; background: var(--ink-soft); }
+  .join { position: absolute; top: 16px; height: 2px; background: var(--ink-soft); }
+  .join.clear { top: 15px; height: 4px; }
   .dot { position: absolute; top: 10px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; box-shadow: 0 0 0 2px var(--surface); }
   .before { background: var(--ink-soft); }
   .after { background: var(--gallery); }
   .text { text-align: right; font-variant-numeric: tabular-nums; }
-  .key { display: flex; gap: 1.4em; }
+  .key { display: flex; flex-wrap: wrap; gap: 0.2em 1.4em; max-width: none; }
   .key .dot { position: static; display: inline-block; margin: 0 0.4em 0 0; width: 11px; height: 11px; }
+  @media (max-width: 640px) {
+    .pair { grid-template-columns: minmax(0, 1fr) auto; gap: 0.3em 1em; }
+    .line { grid-column: 1 / -1; grid-row: 2; }
+    .ticks { grid-column: 1 / -1; }
+  }
 </style>

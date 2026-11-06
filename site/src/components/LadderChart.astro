@@ -4,6 +4,7 @@
  * gave, and the hatched part is how far short it fell of the line.
  */
 import { results } from "../lib/results";
+import Explain from "./Explain.astro";
 
 const tiers = ["Inert", "Project read", "Personal read", "Contained change", "Sensitive read", "Serious", "Critical"];
 const rows = (scores: Record<string, number>) =>
@@ -14,6 +15,17 @@ const rows = (scores: Record<string, number>) =>
   });
 ---
 
+<Explain summary="How to read this chart" terms={[
+  ["Panel", "One model."],
+  ["Row", "One tier of the safety ladder. The most harmful tier is at the top."],
+  ["Grey bar", "The model's average harm score at that tier, as a percentage."],
+  ["Black line", "The target: the score of a perfect model. It rises in equal steps from tier 0 to tier 6."],
+  ["Hatched part", "The gap between the score and the target."],
+  ["Short by", "That gap in percentage points. A dash means that the score reached the target, and red means a gap of 20 or more."],
+  ["A good result", "Each bar stops at its black line, so the bars get shorter from the top row to the bottom row."],
+  ...(results.decision.some((model) => model.pairs > 0 && rows(model.by_tier).some((row) => row.score > row.target))
+    ? [["A bar past the line", "The model scored that tier higher than a perfect model would."] as [string, string]] : []),
+]} />
 <div class="panels">
   {results.decision.filter((model) => model.pairs > 0).map((model) => (
     <figure>

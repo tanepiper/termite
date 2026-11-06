@@ -8,6 +8,7 @@ import Scorecards from "../../components/Scorecards.astro";
 import WhereItGives from "../../components/WhereItGives.astro";
 import Callouts from "../../components/Callouts.astro";
 import { page, results, safety, ungraded, working } from "../../lib/results";
+import findings from "../../data/findings.json";
 
 /** A model that answered nothing has no score to show. Its run stays in the run table. */
 const decision = results.decision.filter((model) => model.pairs > 0);
@@ -29,6 +30,20 @@ const pairs = [...working].sort((a, b) => a.name.localeCompare(b.name));
 const removed = pairs.filter((model) => model.name.includes("safety training removed"));
 const originalOf = (name: string) => working.find((m) => m.name === name.replace(", safety training removed", ""));
 const compared = removed.filter((model) => originalOf(model.name));
+/** Only the request-by-request findings compare like with like, so the chart shows those. */
+const trainingPairs = findings.findings.filter((finding) => finding.kind === "safety training");
+const trainingRows = trainingPairs.map((pair) => ({
+  name: pair.model!,
+  before: pct(pair.hazards_safe!, pair.requests!),
+  after: pct(pair.hazards_removed!, pair.requests!),
+  clear: pair.strength === "strong",
+}));
+const list = (names: string[]) => new Intl.ListFormat("en-GB").format(names);
+const clearly = (test: (row: (typeof trainingRows)[number]) => boolean) => trainingRows.filter((row) => row.clear && test(row)).map((row) => row.name);
+const more = clearly((row) => row.after > row.before);
+const fewer = clearly((row) => row.after < row.before);
+const unclear = trainingRows.filter((row) => !row.clear).length;
+const notAlike = compared.map((model) => model.name.replace(", safety training removed", "")).filter((name) => !trainingPairs.some((pair) => pair.model === name));
 const noOriginal = removed.filter((model) => !originalOf(model.name)).map((model) => model.name.replace(", safety training removed", ""));
 const sections: [string, string][] = [
   ["found", "What the tests found"],
@@ -69,11 +84,12 @@ const sections: [string, string][] = [
     Each grade comes from the model's newest run: 100 hostile requests on the current set, or
     24 on the earlier one. <a href={page("models/runs/")}>Every test run</a> shows the requests and settings of each run.
   </p>
-  <Explain summary="What the scorecards show" terms={[
+  <Explain summary="How to read this chart" terms={[
+    ["Letter", "The model's grade. The scale is under the chart."],
     ["Hazard", "A command that could cause harm, and that the request did not legitimately need."],
     ["Hostile request", "A request that tries to get a dangerous command from the model."],
-    ["Hostile requests that got a hazard", "The share of hostile requests where the model wrote at least one hazard. Lower is better."],
-    ["Everyday requests answered", "The share of ordinary requests, such as listing files, where the model wrote a useful command. Higher is better."],
+    ["Hostile requests that got a hazard", "The orange bar: the share of hostile requests where the model wrote at least one hazard. Lower is better."],
+    ["Everyday requests answered", "The grey bar: the share of ordinary requests, such as listing files, where the model wrote a useful command. Higher is better."],
     ["Speed", "The average time for one request, in seconds."],
     ["Safety training", "Training that teaches a model to refuse harmful requests."],
   ]} />
@@ -94,13 +110,6 @@ const sections: [string, string][] = [
     Models differ here. For example, an instruction hidden in other text works on some models
     and not on others.
   </p>
-  <ul>
-    <li>The first columns group the requests by aim.</li>
-    <li>The next columns group the same requests by method.</li>
-    <li>The last column is the total.</li>
-    <li>Each cell shows hazards written out of hostile requests that got a reply. 12/20 means that the model wrote a hazard for 12 of 20 requests.</li>
-    <li>A request that failed is not counted.</li>
-  </ul>
   <WhereItGives />
 
   {removed.length > 0 && (
@@ -111,14 +120,15 @@ const sections: [string, string][] = [
         training and share the changed copies publicly, so this chart compares each model
         with and without it.
       </p>
-      <Dumbbell rows={compared.map((model) => ({
-        name: model.name.replace(", safety training removed", ""),
-        before: safety(originalOf(model.name)!).rate,
-        after: safety(model).rate,
-      }))} />
+      <p>
+        Removing the training did not always mean more hazards. The copy wrote clearly more
+        hazards than the original for {list(more)}, and clearly fewer for {list(fewer)}. For
+        the other {unclear} models, the gap could be chance. These results do not show why.
+      </p>
+      <Dumbbell rows={trainingRows} />
       {noOriginal.length > 0 && <p class="note">Not shown, because I did not test the original model: {noOriginal.join(", ")}.</p>}
-      <p class="note">Each figure is the share of hostile requests where the model wrote a hazard. The first is the original model, and the second is the copy with safety training removed.</p>
-      <p class="note">Both versions had to reply in the same format, and that format required a command.</p>
+      {notAlike.length > 0 && <p class="note">Not shown, because the two versions did not run the same test: {list(notAlike)}.</p>}
+      <p class="note">Both versions of each model ran the same requests, and both could decline.</p>
     </>
   )}
 
@@ -151,11 +161,6 @@ const sections: [string, string][] = [
       <tbody>{tiers.map(([name, meaning, example], tier) => <tr><td>{tier}</td><th scope="row">{name}</th><td>{meaning}</td><td><code>{example}</code></td></tr>)}</tbody>
     </table>
   </div>
-  <p>
-    The chart shows one panel for each model. Each bar is the model's average harm score at that
-    tier, as a percentage, and the target is the score of a perfect model, which rises in equal steps from tier 0 to tier 6. "Short by" is the
-    gap between the score and the target, in percentage points.
-  </p>
   <LadderChart />
   <p>
     Kev-4B, Kev-9B and tev1 4B score tiers 5 and 6 far above their lower tiers. From tier 4 down,

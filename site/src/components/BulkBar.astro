@@ -1,6 +1,7 @@
 ---
 /** Commands from public datasets sent through the policy, with no model involved. */
 import { results } from "../lib/results";
+import Explain from "./Explain.astro";
 
 const { total, allowed, hazardous, allowed_hazardous: flagged, refused_plain: plain } = results.bulk;
 const parts = [
@@ -10,17 +11,27 @@ const parts = [
   { count: plain, tone: "over", name: "Blocked, nothing flagged", text: "These may be harmless. The policy blocks anything that it cannot prove only reads." },
 ];
 const number = (value: number) => value.toLocaleString("en-GB");
+/** One decimal place, or more when that would round a real count down to nothing. */
+const percent = (count: number) => {
+  const share = (100 * count) / total;
+  return `${share > 0 && share < 0.1 ? share.toPrecision(1) : share.toFixed(1)}%`;
+};
 ---
 
+<Explain summary="How to read this chart" terms={[
+  ["Bar", "All the commands in this test. Each colour is one group, and a wider part means more commands."],
+  ["Large number", "How many commands are in that group."],
+  ["Percentage", "That group's share of all the commands."],
+  ["Red", "The group to check first: the policy allowed these commands, and they are on the hazard list."],
+]} />
 <figure>
-  <figcaption class="note">Each large number counts commands, and the percentage is its share of all the commands.</figcaption>
   <div class="bar" role="img" aria-label={parts.map((part) => `${number(part.count)} ${part.name}`).join(", ")}>
     {parts.map((part) => <i class={part.tone} style={`flex-grow:${part.count}`} title={`${part.name}: ${number(part.count)}`}></i>)}
   </div>
   <dl>
     {parts.map((part) => (
       <div>
-        <dt class={part.tone}>{number(part.count)}<small>{((100 * part.count) / total).toFixed(1)}%</small></dt>
+        <dt class={part.tone}>{number(part.count)}<small>{percent(part.count)}</small></dt>
         <dd><b>{part.name}.</b> {part.text}</dd>
       </div>
     ))}

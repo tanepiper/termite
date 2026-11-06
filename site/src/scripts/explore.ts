@@ -118,12 +118,15 @@ function meanings(items: { slot: number; word: string; count: number; meaning: s
 /** How to read a chart: a word, then what it means. Text may hold markup. */
 type Reading = [string, string][];
 
+/** A line for the how to read note, kept only when the chart shows that thing. */
+const when = (shown: boolean, word: string, meaning: string): Reading => (shown ? [[word, meaning]] : []);
+
 function reading(items: Reading): string {
   return `<dl class="reading">${items.map(([word, meaning]) => `<dt>${esc(word)}</dt><dd>${meaning}</dd>`).join("")}</dl>`;
 }
 
 function section(title: string, note: string, body: string, how: Reading = []): string {
-  return `<section class="view"><h2>${esc(title)}</h2><p class="note">${note}</p>${how.length ? reading(how) : ""}${body}</section>`;
+  return `<section class="view"><h2>${esc(title)}</h2><p class="note">${note}</p>${how.length ? `<details class="how"><summary>How to read this chart</summary>${reading(how)}</details>` : ""}${body}</section>`;
 }
 
 /** The Wilson 95% range of a share, in percent: where the true figure could be. */
@@ -214,13 +217,12 @@ function compared(data: Row[]): string {
   const how: Reading = [
     ["Filled dot", "The model's latest run."],
     ["Bar", "The likely range for that run, not an exact figure. The test had a limited number of trials, so the result could be a little higher or lower by chance. With many more trials, the result would very likely be inside the bar. If two bars overlap, the test cannot say which model did better."],
-    ["Small empty dot", "An earlier run of the same model. It may have used other settings or another machine."],
-    ["Dashed bar", "A copy with its safety training removed. It sits under the model it came from."],
-    ["Not counted", "A request that got no usable reply is left out of the count. For this reason, models can have different totals."],
-    ["Separate charts", "Each chart uses one set of requests. Do not compare figures from two different sets."],
-    rating
-      ? ["A score of 0", "This is not always good. A model that rates no command as safe also scores 0."]
-      : ["Not shown", "A run is left out of this chart if more than half of these requests failed."],
+    ...when(all.some(({ earlier }) => earlier.length > 0), "Small empty dot", "An earlier run of the same model. It may have used other settings or another machine."),
+    ...when(all.some(({ model }) => removed(model)), "Dashed bar", "A copy with its safety training removed. It sits under the model it came from."),
+    ...when(all.some(({ latest }) => failed(latest) > 0), "Not counted", "A request that got no usable reply is left out of the count. For this reason, models can have different totals."),
+    ...when(sets.length > 1, "Separate charts", "Each chart uses one set of requests. Do not compare figures from two different sets."),
+    ...when(rating && all.some(({ latest }) => hits(latest) === 0), "A score of 0", "This is not always good. A model that rates no command as safe also scores 0."),
+    ...when(tooFew.size > 0, "Not shown", "A run is left out of this chart if more than half of these requests failed."),
     ...(rating ? [] : [["Grades", "This chart counts only serious hazards. The grades on the model ratings page count every hazard, so the share behind a grade can be higher."] as [string, string]]),
   ];
   return section("How the models compare", note, charts, how);
@@ -341,6 +343,10 @@ function flood(data: Row[]): string {
   const trials = data.filter((row) => row.suite === "trial");
   if (new Set(trials.map((row) => row.fill)).size < 2) return section("Long sessions", "No long session trials in this selection.", "");
   const machines = [...groupBy(trials, (row) => row.ran_on).entries()].sort(([a], [b]) => a.localeCompare(b));
+  const untested = machines.some(([, rows]) => {
+    const levels = new Set(rows.map((row) => row.fill)).size;
+    return [...groupBy(rows, (row) => row.model).values()].some((mine) => new Set(mine.map((row) => row.fill)).size < levels);
+  });
   return section("Long sessions",
     "The context is the text that a model can hold at one time. Each machine has its own section, because the limits are not the same. Select a machine to open it.",
     machines.map(([machine, rows], index) =>
@@ -350,7 +356,7 @@ function flood(data: Row[]): string {
       ["Bar", "All of one model's trials at that level."],
       ["Number on a bar", "How many trials."],
       ["Empty part of a bar", "Trials with no failure."],
-      ["Dash", "The model was not tested at that level."],
+      ...when(untested, "Dash", "The model was not tested at that level."),
       ["Fewer model failures", "At a high level, fewer model failures does not mean a safer model. Many trials stopped early at these levels, and a trial that stopped early may show no hazard."],
     ]);
 }
@@ -393,8 +399,8 @@ function failures(all: Row[]): string {
       ["Whole bar", "Every trial in that run."],
       ["Coloured part", "Trials with a failure, shown by their worst failure."],
       ["Figure on the right", "Model failures, out of the trials that finished. Models are sorted by this figure."],
-      ["Did not finish", "These trials are left out of that figure, because they say nothing about the model."],
-      ["Colours", "Red, purple and orange are dangerous results. Blue is a wrong or missing answer. Grey and green are trials that did not finish."],
+      ...when(models.some(({ mine, done }) => done < mine.length), "Did not finish", "These trials are left out of that figure, because they say nothing about the model."),
+      ["Colours", "The list under the chart says what each colour means."],
     ]);
 }
 
