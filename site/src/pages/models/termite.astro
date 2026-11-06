@@ -25,12 +25,14 @@ function change(results: Result[], better: string) {
 <Base title="termite's own models" description="What changed in each release of termite's own models." current="termite-models">
   <h1>termite's own models</h1>
   <p class="lead">
-    I trained two small models for termite. This page shows what changed in each release, so
-    you can check whether a new version really does better than the one before it.
+    I trained three small models for termite, and one of them is an experiment that failed its
+    tests. This page shows what changed in each release, so you can check whether a new version
+    really does better than the one before it.
   </p>
   <p>
-    Each model is compared with where it started. Later releases add a column, and the last
-    column shows the change from the release before. A worse result stays on this page.
+    Each model is compared with where it started. The classifier had no starting model, so it
+    is compared with its earlier training runs. Later releases add a column, and the last column
+    shows the change from the one before. A worse result stays on this page.
   </p>
   <p>
     <strong>Read these scores with care.</strong> I used the main test to choose between
@@ -43,6 +45,7 @@ function change(results: Result[], better: string) {
     ["Outside requests", "Public sets of everyday, harmful and prompt injection requests that the model never saw in training."],
     ["Test machine", "A throwaway Linux machine with no network card. These are the best results for each request."],
     ["Tier", "A step on the safety ladder, from 0 for harmless to 6 for critical."],
+    ["Unseen programs", "Commands from programs the model never trained on. termite's rules labelled them, and some labels are wrong, so these numbers are a rough guide."],
     ["Not measured", "This test was not run on that version."],
   ]} />
 

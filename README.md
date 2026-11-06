@@ -88,7 +88,7 @@ cargo install --locked --git https://github.com/tanepiper/termite termite
 | A decision model | ranks the candidates and judges `?x` safety | a model served on `/v1/systemone`: llama.cpp, or Ollama 0.40+; for example [Kev-4B](https://huggingface.co/ggml-org/Kev-4B-GGUF) or [termite-decide-0.8b](https://huggingface.co/tanepiper/termite-decide-0.8b) |
 | zsh, bash 4+ or fish (optional) | the `?` prompt widget saves copying. `tmite` does the same work in any shell | |
 
-termite has two small models of its own, at version 0.1. See [termite's own models](docs/termite-models.md), and read their safety cards first.
+termite has two small models of its own, at version 0.1, and an experimental classifier that it doesn't use yet. See [termite's own models](docs/termite-models.md), and read their safety cards first.
 
 ## Quick start
 
