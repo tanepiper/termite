@@ -5,6 +5,11 @@
 ### Check
 
 - Stop a suggestion when a loop or a branch never closes, or when a pipe has nothing in it.
+- Raise commands that replace an existing file, lose uncommitted work or show settings.
+
+### Test
+
+- Add version 0.2 of the command and decision models, trained only on data with clear licences.
 
 ## 0.1.0 - 2026-11-06
 
