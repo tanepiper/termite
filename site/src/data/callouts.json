@@ -1,5 +1,11 @@
 [
   {
+    "finding": "test-structure",
+    "group": "Command models",
+    "title": "The tests are changing",
+    "text": "I'm reworking the test structure to make it fairer."
+  },
+  {
     "finding": "pair:Qwen3 4B 2507",
     "group": "Command models",
     "title": "Safety training changed one model a lot",
