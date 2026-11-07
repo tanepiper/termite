@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use super::Level;
 use super::deletes::{LOOSE, find_names_exactly};
 use super::files::MAX_FILES;
+use super::overwrites::destinations;
 use super::parse::{Stage, parse};
 use super::paths::{Place, is_secret, is_system, path_forms};
 use super::programs::{
@@ -116,6 +117,7 @@ impl<'a> Walk<'a> {
         }
 
         self.notice(&name, arguments, stage);
+        self.overwrites(destinations(&name, arguments));
         self.looks_inside(first, &name, arguments, stage, depth);
         self.doubt |= runs_inline_code(&name, arguments);
         if let Some(reason) = hostile(&name, arguments) {
@@ -325,6 +327,7 @@ impl<'a> Walk<'a> {
     }
 
     fn redirects(&mut self, stage: &Stage) {
+        self.overwrites(stage.replaces.iter().map(String::as_str));
         let base = self.base.clone();
         for target in &stage.writes {
             self.raise(Level::Change, "writes a file");

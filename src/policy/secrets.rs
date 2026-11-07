@@ -10,6 +10,7 @@ use super::PolicyRefusal;
 const SECRET_FOLDERS: &[&str] = &[
     ".ssh",
     ".aws",
+    ".config",
     ".gnupg",
     ".kube",
     ".azure",
@@ -23,12 +24,6 @@ const SECRET_FOLDERS: &[&str] = &[
 /// they appear, and everything below them.
 const SECRET_PAIRS: &[[&str; 2]] = &[
     ["library", "keychains"],
-    [".config", "gh"],
-    [".config", "gcloud"],
-    [".config", "termite"],
-    [".config", "google-chrome"],
-    [".config", "chromium"],
-    [".config", "op"],
     [".docker", "config.json"],
     ["library", "cookies"],
     ["library", "mail"],

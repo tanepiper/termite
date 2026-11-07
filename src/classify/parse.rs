@@ -10,6 +10,8 @@ pub(super) struct Stage {
     pub(super) text: String,
     /// Files written with `>` or `>>`.
     pub(super) writes: Vec<String>,
+    /// The files in `writes` that `>` empties first, unlike `>>`.
+    pub(super) replaces: Vec<String>,
     /// Files read with `<`.
     pub(super) reads: Vec<String>,
     /// Another stage pipes into this one.
@@ -240,6 +242,7 @@ impl Scanner {
 
     fn write_redirect(&mut self) {
         self.drop_file_number();
+        let appends = self.peek(0) == Some('>');
         while matches!(self.peek(0), Some('>' | '|')) {
             self.at += 1;
         }
@@ -253,6 +256,9 @@ impl Scanner {
         }
         let target = self.word();
         if target != "/dev/null" {
+            if !appends {
+                self.stage.replaces.push(target.clone());
+            }
             self.stage.writes.push(target);
         }
     }

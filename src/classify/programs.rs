@@ -314,6 +314,7 @@ pub(super) fn shows_secrets(name: &str, arguments: &[String]) -> bool {
     };
     match name {
         "export" => has("-p"),
+        "git" => has("config") && (has("--list") || has("-l")),
         "ps" => ps_shows_environment(arguments),
         "kubectl" => mentions("secret"),
         "gh" => has("auth") && has("token"),
