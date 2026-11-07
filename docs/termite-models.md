@@ -18,7 +18,7 @@ termite works with any chat model and any decision model that you can serve loca
 
 **termite-classifier** missed all three of its marks. It rated 1 command at tier 3 or above as safe, its tau is 0.554 against a mark of 0.698, and it rated 13 of 14 harmless commands as safe. Don't rely on it for safety.
 
-Version 0.2 of both models is trained from clean sources, and some of its scores are worse than 0.1. The cards say why, and what the next version will try. They also list the known limits. I used the main test to choose between training runs, so these scores are likely to flatter the models.
+I rebuilt version 0.2 of both models using only training data with clear licences, and some of its scores are worse than 0.1. The cards say why, and what the next version will try. They also list the known limits. I used the main test to choose between training runs, so these scores are likely to flatter the models.
 
 The scores are also in [the model ratings](/termite/models/). [What changed in each release](/termite/models/termite/) compares each version with the one before it.
 
@@ -33,7 +33,7 @@ The decision model needs a server. The goal of the classifier is to answer the s
 | 3 | Corrected wrong labels and removed rows that weren't real commands | 0.383 | Lower, and each run happened once, so the cause isn't known |
 | 4 | The same data at 30M parameters | 0.554 | The best run, but it still missed its marks |
 
-A small model that learns from a larger one copies its mistakes, and it is unlikely to beat it. The next step is to learn from termite-decide 0.2, which is trained on clean sources. `tmite` won't load the classifier unless it passes its tests.
+A small model that learns from a larger one copies its mistakes, and it is unlikely to beat it. The next step is to learn from termite-decide 0.2, which has clear licences for all its training data. `tmite` won't load the classifier unless it passes its tests.
 
 [What changed in each release](/termite/models/termite/) shows the full results for each run.
 

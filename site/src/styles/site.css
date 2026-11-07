@@ -157,6 +157,17 @@ main { padding: 2.2em 0 4em; }
 footer.site { border-top: 1px solid var(--line); padding: 1.2em 0 2.4em; color: var(--ink-soft); font-size: 0.9rem; }
 .status-ok { color: var(--good); }
 .status-warn { color: var(--warning); }
+.status-same { color: var(--ink-soft); }
+.scroll { position: relative; }
+.result { white-space: nowrap; }
+.hidden-word {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .status-bad { color: var(--critical); }
 .status { font-weight: 700; white-space: nowrap; }
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(13em, 1fr)); gap: 1.6em 2.4em; margin: 1.6em 0; }
