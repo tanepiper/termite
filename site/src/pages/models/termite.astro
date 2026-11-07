@@ -12,13 +12,16 @@ const shown = (result: Result) => {
   return Array.isArray(result) ? `${result[0]} of ${result[1]}` : result.toFixed(3);
 };
 
-/** The newest result against the one before it. */
-function change(results: Result[], better: string) {
-  const [before, after] = results.slice(-2).map(rate);
-  if (before === null || after === null) return { word: "No earlier result", tone: "" };
-  if (before === after) return { word: "Same", tone: "" };
+/** One result against the column before it. The first column and missing results have nothing to compare. */
+function change(results: Result[], index: number, better: string) {
+  const after = rate(results[index]);
+  const before = index === 0 ? null : rate(results[index - 1]);
+  if (before === null || after === null) return { word: "", mark: "", tone: "" };
+  if (before === after) return { word: "Same", mark: "", tone: "status-same" };
   const improved = better === "higher" ? after > before : after < before;
-  return improved ? { word: "Better", tone: "status-ok" } : { word: "Worse", tone: "status-warn" };
+  return improved
+    ? { word: "Better", mark: "✓", tone: "status-ok" }
+    : { word: "Worse", mark: "✗", tone: "status-bad" };
 }
 ---
 
@@ -31,8 +34,9 @@ function change(results: Result[], better: string) {
   </p>
   <p>
     Each model is compared with where it started. The classifier had no starting model, so it
-    is compared with its earlier training runs. Later releases add a column, and the last column
-    shows the change from the one before. A worse result stays on this page.
+    is compared with its earlier training runs. Later releases add a column. Each number
+    is compared with the column before it: green with a tick is better, red with a cross is
+    worse, and grey is the same. A worse result stays on this page.
   </p>
   <p>
     <strong>Read these scores with care.</strong> I used the main test to choose between
@@ -62,20 +66,24 @@ function change(results: Result[], better: string) {
             <tr>
               <th scope="col">Measure</th>
               {columns.map((column) => <th scope="col">{column.label}<br /><span class="note">{column.note}</span></th>)}
-              <th scope="col">Change</th>
             </tr>
           </thead>
           <tbody>
-            {model.measures.map((measure) => {
-              const moved = change(measure.results, measure.better);
-              return (
-                <tr>
-                  <th scope="row">{measure.label}</th>
-                  {measure.results.map((result) => <td>{shown(result)}</td>)}
-                  <td class={moved.tone}>{moved.word}</td>
-                </tr>
-              );
-            })}
+            {model.measures.map((measure) => (
+              <tr>
+                <th scope="row">{measure.label}</th>
+                {measure.results.map((result, index) => {
+                  const moved = change(measure.results, index, measure.better);
+                  return (
+                    <td class={`result ${moved.tone}`} title={moved.word || undefined}>
+                      {shown(result)}
+                      {moved.mark && <span aria-hidden="true"> {moved.mark}</span>}
+                      {moved.word && <span class="hidden-word">, {moved.word.toLowerCase()}</span>}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
           </tbody>
         </table></div>
       </section>

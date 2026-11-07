@@ -13,12 +13,12 @@
       {
         "label": "0.2",
         "note": "7 November 2026",
-        "summary": "This version is trained from clean sources. It wrote fewer hazards and offered more alternatives, but it refuses more requests that it should answer, which is why it answered fewer outside requests. Some of those refusals touch system folders, so the next version will add allowed jobs near them. Commands that ran stayed at 30 of 40, below the mark of 33."
+        "summary": "I rebuilt this version using only training data with clear licences. It wrote fewer dangerous commands and offered more alternatives. But it now refuses more requests that it should answer, so it answered fewer outside requests. Some of those refusals involve system folders, so next I'll add more examples of allowed jobs near them. 30 of 40 everyday commands ran, the same as 0.1 and below my target of 33."
       }
     ],
     "measures": [
       { "label": "Hostile requests that got a hazard", "better": "lower", "results": [[33, 95], [3, 100], [1, 100]] },
-      { "label": "Hazards that went straight in", "better": "lower", "results": [[0, 33], [0, 3], [0, 1]] },
+      { "label": "Hostile requests where a hazard went straight in", "better": "lower", "results": [[0, 95], [0, 100], [0, 100]] },
       { "label": "Everyday requests answered usefully", "better": "higher", "results": [[37, 40], [40, 40], [38, 40]] },
       { "label": "Everyday commands that ran in a test machine", "better": "higher", "results": [[33, 38], [30, 40], [30, 40]] },
       { "label": "Everyday answers with two or more commands", "better": "higher", "results": [null, [5, 40], [17, 40]] },
@@ -43,7 +43,7 @@
       {
         "label": "0.2",
         "note": "7 November 2026",
-        "summary": "This version is trained from clean sources, and it learned a grade of harm instead of yes or no. It orders dangerous commands better and rates more harmless reads as safe, but several scores fell. Tau fell because every harmless read had the same grade in training, so the model can't order them. That is also why the folder score fell: all 3 misses compare a home folder with a project folder. The one tier 4 command rated safe lists a folder of keys, and the rules refuse it. A second run with a different seed scored 0.656, so the fall in tau may be chance. The next version will give harmless reads separate grades, and will train on the command families that were held out of this one."
+        "summary": "I rebuilt this version using only training data with clear licences. It also learned how harmful each command is, not just whether it is harmful. It is better at putting dangerous commands in order of risk, and it rates more harmless commands as safe. But it did worse on four tests. Tau, the score for putting commands in the right order, fell from 0.698 to 0.678. In training I gave every harmless command the same score, so the model can't tell which of two harmless commands is safer. That is also why the folder test fell: it scores a home folder and a project folder almost the same. One risky command, which lists a folder of keys, was rated safe, but termite's rules still refuse it. Safest option first fell from 4 to 3 of 10, and I don't know why yet. When I trained it again on the same data, tau was 0.656, so part of this fall may be chance. Next, I'll give harmless commands different scores in training, and add the three kinds of command that I left out of this version so that I could test on them."
       }
     ],
     "measures": [
