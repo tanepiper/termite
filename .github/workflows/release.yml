@@ -1,13 +1,21 @@
 name: Release
 
-# A tag such as v0.1.0 runs the checks, then builds, signs and publishes a release, and
-# moves main to the next version through a pull request. If the checks fail, nothing is
-# built or published. Run by hand, it only runs the checks and builds, to test the pipeline.
+# Start this by hand when a version is ready, with Actions > Release > Run workflow, or
+# `gh workflow run release.yml`. Nobody pushes a tag. The pipeline runs the checks, then
+# turns the Unreleased changelog into this version and tags that commit. It builds from
+# the tag, publishes the release, moves main to the next -dev version through a pull
+# request, and sends out the site.
+#
+# With trial on, it stops after the builds: nothing is pushed, tagged or published.
+# If a build fails after the tag is pushed, delete the tag, fix the fault and run it again.
 
 on:
-  push:
-    tags: ['v[0-9]+.[0-9]+.[0-9]+']
   workflow_dispatch:
+    inputs:
+      trial:
+        description: Stop after the builds, and publish nothing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,8 +33,59 @@ jobs:
   checks:
     uses: ./.github/workflows/ci.yml
 
-  build:
+  prepare:
     needs: checks
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      ref: ${{ steps.tag.outputs.ref }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Check this is main
+        if: ${{ !inputs.trial }}
+        run: test "$GITHUB_REF" = refs/heads/main
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      # Stop here if the token is missing or expired, before anything is tagged.
+      - name: Check the pull request token
+        if: ${{ !inputs.trial }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
+        run: |
+          test -n "$GH_TOKEN"
+          gh api "repos/$GITHUB_REPOSITORY" --silent
+      - name: Make the changelog and version for this release
+        id: version
+        run: echo "number=$(python3 -I scripts/release.py prepare "$(date -u +%F)")" >> "$GITHUB_OUTPUT"
+      - name: Commit and tag the release
+        id: tag
+        env:
+          NUMBER: ${{ steps.version.outputs.number }}
+          TRIAL: ${{ inputs.trial }}
+        run: |
+          tag="v$NUMBER"
+          if git rev-parse -q --verify "refs/tags/$tag"; then
+            echo "$tag already exists" >&2
+            exit 1
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md Cargo.toml Cargo.lock
+          git commit -m "Release $tag"
+          git tag "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ "$TRIAL" = true ]; then
+            echo "ref=$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          else
+            git push origin "refs/tags/$tag"
+            echo "ref=refs/tags/$tag" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    needs: prepare
     strategy:
       fail-fast: true
       matrix:
@@ -39,10 +98,13 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.prepare.outputs.ref }}
           persist-credentials: false
       - name: Check the tag matches the version
-        if: startsWith(github.ref, 'refs/tags/')
-        run: test "${GITHUB_REF_NAME#v}" = "$(python3 -I scripts/release.py version)"
+        if: ${{ !inputs.trial }}
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: test "${TAG#v}" = "$(python3 -I scripts/release.py version)"
       # Static, so it runs on any Linux. No caches in a release build.
       - name: Build on Linux
         if: runner.os == 'Linux'
@@ -78,8 +140,8 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build
+    if: ${{ !inputs.trial }}
+    needs: [prepare, build]
     runs-on: ubuntu-24.04
     permissions:
       actions: write
@@ -89,21 +151,13 @@ jobs:
       pull-requests: read
     env:
       GH_TOKEN: ${{ github.token }}
-      BUMP_BRANCH: release/${{ github.ref_name }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      BUMP_BRANCH: release/${{ needs.prepare.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ needs.prepare.outputs.ref }}
           fetch-depth: 0
-      - name: Check the tag is on main
-        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-      # Stop here if the token is missing or expired, before anything is published.
-      - name: Check the pull request token
-        env:
-          GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
-        run: |
-          test -n "$GH_TOKEN"
-          gh api "repos/$GITHUB_REPOSITORY" --silent
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: dist
@@ -112,7 +166,7 @@ jobs:
         working-directory: dist
         run: sha256sum tmite-*.tar.gz > SHA256SUMS
       - name: Write the release record
-        run: python3 -I scripts/release.py record "$GITHUB_SHA" "$(date -u +%F)" dist
+        run: python3 -I scripts/release.py record "$(git rev-parse HEAD)" "$(date -u +%F)" dist
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
@@ -121,8 +175,8 @@ jobs:
       - name: Publish the GitHub release
         run: |
           python3 -I scripts/release.py notes > notes.md
-          gh release create "$GITHUB_REF_NAME" dist/tmite-*.tar.gz dist/SHA256SUMS \
-            --verify-tag --title "termite ${GITHUB_REF_NAME#v}" --notes-file notes.md
+          gh release create "$TAG" dist/tmite-*.tar.gz dist/SHA256SUMS \
+            --verify-tag --title "termite ${TAG#v}" --notes-file notes.md
           rm notes.md
       # main only takes pull requests. A pull request opened with the job's own token
       # starts no checks, and checks started by hand don't count towards the ruleset,
@@ -131,16 +185,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASE_PR_TOKEN }}
         run: |
-          next=$(python3 -I scripts/release.py bump "$(date -u +%F)")
+          next=$(python3 -I scripts/release.py bump)
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add CHANGELOG.md Cargo.toml Cargo.lock site/public/releases.json
-          git commit -m "Record $GITHUB_REF_NAME and start $next"
-          git pull --rebase origin main
+          git commit -m "Record $TAG and start $next"
+          # A merge, not a rebase: the tagged commit must stay in main's history.
+          git fetch origin main
+          git merge --no-edit FETCH_HEAD
           git push origin "HEAD:refs/heads/$BUMP_BRANCH"
           gh pr create --base main --head "$BUMP_BRANCH" \
-            --title "Record $GITHUB_REF_NAME and start $next" \
-            --body "Made by the release workflow for $GITHUB_REF_NAME. It merges when the checks pass."
+            --title "Record $TAG and start $next" \
+            --body "Made by the release workflow for $TAG. It merges when the checks pass."
           gh pr merge "$BUMP_BRANCH" --auto --merge
       # The site reads releases.json from main, so it waits for the merge. If this
       # times out, merge the pull request, then run pages.yml by hand.

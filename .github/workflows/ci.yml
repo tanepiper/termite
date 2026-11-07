@@ -1,7 +1,7 @@
 name: Checks
 
 # Pull requests run these checks, and main only takes a pull request that is up to date,
-# so a merge doesn't run them again. A release runs them once more before it builds.
+# so a merge doesn't run them again. The release pipeline runs them first.
 on:
   pull_request:
   workflow_call:
