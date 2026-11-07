@@ -9,6 +9,7 @@ mod deletes;
 mod files;
 mod git;
 mod leaves;
+mod overwrites;
 mod parse;
 mod paths;
 mod programs;

@@ -501,6 +501,67 @@ fn temp(name: &str) -> PathBuf {
 }
 
 #[test]
+fn given_a_file_that_exists_then_replacing_it_counts_as_losing_it() {
+    let folder = temp("overwrites");
+    fs::write(folder.join("notes.txt"), "kept").expect("notes");
+    fs::write(folder.join("data.csv"), "kept").expect("data");
+    let home = Some(Path::new(HOME));
+    let level = |command: &str| classify(command, &folder, home).level;
+
+    for command in [
+        "> notes.txt",
+        "date > notes.txt",
+        "cat /dev/null >| notes.txt",
+        "cp data.csv notes.txt",
+        "mv data.csv notes.txt",
+        "install -m 644 data.csv notes.txt",
+        "ln -sf data.csv notes.txt",
+        "tee notes.txt",
+        "ls | tee data.csv",
+    ] {
+        assert_eq!(level(command), Level::ContainedDestructive, "{command}");
+    }
+    for command in [
+        "date >> notes.txt",
+        "date > new.txt",
+        "cp data.csv new.csv",
+        "cp -n data.csv notes.txt",
+        "mv --no-clobber data.csv notes.txt",
+        "ln -s data.csv link.csv",
+        "tee -a notes.txt",
+        "tee new.txt",
+    ] {
+        assert_eq!(level(command), Level::Change, "{command}");
+    }
+    assert_eq!(level("ls > /dev/null"), Level::Read);
+}
+
+#[test]
+fn given_git_checkout_of_the_whole_folder_then_work_is_lost() {
+    assert_eq!(level("git checkout ."), Level::ContainedDestructive);
+    assert_eq!(level("git checkout main"), Level::Change);
+}
+
+#[test]
+fn given_a_full_git_config_listing_then_it_may_show_a_token() {
+    assert_eq!(level("git config --list"), Level::SensitiveRead);
+    assert_eq!(level("git config --local -l"), Level::SensitiveRead);
+    assert_ne!(level("git config --get user.name"), Level::SensitiveRead);
+}
+
+#[test]
+fn given_a_folder_under_dot_config_then_a_plain_glob_may_read_secrets() {
+    let folder = Path::new("/Users/me/.config/app");
+
+    assert!(crate::may_read_secrets("cat *", folder));
+    assert!(crate::read_only_in("cat *", folder, None).is_err());
+    assert_eq!(
+        classify("cat ~/.config/app/settings.yml", folder, None).level,
+        Level::SensitiveRead
+    );
+}
+
+#[test]
 fn given_git_clean_outside_a_repository_then_only_the_reason_changes() {
     let root = temp("no-repository");
     let repository = root.join("repository");

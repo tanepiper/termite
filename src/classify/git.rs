@@ -26,7 +26,9 @@ pub(super) fn level_of(arguments: &[String]) -> Option<(Level, &'static str)> {
         "restore" => Some(loses),
         "rm" => Some(deletes),
         "remote" | "worktree" if has("remove") || has("rm") => Some(deletes),
-        "checkout" if has("--") || has("-f") || has("--force") => Some(loses),
+        "checkout" if has("--") || has(".") || has("-f") || has("--force") => {
+            Some(loses)
+        },
         "stash" if has("clear") => Some(sweeps),
         "stash" if has("drop") => Some(loses),
         "branch" if has("-D") || has("-d") || has("--delete") => Some(loses),

@@ -330,7 +330,6 @@ fn given_a_lookalike_of_a_secret_path_when_read_then_it_is_allowed() {
         "ls src/*.rs",
         "cat test*",
         "cat my.venv",
-        "ls ~/.config/nvim",
         "cat src/key.rs",
         "ls *.rs",
     ];
