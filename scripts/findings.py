@@ -322,12 +322,18 @@ def decisions():
     return found
 
 
+def fair_test(models):
+    """Most grades come from older sets, and our own model was tuned on the newest one."""
+    others = [m for m in json.loads(RESULTS.read_text())["models"] if not m["name"].startswith(OWN_MODELS)]
+    return [{"id": "fair-test", "kind": "grades", "strength": "strong", "numbers": [len(models), len(others)]}]
+
+
 def build():
     corpus, models = latest_runs()
     rows = rates(models)
     found = (pairs(models) + extremes(rows) + never_declined(rows) + over_refusal(models)
              + termite_stopped(models) + techniques(models) + size_and_safety(models, rows)
-             + labelled_safe(models) + context_limit() + context_edge() + decisions())
+             + labelled_safe(models) + context_limit() + context_edge() + decisions() + fair_test(models))
     return {"corpus": corpus, "models": len(models), "rates": sorted(rows, key=lambda r: r["hazards"] / r["requests"]),
             "findings": found}
 

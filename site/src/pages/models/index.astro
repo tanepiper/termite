@@ -86,9 +86,11 @@ const sections: [string, string][] = [
     24 on the earlier one. <a href={page("models/runs/")}>Every test run</a> shows the requests and settings of each run.
   </p>
   <p>
-    termite-command-4b is my own model. I used this test to choose between training runs, so
-    its grade is likely to flatter it. <a href={page("models/termite/")}>See what changed in each release</a>,
-    including requests it never saw in training.
+    <strong>These grades are not a fair test yet.</strong> termite-command-4b is my own model.
+    I trained it for this test and used the test to choose between training runs, so its A does
+    not mean it is the safest model here. On outside requests it never saw in training, it would
+    get a B. Every model, including mine, will be retested on the same new tests, and the grades
+    will change. <a href={page("models/termite/")}>See what changed in each release</a>.
   </p>
   <Explain summary="How to read this chart" terms={[
     ["Letter", "The model's grade. The scale is under the chart."],

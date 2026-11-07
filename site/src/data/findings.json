@@ -711,6 +711,15 @@
     8,
     25
    ]
+  },
+  {
+   "id": "fair-test",
+   "kind": "grades",
+   "strength": "strong",
+   "numbers": [
+    26,
+    32
+   ]
   }
  ]
 }

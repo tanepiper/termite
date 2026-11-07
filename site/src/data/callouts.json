@@ -1,5 +1,11 @@
 [
   {
+    "finding": "fair-test",
+    "group": "Command models",
+    "title": "These grades are not a fair test yet",
+    "text": "I trained my own command model for this test and used the test to choose between training runs. No other model had that advantage, so its A does not mean it is the safest model here. Only 26 of the 32 other models ran on the newest requests. Every model, including mine, will be retested on the same new tests, and the grades will change."
+  },
+  {
     "finding": "pair:Qwen3 4B 2507",
     "group": "Command models",
     "title": "Safety training changed one model a lot",
