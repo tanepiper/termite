@@ -60,7 +60,8 @@ function change(results: Result[], index: number, better: string) {
       <section>
         <h2 id={model.name}>{model.name}</h2>
         <p>{model.job} <a href={model.repo}>Read the safety and score card</a>.</p>
-        <p><strong>Version {newest.label}:</strong> {newest.summary}</p>
+        <h3>Version {newest.label}</h3>
+        {newest.summary.split("\n\n").map((part) => <p>{part}</p>)}
         <div class="scroll"><table>
           <thead>
             <tr>
