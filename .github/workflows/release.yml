@@ -1,8 +1,8 @@
 name: Release
 
-# A tag such as v0.1.0 builds, signs and publishes a release, then moves main to
-# the next version through a pull request. Run by hand, it only builds, to test
-# the pipeline.
+# A tag such as v0.1.0 runs the checks, then builds, signs and publishes a release, and
+# moves main to the next version through a pull request. If the checks fail, nothing is
+# built or published. Run by hand, it only runs the checks and builds, to test the pipeline.
 
 on:
   push:
@@ -22,7 +22,11 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
   build:
+    needs: checks
     strategy:
       fail-fast: true
       matrix:
