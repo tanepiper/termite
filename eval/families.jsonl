@@ -23,4 +23,4 @@
 {"family":"vllm","slot":23,"models":["vLLM d3","vLLM d3 flash","vLLM d3 mini"]}
 {"family":"wald","slot":24,"models":["Wald 4B"]}
 {"family":"winnow","slot":25,"models":["Winnow 12B","Winnow E4B"]}
-{"family":"termite","slot":26,"models":["termite-command-4b 0.1","termite-decide-0.8b 0.1"]}
+{"family":"termite","slot":26,"models":["termite-command-4b 0.1","termite-command-4b 0.2","termite-decide-0.8b 0.1","termite-decide-0.8b 0.2"]}
