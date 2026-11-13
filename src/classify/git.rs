@@ -23,7 +23,10 @@ pub(super) fn level_of(arguments: &[String]) -> Option<(Level, &'static str)> {
         "reset" if has("--hard") => Some(loses),
         "clean" if only_lists(options) => None,
         "clean" => Some(sweeps),
+        // Taking a file out of the index leaves the file as it is.
+        "restore" if only_unstages(options) => None,
         "restore" => Some(loses),
+        "rm" if has("--cached") => None,
         "rm" => Some(deletes),
         "remote" | "worktree" if has("remove") || has("rm") => Some(deletes),
         "checkout" if has("--") || has(".") || has("-f") || has("--force") => {
@@ -39,6 +42,19 @@ pub(super) fn level_of(arguments: &[String]) -> Option<(Level, &'static str)> {
         },
         _ => None,
     }
+}
+
+/// `git restore --staged` without `--worktree` changes only the index.
+fn only_unstages(options: &[String]) -> bool {
+    let has = |long: &str, short: char| {
+        options.iter().any(|option| {
+            option == long
+                || (option.starts_with('-')
+                    && !option.starts_with("--")
+                    && option.contains(short))
+        })
+    };
+    has("--staged", 'S') && !has("--worktree", 'W')
 }
 
 /// A dry run with only options known to be safe. `-e` takes a value, a later

@@ -56,8 +56,8 @@ fn is_comment_or_blank(line: &str) -> bool {
 /// What no script may do, wherever it does it.
 fn banned(body: &str) -> Vec<String> {
     let mut problems = Vec::new();
-    for statement in statements(body).iter().filter(|s| !s.heredoc) {
-        let text = &statement.text;
+    for statement in &statements(body) {
+        let text = &statement.outline;
         let say = |what: &str| format!("line {}: {what}", statement.line);
         let starts = command_starts(text);
         if starts.iter().any(|word| word.first_word() == "eval") {

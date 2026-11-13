@@ -29,33 +29,58 @@ pub(super) fn cleans_outside_a_repository(command: &str, cwd: &Path) -> bool {
 }
 
 impl Walk<'_> {
+    /// The texts the hazard signatures read: each line of the command with
+    /// the text of its here-documents taken out, then each line of that
+    /// text that something runs. Text that nothing can run is left out, so words in a
+    /// commit message or a note are never read as a command.
+    pub(super) fn texts(&self, command: &str) -> Vec<String> {
+        let outline = parse(command).outline;
+        let code = self.fed_code.iter().flat_map(|code| code.lines());
+        outline.lines().chain(code).map(str::to_owned).collect()
+    }
+
     pub(super) fn finish(mut self, command: &str) -> Classification {
+        let texts = self.texts(command);
         if self.sensitive && self.sends {
             self.raise(Level::Never, "sends secrets off the machine");
         }
         if self.fetches && self.runs_fed_code {
             self.raise(Level::Never, "runs code it fetched or decoded");
         }
-        if is_fork_bomb(command) {
+        if texts.iter().any(|text| is_fork_bomb(text)) {
             self.raise(
                 Level::Never,
                 "starts processes until the machine stops",
             );
         }
-        self.floors(command);
+        for text in &texts {
+            self.floors(text);
+        }
+        let before = self.level;
         if self.doubt {
             self.level = self.level.doubted();
             self.reasons
                 .push("uses text the shell changes before it runs");
         }
-        self.tampering(command);
+        let doubted = self.level;
+        for text in &texts {
+            self.tampering(text);
+        }
+        let sure = if self.level == doubted {
+            before
+        } else {
+            self.level
+        };
         self.leaves |= self.names_network && self.level > Level::Read;
         if self.leaves {
             self.reasons.push(LEAVES);
         }
         self.reasons.reverse();
         Classification {
+            private: self.private || self.sensitive,
+            unchecked: self.unchecked,
             level: self.level,
+            sure,
             reasons: self.reasons,
             leaves: self.leaves,
         }

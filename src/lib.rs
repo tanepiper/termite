@@ -70,4 +70,7 @@ pub use provenance::{
 };
 pub use query::{Mode, Query, parse_query, script_request};
 pub use rating::{Rating, rate, warnings, warnings_in};
-pub use script::{Finding, MAX_COMMAND_BYTES, Splitter, Statement, assess};
+pub use script::{
+    CANNOT_CHECK, Finding, HIDDEN_TEXT, MAX_COMMAND_BYTES, OTHER_LANGUAGE,
+    Splitter, Statement, TOO_LONG, assess,
+};

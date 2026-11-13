@@ -142,8 +142,10 @@ impl<'a> Judge<'a> {
 
     fn hold(&self, ranked: &Ranked) -> Option<Held> {
         let found = self.level_of(ranked);
+        // A command a model wrote, with nobody there to read it, keeps the
+        // stricter limit: an agent's own command is its own work.
         let allowed = if self.unattended {
-            found.fit_for_agent()
+            found.level.allowed_unattended() && !found.leaves
         } else {
             found.level.may_insert()
         };

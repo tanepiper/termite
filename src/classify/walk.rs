@@ -6,12 +6,13 @@ use super::Level;
 use super::deletes::{LOOSE, find_names_exactly};
 use super::files::MAX_FILES;
 use super::overwrites::destinations;
-use super::parse::{Stage, parse};
-use super::paths::{Place, is_secret, is_system, path_forms};
+use super::parse::{Heredoc, Stage, parse};
+use super::paths::{Place, is_scratch_file, is_secret, is_system, path_forms};
 use super::programs::{
-    DELETERS, SEARCHERS, SHELLS, Unwrapped, hostile, is_recursive, level_of,
-    name_of, runs_inline_code, shows_secrets, targets, unwrap,
+    DELETERS, SEARCHERS, Unwrapped, hostile, is_recursive, level_of, name_of,
+    shows_secrets, targets, unwrap,
 };
+use super::reads::{as_plain_name, quoted_words};
 use crate::policy::{PolicyRefusal, read_only_in};
 
 /// How deep commands inside commands are followed.
@@ -38,6 +39,15 @@ pub(super) struct Walk<'a> {
     pub(super) runs_fed_code: bool,
     /// Stages that aren't deletes inside the project.
     pub(super) uncontained: Vec<String>,
+    /// Files this command wrote from a here-document, with their text.
+    pub(super) written: Vec<(PathBuf, String)>,
+    /// Something in it may show a secret or private data.
+    pub(super) private: bool,
+    /// It runs code that can't be read here, or changes which code runs.
+    pub(super) unchecked: bool,
+    /// Here-document text that something runs, as a shell or in another
+    /// language. Text that nothing can run isn't kept.
+    pub(super) fed_code: Vec<String>,
 }
 
 impl<'a> Walk<'a> {
@@ -56,11 +66,16 @@ impl<'a> Walk<'a> {
             fetches: false,
             runs_fed_code: false,
             uncontained: Vec::new(),
+            written: Vec::new(),
+            private: false,
+            unchecked: false,
+            fed_code: Vec::new(),
         }
     }
 
     pub(super) fn raise(&mut self, level: Level, reason: &'static str) {
         self.level = self.level.raised_by(level);
+        self.private |= level == Level::SensitiveRead;
         if !self.reasons.contains(&reason) {
             self.reasons.push(reason);
         }
@@ -83,20 +98,21 @@ impl<'a> Walk<'a> {
             );
         }
         for stage in &parsed.stages {
-            self.stage(stage, depth);
+            self.stage(stage, &parsed.bodies, depth);
         }
         for code in &parsed.inner {
             self.line(code, depth + 1);
         }
     }
 
-    fn stage(&mut self, stage: &Stage, depth: usize) {
+    fn stage(&mut self, stage: &Stage, bodies: &[Heredoc], depth: usize) {
         let words = shell_words::split(&stage.text).unwrap_or_else(|_| {
             self.doubt = true;
             stage.text.split_whitespace().map(str::to_owned).collect()
         });
         let found = unwrap(words);
         self.doubt |= found.doubt;
+        self.unchecked |= found.doubt;
         self.redirects(stage);
         if found.root {
             self.raise(Level::SystemDangerous, ROOT);
@@ -105,7 +121,8 @@ impl<'a> Walk<'a> {
             self.raise(Level::Change, "changes the shell's settings");
             return;
         };
-        if first.contains(['$', '{', '*', '?', '[']) {
+        let is_test = matches!(first.as_str(), "[" | "[[");
+        if !is_test && first.contains(['$', '{', '*', '?', '[']) {
             self.raise(
                 Level::SystemDangerous,
                 "the program is only known when it runs",
@@ -119,7 +136,10 @@ impl<'a> Walk<'a> {
         self.notice(&name, arguments, stage);
         self.overwrites(destinations(&name, arguments));
         self.looks_inside(first, &name, arguments, stage, depth);
-        self.doubt |= runs_inline_code(&name, arguments);
+        self.inline_code(&name, arguments);
+        for place in &stage.heredocs {
+            self.fed_text(&name, stage, &bodies[*place].body, depth);
+        }
         if let Some(reason) = hostile(&name, arguments) {
             self.raise(Level::Never, reason);
         }
@@ -159,8 +179,9 @@ impl<'a> Walk<'a> {
     ) -> bool {
         let finds =
             name == "find" && arguments.iter().any(|word| word == "-delete");
-        let git_rm =
-            name == "git" && arguments.first().is_some_and(|w| w == "rm");
+        let git_rm = name == "git"
+            && arguments.first().is_some_and(|w| w == "rm")
+            && !arguments.iter().any(|w| w == "--cached");
         if !finds && !git_rm && !DELETERS.contains(&name) {
             if matches!(name, "chmod" | "chown" | "chgrp") {
                 self.ownership(name, arguments);
@@ -195,7 +216,12 @@ impl<'a> Walk<'a> {
             .iter()
             .all(|path| match path {
                 Some(path) if may_be_root => self.place.in_project(path),
-                Some(path) => self.place.contained(path),
+                Some(path) => {
+                    self.place.contained(path)
+                        || (word.starts_with('/')
+                            && is_scratch_file(path)
+                            && !self.place.holds_work(path))
+                },
                 None => false,
             })
     }
@@ -210,30 +236,6 @@ impl<'a> Walk<'a> {
                 Level::SystemDangerous,
                 "changes owners or modes outside the project",
             );
-        }
-    }
-
-    /// Code held in an argument: `sh -c`, `eval`, `find -exec`.
-    fn nested(&mut self, name: &str, arguments: &[String], depth: usize) {
-        let code = if SHELLS.contains(&name) {
-            let flag = arguments.iter().position(|word| {
-                word.starts_with('-')
-                    && !word.starts_with("--")
-                    && word.contains('c')
-            });
-            flag.and_then(|at| arguments.get(at + 1)).cloned()
-        } else if name == "fd" {
-            fd_code(arguments)
-        } else if name == "eval" {
-            Some(arguments.join(" "))
-        } else if name == "find" {
-            find_code(arguments)
-        } else {
-            None
-        };
-        if let Some(code) = code {
-            self.doubt = true;
-            self.line(&code, depth + 1);
         }
     }
 
@@ -253,7 +255,13 @@ impl<'a> Walk<'a> {
         }
         words.extend(stage.reads.iter().map(String::as_str));
 
+        let quoted = quoted_words(&stage.text);
         let names_one = words.iter().any(|word| {
+            let plain = quoted
+                .iter()
+                .any(|one| one == word)
+                .then(|| as_plain_name(word));
+            let word = plain.as_deref().unwrap_or(word);
             self.place
                 .resolve(word, base.as_deref())
                 .iter()
@@ -301,7 +309,16 @@ impl<'a> Walk<'a> {
         if matches!(judged, Some(Ok(()))) && stage.writes.is_empty() {
             return;
         }
-        if matches!(&judged, Some(Err(refusal)) if reads_everything(refusal)) {
+        let everything = matches!(
+            &judged,
+            Some(Err(PolicyRefusal::SearchesEverything { .. }))
+        );
+        let reads_all = matches!(
+            &judged,
+            Some(Err(refusal)) if reads_everything(refusal)
+        );
+        if reads_all && (!everything || self.search_may_read_secrets(arguments))
+        {
             self.sensitive = true;
             self.raise(Level::SensitiveRead, SECRETS);
         }
@@ -313,17 +330,7 @@ impl<'a> Walk<'a> {
         {
             self.raise(Level::Change, "may change something");
         }
-        let base = self.base.clone();
-        let system = targets(arguments).iter().any(|word| {
-            self.place
-                .resolve(word, base.as_deref())
-                .iter()
-                .flatten()
-                .any(|path| is_system(path))
-        });
-        if system {
-            self.raise(Level::SystemDangerous, "reaches a system folder");
-        }
+        self.reaches(name, arguments);
     }
 
     fn redirects(&mut self, stage: &Stage) {
@@ -331,7 +338,9 @@ impl<'a> Walk<'a> {
         let base = self.base.clone();
         for target in &stage.writes {
             self.raise(Level::Change, "writes a file");
-            for path in self.place.resolve(target, base.as_deref()) {
+            let paths = self.place.resolve(target, base.as_deref());
+            self.starts_with_the_shell(&paths);
+            for path in paths {
                 let outside = path.as_deref().is_none_or(is_system);
                 let secret = is_secret(target, path.as_deref());
                 if outside || secret {
@@ -370,25 +379,4 @@ fn find_roots(arguments: &[String]) -> Vec<&str> {
         .map(String::as_str)
         .collect();
     if roots.is_empty() { vec!["."] } else { roots }
-}
-
-/// The command after `fd -x`, which is the rest of the line.
-fn fd_code(arguments: &[String]) -> Option<String> {
-    let start = arguments.iter().position(|word| {
-        matches!(word.as_str(), "-x" | "-X" | "--exec" | "--exec-batch")
-    })?;
-    Some(arguments[start + 1..].join(" "))
-}
-
-/// The command after `find -exec`, up to `;` or `+`.
-fn find_code(arguments: &[String]) -> Option<String> {
-    let start = arguments.iter().position(|word| {
-        matches!(word.as_str(), "-exec" | "-execdir" | "-ok" | "-okdir")
-    })?;
-    let body: Vec<&str> = arguments[start + 1..]
-        .iter()
-        .map(String::as_str)
-        .take_while(|word| !matches!(*word, ";" | "+"))
-        .collect();
-    Some(body.join(" "))
 }

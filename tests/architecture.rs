@@ -29,7 +29,10 @@ const LAYERS: &[(&str, &[&str])] = &[
     ("policy", &["command"]),
     ("rating", &["candidate", "hazard", "policy"]),
     ("classify", &["candidate", "hazard", "policy"]),
-    ("script", &["command", "hazard", "policy", "rating"]),
+    (
+        "script",
+        &["classify", "command", "hazard", "policy", "rating"],
+    ),
     ("config", &["error", "home"]),
     (
         "decide",

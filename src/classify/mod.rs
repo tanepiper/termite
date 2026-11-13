@@ -9,14 +9,17 @@ mod deletes;
 mod files;
 mod git;
 mod leaves;
+mod nested;
 mod overwrites;
 mod parse;
 mod paths;
 mod programs;
+mod reads;
 mod real;
 mod system;
 mod verdict;
 mod walk;
+mod web;
 
 use std::path::Path;
 
@@ -94,18 +97,34 @@ impl Level {
 pub struct Classification {
     /// The level the command is at.
     pub level: Level,
+    /// The level of what the command clearly does. `level` is one higher
+    /// when the command holds text that is only known when it runs.
+    pub sure: Level,
     /// Why, in plain words.
     pub reasons: Vec<&'static str>,
     /// It can carry data to another machine, whatever its level, or it runs
     /// a script that does or that can't be read.
     pub leaves: bool,
+    /// It may show a secret or private data, whatever else it does.
+    pub private: bool,
+    /// It runs code given in the command in another language, or changes
+    /// which code runs.
+    pub unchecked: bool,
 }
 
 impl Classification {
     /// It may go to an agent or CI. Nobody reads these commands first, so
-    /// the level must allow it and it must stay on this machine.
+    /// an agent is stopped by anything serious: a command that reaches
+    /// outside the project or needs root, one that may show a secret, one
+    /// that can carry data off this machine, and code that can't be read.
+    /// Work that stays inside the project is left alone, as an agent's own
+    /// file tools are. Unknown text alone doesn't stop an agent: a path, a
+    /// program or code that can't be read is counted where it is used.
     pub fn fit_for_agent(&self) -> bool {
-        self.level.allowed_unattended() && !self.leaves
+        self.sure < Level::SystemDangerous
+            && !self.private
+            && !self.leaves
+            && !self.unchecked
     }
 }
 
@@ -125,6 +144,20 @@ pub fn classify(
     found
 }
 
+/// The texts to search for hazards in `command`: the command without the
+/// text of its here-documents, then each line of such text that something
+/// runs. Text that nothing can run is left out.
+pub fn hazard_texts(
+    command: &str,
+    cwd: &Path,
+    home: Option<&Path>,
+) -> Vec<String> {
+    let place = Place::find(cwd, home);
+    let mut walk = Walk::new(&place, cwd);
+    walk.line(command, 0);
+    walk.texts(command)
+}
+
 /// [`classify`], raised by the level the model gave the command.
 pub fn classify_candidate(
     candidate: &Candidate,
@@ -138,6 +171,7 @@ pub fn classify_candidate(
         Risk::Destructive => Level::ContainedDestructive,
     };
     found.level = found.level.raised_by(labelled);
+    found.sure = found.sure.raised_by(labelled);
     found
 }
 

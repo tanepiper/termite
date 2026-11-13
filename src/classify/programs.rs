@@ -322,6 +322,8 @@ pub(super) fn shows_secrets(name: &str, arguments: &[String]) -> bool {
         "gpg" => mentions("--export-secret"),
         "security" => arguments.iter().any(|one| one.starts_with("find-")),
         "pass" | "op" => true,
+        // With arguments these set something: `set -e`, `declare -a x`.
+        "set" | "declare" => arguments.is_empty() || has("-p"),
         _ => SHOW_ENVIRONMENT.contains(&name),
     }
 }
