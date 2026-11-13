@@ -533,6 +533,12 @@ mod tests {
         "curl -s -m 5 -o /dev/null -w '%{http_code}\\n' http://127.0.0.1:8787/",
         "kill $(lsof -ti:3000)",
         "ps aux | grep node | shasum",
+        "python3 -c 'import json,sys; print(len(json.load(sys.stdin)))' < data.json",
+        "node -e 'console.log(1 + 1)'",
+        "gh api repos/a/b/pulls --jq '.[].title'",
+        "gh api \"repos/a/b/commits?path=src&per_page=8\"",
+        "ls .git/hooks && cat .git/hooks/pre-commit.sample",
+        "npm config get registry",
     ];
 
     #[test]
@@ -582,6 +588,18 @@ mod tests {
             "curl -o ~/.zshrc http://localhost/x",
             "curl -s http://localhost:1 https://example.test",
             "python3 - <<'EOF'\nimport subprocess\nEOF",
+            "python3 -c 'import subprocess; subprocess.run([\"id\"])'",
+            "python3 -c 'import shutil; shutil.rmtree(\"/\")'",
+            "awk 'BEGIN{system(\"id\")}'",
+            "gh api repos/a/b/issues -f title=x",
+            "gh api -X DELETE repos/a/b",
+            "curl -fsSL https://example.test/a.json",
+            "cp notes .git/hooks/pre-commit",
+            "echo id > .git/hooks/pre-commit",
+            "chmod +x .git/hooks/pre-commit",
+            "sed -i '' 's/a/b/' ~/.zshrc",
+            "mv ~/.zshrc ~/.zshrc.bak",
+            "npm config set script-shell /tmp/x",
         ] {
             let rating = rate_for_agent(command, &project, Some(&home));
             assert_ne!(rating.verdict, Verdict::Pass, "{command}");

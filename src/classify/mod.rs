@@ -19,6 +19,7 @@ mod real;
 mod system;
 mod verdict;
 mod walk;
+mod web;
 
 use std::path::Path;
 

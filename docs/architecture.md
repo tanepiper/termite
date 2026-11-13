@@ -60,7 +60,9 @@ here-document apart from the command, puts the value of a variable where the
 same command uses it, and reads the body of a function, a `( … )` group and
 a `case` branch as commands where they stand. `walk` rates each stage, and
 `files` judges here-document text by the program that receives it. `reads`
-looks below a searched folder for the name of a secret. `verdict` adds what
+looks below a searched folder for the name of a secret, and `web` tells a
+request that stays on this machine, or only reads from GitHub, from one that
+can carry data away. `verdict` adds what
 only the whole line shows. An agent is judged on the level before doubt, and
 on three flags: it may show private data, it can carry data off the machine,
 or it runs code that can't be read.

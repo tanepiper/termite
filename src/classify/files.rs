@@ -20,7 +20,8 @@ const MAX_BYTES: u64 = 256 * 1024;
 pub(super) const MAX_FILES: usize = 8;
 
 /// Words in Python, Node, Ruby, Perl or PHP code that reach another machine,
-/// start a program, build code to run, or name a secret.
+/// start a program, build code to run, delete files, find the home folder,
+/// or name a secret.
 const CODE_WORDS: &[&str] = &[
     "__builtins__",
     "__import__",
@@ -29,6 +30,14 @@ const CODE_WORDS: &[&str] = &[
     "child_process",
     "ctypes",
     "curl_exec",
+    "expanduser",
+    "file.delete",
+    "fs.rm",
+    "fs.unlink",
+    "homedir",
+    "os.remove",
+    "os.unlink",
+    "rmtree",
     "dgram",
     "eval(",
     "exec(",
@@ -145,16 +154,17 @@ impl Walk<'_> {
         sensitive || found.leaves || found.level >= Level::SystemDangerous
     }
 
-    /// Code in another language, given in the command itself. It can't be
-    /// read as shell, so it counts as doubt, and the same words that make a
-    /// script file unfit for an agent make this unfit.
+    /// Code given in the command itself. In a language it is searched as a
+    /// script file in that language is, and the same words make it unfit
+    /// for an agent. Given to any other program it can't be read at all.
     pub(super) fn inline_code(&mut self, name: &str, arguments: &[String]) {
         if !runs_inline_code(name, arguments) {
             return;
         }
         self.doubt = true;
-        self.unchecked = true;
-        if is_language(name) && has_code_word(&arguments.join(" ")) {
+        if !is_language(name) {
+            self.unchecked = true;
+        } else if has_code_word(&arguments.join(" ")) {
             self.stop_agent(UNFIT);
         }
     }

@@ -271,9 +271,10 @@ An agent gets stricter rules than a person, because nobody reads its commands fi
 - Level 4 and level 5: anything that reaches outside the project, needs root, or changes the system.
 - Anything that may show a secret or private data.
 - Anything that can carry data to another machine, at any level. This includes `curl` and `wget` to other machines, `ssh`, `scp`, DNS lookups, cloud tools, uploads, publishing, the clipboard, and opening a web address.
-- Code in another language that is written in the command itself, such as `python3 -c`, because the check can't read it.
+- Code written in the command itself, such as `python3 -c`, when it uses words that reach another machine, start a program, delete files, find the home folder or name a secret. A script file is searched in the same way.
+- A change to a file that runs later by itself: a shell startup file in your home folder, or a git hook.
 
-Work that stays inside the project passes, up to level 3. This includes git work, builds, tests, edits, and deleting files in the project or files in a temporary folder that are named in full. Work that stays on the machine, such as `curl` to `localhost`, also passes. Every cloud command stops, including ones that only read, so run it yourself.
+Work that stays inside the project passes, up to level 3. This includes git work, builds, tests, edits, and deleting files in the project or files in a temporary folder that are named in full. Work that stays on the machine, such as `curl` to `localhost`, also passes. `gh api` passes when it only reads. `curl` to another machine always stops, because the address itself can carry data. Every cloud command stops, including ones that only read, so run it yourself.
 
 `tmite check` only passes or stops. The [hooks](#commands-that-need-approval) can ask you about some of these commands in place of stopping them.
 

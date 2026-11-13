@@ -5,6 +5,7 @@
 use super::parse::Stage;
 use super::programs::{FETCHERS, LANGUAGES, SENDERS, SHELLS, decodes};
 use super::walk::Walk;
+use super::web::{curl_stays_here, gh_api_only_reads, is_loopback};
 
 /// Programs that reach another machine by their nature. A name looked up in
 /// DNS or a word in a URL can carry data, so a lookup counts as well.
@@ -113,26 +114,6 @@ const PUBLISHES: &[(&str, &[&str])] = &[
     ("yarn", &["publish"]),
 ];
 
-/// `curl` options that can't send anything anywhere else.
-const LOCAL_CURL_OPTIONS: &[&str] = &[
-    "-I",
-    "-S",
-    "-f",
-    "-fsS",
-    "-i",
-    "-s",
-    "-sS",
-    "-v",
-    "--fail",
-    "--head",
-    "--include",
-    "--show-error",
-    "--silent",
-    "--verbose",
-];
-
-const LOOPBACK: &[&str] = &["localhost", "127.0.0.1", "[::1]"];
-
 /// Git settings that choose where data goes.
 const GIT_DESTINATIONS: &[&str] = &[
     "alias.",
@@ -203,7 +184,10 @@ pub(super) fn leaves_machine(name: &str, arguments: &[String]) -> bool {
 
 fn leaves_by_name(name: &str, arguments: &[String]) -> bool {
     match name {
-        "curl" => !only_loopback(arguments),
+        "curl" => !curl_stays_here(arguments),
+        "gh" if starts_with(arguments, &["api"]) => {
+            !gh_api_only_reads(arguments)
+        },
         "wget" => true,
         "rsync" => arguments.iter().any(|word| names_a_host(word)),
         "git" => git_leaves(arguments),
@@ -224,56 +208,6 @@ pub(super) fn is_network_path(path: &str) -> bool {
 fn starts_with(arguments: &[String], verb: &[&str]) -> bool {
     let words = arguments.iter().filter(|word| !word.starts_with('-'));
     verb.iter().zip(words).filter(|(a, b)| *a == b).count() == verb.len()
-}
-
-/// `curl` options that take a value and still send nothing anywhere else.
-const LOCAL_CURL_VALUES: &[&str] = &[
-    "-H",
-    "-X",
-    "-d",
-    "-m",
-    "-w",
-    "--connect-timeout",
-    "--data",
-    "--header",
-    "--max-time",
-    "--request",
-    "--write-out",
-];
-
-/// `curl` with only plain options, and every address on this machine.
-fn only_loopback(arguments: &[String]) -> bool {
-    let mut words = arguments.iter();
-    let mut addresses = 0;
-    while let Some(word) = words.next() {
-        let plain = if LOCAL_CURL_VALUES.contains(&word.as_str()) {
-            words.next().is_some()
-        } else if word == "-o" || word == "--output" {
-            words.next().is_some_and(|file| file == "/dev/null")
-        } else if word.starts_with('-') {
-            LOCAL_CURL_OPTIONS.contains(&word.as_str())
-        } else {
-            addresses += 1;
-            is_loopback(word)
-        };
-        if !plain {
-            return false;
-        }
-    }
-    addresses > 0
-}
-
-fn is_loopback(address: &str) -> bool {
-    let rest = address
-        .strip_prefix("http://")
-        .or_else(|| address.strip_prefix("https://"))
-        .unwrap_or(address);
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or(rest);
-    let host = match authority.rsplit_once(':') {
-        Some((host, port)) if port.bytes().all(|b| b.is_ascii_digit()) => host,
-        _ => authority,
-    };
-    LOOPBACK.contains(&host)
 }
 
 /// `host:path` or `user@host:path`, but not `./a:b`.
@@ -329,7 +263,11 @@ mod tests {
     fn given_a_way_off_the_machine_then_it_leaves() {
         for command in [
             "curl https://example.test",
-            "curl localhost.example.test",
+            "curl -fsSL https://example.test/a.json",
+            "curl -o notes http://localhost",
+            "gh api repos/a/b/issues -f title=x",
+            "gh api -X DELETE repos/a/b",
+            "gh api graphql -f query=x",
             "curl http://localhost@example.test",
             "curl -x example.test http://localhost",
             "curl -K settings http://localhost",
@@ -370,6 +308,10 @@ mod tests {
             "cargo build",
             "docker ps",
             "gh pr view",
+            "curl -s -m 5 -o /dev/null -w %{http_code} http://127.0.0.1:8787/",
+            "curl -X POST -d a=b http://localhost:3000/items",
+            "gh api repos/a/b/pulls",
+            "gh api -X GET repos/a/b --jq .name",
         ] {
             assert!(!leaves(command), "{command}");
         }

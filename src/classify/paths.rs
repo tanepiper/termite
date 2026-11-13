@@ -142,12 +142,17 @@ impl Place {
         below(&self.project) || below(&self.home)
     }
 
-    /// A file in the home folder that a shell runs when it starts.
-    pub(super) fn is_startup_file(&self, path: &Path) -> bool {
-        path.parent() == self.home.as_deref()
+    /// A file in the home folder that a shell runs when it starts, or one
+    /// of the programs git runs by itself.
+    pub(super) fn runs_later(&self, path: &Path) -> bool {
+        let starts = path.parent() == self.home.as_deref()
             && path.file_name().is_some_and(|name| {
                 STARTUP_FILES.iter().any(|one| name == *one)
-            })
+            });
+        let mut parts = path.components().map(Component::as_os_str);
+        let hook = parts.any(|part| part == ".git")
+            && parts.next().is_some_and(|part| part == "hooks");
+        starts || hook
     }
 
     /// The project itself, or inside it.

@@ -9,7 +9,9 @@
 - Let an agent do ordinary work inside the project, up to level 3. Before, a hook stopped most git, build and edit commands.
 - Read a command as one text: here-documents, variables the command sets, functions, groups and `case`.
 - Ask a person about a level 4 command where the harness can ask. Only level 5 and critical hazards are refused with nobody asked.
-- Stop a write to a file that a shell runs when it starts.
+- Stop a change to a file that runs later by itself: a shell startup file or a git hook.
+- Search code written in a command, such as `python3 -c`, the way a script file is searched. Before, all such code stopped an agent.
+- Let `gh api` pass when it only reads.
 
 ### Test
 

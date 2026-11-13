@@ -330,17 +330,7 @@ impl<'a> Walk<'a> {
         {
             self.raise(Level::Change, "may change something");
         }
-        let base = self.base.clone();
-        let system = targets(arguments).iter().any(|word| {
-            self.place
-                .resolve(word, base.as_deref())
-                .iter()
-                .flatten()
-                .any(|path| is_system(path))
-        });
-        if system {
-            self.raise(Level::SystemDangerous, "reaches a system folder");
-        }
+        self.reaches(name, arguments);
     }
 
     fn redirects(&mut self, stage: &Stage) {
