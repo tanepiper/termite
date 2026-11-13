@@ -5,7 +5,7 @@
 use super::parse::Stage;
 use super::programs::{FETCHERS, LANGUAGES, SENDERS, SHELLS, decodes};
 use super::walk::Walk;
-use super::web::{curl_stays_here, gh_api_only_reads, is_loopback};
+use super::web::{curl_only_reads, gh_api_only_reads, is_loopback};
 
 /// Programs that reach another machine by their nature. A name looked up in
 /// DNS or a word in a URL can carry data, so a lookup counts as well.
@@ -184,7 +184,7 @@ pub(super) fn leaves_machine(name: &str, arguments: &[String]) -> bool {
 
 fn leaves_by_name(name: &str, arguments: &[String]) -> bool {
     match name {
-        "curl" => !curl_stays_here(arguments),
+        "curl" => !curl_only_reads(arguments),
         "gh" if starts_with(arguments, &["api"]) => {
             !gh_api_only_reads(arguments)
         },
@@ -262,9 +262,14 @@ mod tests {
     #[test]
     fn given_a_way_off_the_machine_then_it_leaves() {
         for command in [
-            "curl https://example.test",
-            "curl -fsSL https://example.test/a.json",
+            "curl -d @notes https://example.test",
+            "curl -T notes https://example.test",
+            "curl -X POST https://example.test",
+            "curl -H x:y https://example.test",
+            "curl -o notes https://example.test",
             "curl -o notes http://localhost",
+            "curl https://example.test/$name",
+            "curl https://me@example.test",
             "gh api repos/a/b/issues -f title=x",
             "gh api -X DELETE repos/a/b",
             "gh api graphql -f query=x",
@@ -309,6 +314,8 @@ mod tests {
             "docker ps",
             "gh pr view",
             "curl -s -m 5 -o /dev/null -w %{http_code} http://127.0.0.1:8787/",
+            "curl https://example.test",
+            "curl -fsSL -m 10 https://example.test/a.json?page=2",
             "curl -X POST -d a=b http://localhost:3000/items",
             "gh api repos/a/b/pulls",
             "gh api -X GET repos/a/b --jq .name",

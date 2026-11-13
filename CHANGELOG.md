@@ -11,7 +11,7 @@
 - Ask a person about a level 4 command where the harness can ask. Only level 5 and critical hazards are refused with nobody asked.
 - Stop a change to a file that runs later by itself: a shell startup file or a git hook.
 - Search code written in a command, such as `python3 -c`, the way a script file is searched. Before, all such code stopped an agent.
-- Let `gh api` pass when it only reads.
+- Let `gh api` and `curl` pass when they only read.
 
 ### Test
 

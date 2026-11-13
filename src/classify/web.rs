@@ -1,7 +1,8 @@
-//! Requests that can't carry data to another machine: `curl` to this
-//! machine, and `gh api` when it only reads from the GitHub host that `gh`
-//! is signed in to. Any other address can receive data in the address
-//! itself, so `curl` to another machine always counts as leaving.
+//! Requests that only read. A plain fetch brings data to this machine, and
+//! the only thing it sends is the address, which is written in the command
+//! for anyone to read. A request that carries a body, a header, a file or
+//! a value that is only known when it runs can carry data away, so it is
+//! not a plain fetch unless every address is on this machine.
 
 /// `curl` options that send nothing but the request for the address.
 const PLAIN_OPTIONS: &[&str] = &[
@@ -44,29 +45,34 @@ const SENDS_A_VALUE: &[&str] =
 
 const LOOPBACK: &[&str] = &["localhost", "127.0.0.1", "[::1]"];
 
-/// `curl` with known options, no file written, and every address on this
-/// machine.
-pub(super) fn curl_stays_here(arguments: &[String]) -> bool {
+/// `curl` that only fetches: known options, no file written, and every
+/// address written out in full. A request that sends a body, a header or
+/// a method counts only when every address is on this machine.
+pub(super) fn curl_only_reads(arguments: &[String]) -> bool {
     let mut words = arguments.iter();
-    let mut addresses = 0;
+    let mut addresses = Vec::new();
+    let mut sends = false;
     while let Some(word) = words.next() {
-        let takes_value = PLAIN_VALUES.contains(&word.as_str())
-            || SENDS_A_VALUE.contains(&word.as_str());
-        let plain = if takes_value {
+        let plain = if PLAIN_VALUES.contains(&word.as_str()) {
+            words.next().is_some()
+        } else if SENDS_A_VALUE.contains(&word.as_str()) {
+            sends = true;
             words.next().is_some()
         } else if word == "-o" || word == "--output" {
             words.next().is_some_and(|file| file == "/dev/null")
         } else if word.starts_with('-') {
             PLAIN_OPTIONS.contains(&word.as_str())
         } else {
-            addresses += 1;
-            is_loopback(word)
+            addresses.push(word.as_str());
+            true
         };
         if !plain {
             return false;
         }
     }
-    addresses > 0
+    let local = addresses.iter().all(|one| is_loopback(one));
+    let written_out = addresses.iter().all(|one| is_written_out(one));
+    !addresses.is_empty() && (local || (!sends && written_out))
 }
 
 /// `gh api` that only reads: no method but GET, and no field or file, since
