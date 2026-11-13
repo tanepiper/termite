@@ -3,6 +3,10 @@
 //! level. Code inside `$(…)`, backticks and `(…)` is handed back to be
 //! classified on its own.
 
+mod groups;
+mod heredoc;
+mod vars;
+
 /// One program and its arguments, with its redirects taken out.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub(super) struct Stage {
@@ -18,6 +22,17 @@ pub(super) struct Stage {
     pub(super) piped_in: bool,
     /// Holds `$(…)`, backticks or `<(…)`.
     pub(super) has_inner: bool,
+    /// The here-documents fed to this stage: places in [`Parsed::bodies`].
+    pub(super) heredocs: Vec<usize>,
+}
+
+/// The text of one here-document.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub(super) struct Heredoc {
+    /// The lines, as written.
+    pub(super) body: String,
+    /// The word that ends it.
+    end: String,
 }
 
 /// A whole command line.
@@ -26,6 +41,11 @@ pub(super) struct Parsed {
     pub(super) stages: Vec<Stage>,
     /// Code inside substitutions and subshells.
     pub(super) inner: Vec<String>,
+    /// Every here-document, in the order they open.
+    pub(super) bodies: Vec<Heredoc>,
+    /// The command with the text of every here-document taken out, at any
+    /// depth.
+    pub(super) outline: String,
     /// A glob, brace expansion, variable or substitution.
     pub(super) doubt: bool,
     /// A quote, backtick or bracket that never closes.
@@ -37,6 +57,24 @@ struct Scanner {
     at: usize,
     stage: Stage,
     parsed: Parsed,
+    /// Here-documents opened on this line, whose text starts on the next.
+    unread: Vec<Unread>,
+    /// Where the text of each here-document starts and ends.
+    cuts: Vec<(usize, usize)>,
+    /// Variables this line has given a plain value, such as `S=/tmp/x`.
+    values: Vec<(String, String)>,
+    /// The stage being read always runs, and in this shell: it follows the
+    /// start, a `;` or a line break.
+    always_runs: bool,
+    /// Inside `case … esac`, where a `)` ends a pattern.
+    in_case: bool,
+}
+
+/// A here-document that has opened and not yet been read.
+struct Unread {
+    place: usize,
+    /// The shell expands `$(…)` in it: its end word had no quotes.
+    expands: bool,
 }
 
 /// Split `command` into stages.
@@ -46,8 +84,25 @@ pub(super) fn parse(command: &str) -> Parsed {
         at: 0,
         stage: Stage::default(),
         parsed: Parsed::default(),
+        unread: Vec::new(),
+        cuts: Vec::new(),
+        values: Vec::new(),
+        always_runs: true,
+        in_case: false,
     };
     scanner.run();
+    scanner.parsed.outline = scanner
+        .chars
+        .iter()
+        .enumerate()
+        .filter(|(at, _)| {
+            !scanner
+                .cuts
+                .iter()
+                .any(|(from, to)| (*from..*to).contains(at))
+        })
+        .map(|(_, c)| *c)
+        .collect();
     scanner.parsed
 }
 
@@ -65,15 +120,23 @@ impl Scanner {
                 '"' => self.double_quoted(),
                 '$' => self.dollar(c),
                 '`' => self.backticks(),
-                '(' => self.subshell(),
-                ')' => self.parsed.doubt = true,
+                '(' => self.open_paren(),
+                ')' => self.close_paren(),
                 '{' => self.open_brace(),
                 '}' => self.close_brace(),
                 '*' | '?' | '[' => {
                     self.parsed.doubt = true;
                     self.stage.text.push(c);
                 },
-                ';' | '\n' => self.end_stage(false),
+                ';' => {
+                    self.end_stage(false);
+                    self.always_runs = true;
+                },
+                '\n' => {
+                    self.end_stage(false);
+                    self.read_bodies();
+                    self.always_runs = true;
+                },
                 '&' => self.ampersand(),
                 '|' => self.pipe(),
                 '>' => self.write_redirect(),
@@ -86,7 +149,14 @@ impl Scanner {
 
     fn end_stage(&mut self, piped: bool) {
         let stage = std::mem::take(&mut self.stage);
-        if !stage.text.trim().is_empty() || !stage.writes.is_empty() {
+        let kept = self.always_runs && !piped && stage.writes.is_empty();
+        self.note_values(&stage.text, kept);
+        self.always_runs = false;
+        self.in_case &= stage.text.trim() != "esac";
+        if !stage.text.trim().is_empty()
+            || !stage.writes.is_empty()
+            || !stage.heredocs.is_empty()
+        {
             self.parsed.stages.push(stage);
         }
         self.stage.piped_in = piped;
@@ -131,8 +201,15 @@ impl Scanner {
     }
 
     fn dollar(&mut self, c: char) {
+        if let Some((value, length)) = self.value_ahead() {
+            self.stage.text.push_str(&value);
+            self.at += length;
+            return;
+        }
         self.parsed.doubt = true;
-        if self.peek(0) == Some('(') {
+        if self.peek(0) == Some('(') && self.peek(1) == Some('(') {
+            self.arithmetic();
+        } else if self.peek(0) == Some('(') {
             self.at += 1;
             self.inner_until_close();
         } else {
@@ -162,54 +239,13 @@ impl Scanner {
         self.mark_inner(code);
     }
 
-    fn subshell(&mut self) {
-        self.parsed.doubt = true;
-        self.inner_until_close();
-    }
-
     /// Take everything up to the matching `)`, which is already opened.
-    fn inner_until_close(&mut self) {
-        let mut depth = 1;
+    pub(super) fn inner_until_close(&mut self) {
         let mut code = String::new();
-        while let Some(c) = self.peek(0) {
-            self.at += 1;
-            match c {
-                '(' => depth += 1,
-                ')' => depth -= 1,
-                _ => {},
-            }
-            if depth == 0 {
-                self.mark_inner(code);
-                return;
-            }
-            code.push(c);
+        if !self.copy_until_close(&mut code) {
+            self.parsed.broken = true;
         }
-        self.parsed.broken = true;
         self.mark_inner(code);
-    }
-
-    /// `{}` belongs to `find`, `{ ls; }` is a group, and the rest expands.
-    fn open_brace(&mut self) {
-        match self.peek(0) {
-            Some('}') => {
-                self.stage.text.push_str("{}");
-                self.at += 1;
-            },
-            None => self.parsed.doubt = true,
-            Some(c) if c.is_whitespace() => self.parsed.doubt = true,
-            _ => {
-                self.parsed.doubt = true;
-                self.stage.text.push('{');
-            },
-        }
-    }
-
-    fn close_brace(&mut self) {
-        if self.stage.text.trim().is_empty() {
-            self.parsed.doubt = true;
-        } else {
-            self.stage.text.push('}');
-        }
     }
 
     fn ampersand(&mut self) {
@@ -222,7 +258,11 @@ impl Scanner {
                 self.at += 1;
                 self.end_stage(false);
             },
-            _ => self.end_stage(false),
+            _ => {
+                // In the background, so it sets nothing in this shell.
+                self.always_runs = false;
+                self.end_stage(false);
+            },
         }
     }
 
@@ -267,15 +307,18 @@ impl Scanner {
         match self.peek(0) {
             Some('(') => {
                 self.at += 1;
-                self.subshell();
+                self.parsed.doubt = true;
+                self.inner_until_close();
+            },
+            Some('<') if self.peek(1) == Some('<') => {
+                // A here-string: one word of text for the program to read.
+                self.parsed.doubt = true;
+                self.at += 2;
+                self.word();
             },
             Some('<') => {
-                // A here-document: what it holds can't be followed.
-                self.parsed.doubt = true;
-                while self.peek(0) == Some('<') {
-                    self.at += 1;
-                }
-                self.word();
+                self.at += 1;
+                self.open_heredoc();
             },
             _ => {
                 self.drop_file_number();
@@ -306,6 +349,17 @@ impl Scanner {
         while let Some(c) = self.peek(0) {
             match quote {
                 Some(open) if c == open => quote = None,
+                None | Some('"') if c == '$' => {
+                    self.at += 1;
+                    if let Some((value, length)) = self.value_ahead() {
+                        word.push_str(&value);
+                        self.at += length;
+                    } else {
+                        self.parsed.doubt = true;
+                        word.push(c);
+                    }
+                    continue;
+                },
                 Some(_) => word.push(c),
                 None if c == '\'' || c == '"' => quote = Some(c),
                 None if c.is_whitespace() || ";&|<>()".contains(c) => break,

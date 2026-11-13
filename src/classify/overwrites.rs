@@ -1,11 +1,14 @@
 //! Writing over a file that exists loses what it held, the same as deleting
 //! it. A write to a new file loses nothing, so the file is looked up.
 
+use std::path::PathBuf;
+
 use super::Level;
 use super::programs::targets;
 use super::walk::Walk;
 
 const OVERWRITES: &str = "replaces a file that already exists";
+const STARTS: &str = "leaves something behind that survives a restart";
 
 /// The files `name` would replace, as written. A program told to keep what
 /// is there, or to add to it, replaces nothing.
@@ -47,15 +50,26 @@ impl Walk<'_> {
         words: impl IntoIterator<Item = &'a str>,
     ) {
         let base = self.base.clone();
-        let exists = words.into_iter().any(|word| {
-            self.place
-                .resolve(word, base.as_deref())
-                .iter()
-                .flatten()
-                .any(|path| path.is_file())
-        });
+        let mut exists = false;
+        for word in words {
+            let paths = self.place.resolve(word, base.as_deref());
+            exists |= paths.iter().flatten().any(|path| path.is_file());
+            self.starts_with_the_shell(&paths);
+        }
         if exists {
             self.raise(Level::ContainedDestructive, OVERWRITES);
+        }
+    }
+
+    /// A write to a file that a shell runs when it starts: what is written
+    /// runs later, when nobody is looking.
+    pub(super) fn starts_with_the_shell(&mut self, paths: &[Option<PathBuf>]) {
+        let starts = paths
+            .iter()
+            .flatten()
+            .any(|path| self.place.is_startup_file(path));
+        if starts {
+            self.raise(Level::SystemDangerous, STARTS);
         }
     }
 }

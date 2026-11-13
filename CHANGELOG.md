@@ -6,6 +6,10 @@
 
 - Stop a suggestion when a loop or a branch never closes, or when a pipe has nothing in it.
 - Raise commands that replace an existing file, lose uncommitted work or show settings.
+- Let an agent do ordinary work inside the project, up to level 3. Before, a hook stopped most git, build and edit commands.
+- Read a command as one text: here-documents, variables the command sets, functions, groups and `case`.
+- Ask a person about a level 4 command where the harness can ask. Only level 5 and critical hazards are refused with nobody asked.
+- Stop a write to a file that a shell runs when it starts.
 
 ### Test
 

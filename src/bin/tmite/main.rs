@@ -184,6 +184,7 @@ fn check_input(arguments: &[String]) -> ExitCode {
         colour: wants_colour(Format::Human),
         all: false,
         agent: caller_from_environment() == Caller::Agent,
+        whole: false,
     };
     let mut files = Vec::new();
     let mut options_done = false;

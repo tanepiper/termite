@@ -4,24 +4,31 @@
 //! means no known hazard was found. It doesn't prove the script is safe,
 //! because a script can build what it does while it runs.
 
+mod split;
 mod starts;
 
 use std::path::Path;
 
+use crate::classify::hazard_texts;
 use crate::command::is_hidden;
 use crate::hazard::{Severity, hazards};
 use crate::policy::read_only_in;
 use crate::rating::{Rating, warnings};
 
+pub use split::Splitter;
 pub(crate) use starts::command_starts;
 
 /// The most text one command may hold. Anything longer is risky, because it
 /// can't be checked whole.
 pub const MAX_COMMAND_BYTES: usize = 64 * 1024;
 
-const CANNOT_CHECK: &str = "builds what it runs, so it can't be checked";
-const HIDDEN_TEXT: &str = "hides characters you can't see";
-const TOO_LONG: &str = "too long to check";
+pub const CANNOT_CHECK: &str = "builds what it runs, so it can't be checked";
+/// Code handed to another language on the command line. termite reads
+/// shell, so it can only search this code for words that reach out.
+pub const OTHER_LANGUAGE: &str =
+    "runs code in another language, which can't be checked";
+pub const HIDDEN_TEXT: &str = "hides characters you can't see";
+pub const TOO_LONG: &str = "too long to check";
 
 /// Lines that only give a script its shape.
 const SHAPE_ONLY: [&str; 11] = [
@@ -33,9 +40,10 @@ const SHAPE_ONLY: [&str; 11] = [
 pub struct Statement {
     /// The line it starts on, from 1.
     pub line: usize,
+    /// The command, with the text of any here-document it opens.
     pub text: String,
-    /// A line of a heredoc: text, which may still be code in disguise.
-    pub heredoc: bool,
+    /// The command with the text of its here-documents taken out.
+    pub outline: String,
     /// Cut short because it was over [`MAX_COMMAND_BYTES`].
     pub oversized: bool,
 }
@@ -50,166 +58,6 @@ pub struct Finding {
     pub warnings: Vec<&'static str>,
 }
 
-/// Turns lines into commands, joining what the shell would join. Feed it each
-/// line, then call [`Splitter::finish`] at the end.
-#[derive(Debug, Default)]
-pub struct Splitter {
-    line: usize,
-    pending: String,
-    start: usize,
-    quote: Option<char>,
-    heredocs: Vec<String>,
-}
-
-impl Splitter {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Take one line, without its line ending. Bytes that aren't valid text
-    /// are kept as a replacement character, which counts as hidden.
-    pub fn push(&mut self, bytes: &[u8]) -> Option<Statement> {
-        self.line += 1;
-        let text = String::from_utf8_lossy(bytes);
-        let text = text.strip_suffix('\r').unwrap_or(&text);
-
-        if let Some(end) = self.heredocs.first() {
-            if text.trim_start_matches('\t') == end {
-                self.heredocs.remove(0);
-                return None;
-            }
-            return (!text.trim().is_empty()).then(|| Statement {
-                line: self.line,
-                text: text.to_owned(),
-                heredoc: true,
-                oversized: false,
-            });
-        }
-
-        if self.pending.is_empty() {
-            if is_comment_or_blank(text) {
-                return None;
-            }
-            self.start = self.line;
-        }
-
-        let scanned = scan(text, self.quote);
-        self.quote = scanned.quote;
-        self.heredocs.extend(scanned.heredocs);
-        let text = if scanned.continues {
-            text.strip_suffix('\\').unwrap_or(text)
-        } else {
-            text
-        };
-        self.pending.push_str(text);
-
-        if self.pending.len() > MAX_COMMAND_BYTES {
-            return Some(self.flush(true));
-        }
-        if scanned.continues {
-            return None;
-        }
-        if self.quote.is_some() {
-            self.pending.push(' ');
-            return None;
-        }
-        Some(self.flush(false))
-    }
-
-    /// One piece of a line too long to hold: rate what's there, then start
-    /// clean, so the rest of the input is still read properly.
-    pub fn push_oversized(&mut self, bytes: &[u8]) -> Statement {
-        self.line += 1;
-        self.pending.push_str(&String::from_utf8_lossy(bytes));
-        self.start = self.line;
-        self.flush(true)
-    }
-
-    /// Whatever is left at the end of the input.
-    pub fn finish(&mut self) -> Option<Statement> {
-        (!self.pending.trim().is_empty()).then(|| self.flush(false))
-    }
-
-    fn flush(&mut self, oversized: bool) -> Statement {
-        self.quote = None;
-        if oversized {
-            self.heredocs.clear();
-        }
-        Statement {
-            line: self.start,
-            text: std::mem::take(&mut self.pending),
-            heredoc: false,
-            oversized,
-        }
-    }
-}
-
-fn is_comment_or_blank(line: &str) -> bool {
-    let line = line.trim_start();
-    line.is_empty() || line.starts_with('#')
-}
-
-struct Scanned {
-    quote: Option<char>,
-    continues: bool,
-    heredocs: Vec<String>,
-}
-
-/// Follow the quotes along a line. A `#` starts a comment only at the start
-/// of a word and outside quotes.
-fn scan(line: &str, mut quote: Option<char>) -> Scanned {
-    let chars: Vec<char> = line.chars().collect();
-    let mut heredocs = Vec::new();
-    let mut index = 0;
-    while let Some(&c) = chars.get(index) {
-        match (quote, c) {
-            (Some('\''), '\'') | (Some('"'), '"') => quote = None,
-            (Some('"') | None, '\\') => {
-                if index + 1 == chars.len() {
-                    return Scanned {
-                        quote,
-                        continues: true,
-                        heredocs,
-                    };
-                }
-                index += 1;
-            },
-            (None, '\'' | '"') => quote = Some(c),
-            (None, '#') if index == 0 || chars[index - 1].is_whitespace() => {
-                break;
-            },
-            (None, '<') if chars[index..].starts_with(&['<', '<', '<']) => {
-                index += 2;
-            },
-            (None, '<') if chars[index..].starts_with(&['<', '<']) => {
-                if let Some(end) = heredoc_end(&chars[index + 2..]) {
-                    heredocs.push(end);
-                    index += 1;
-                }
-            },
-            _ => {},
-        }
-        index += 1;
-    }
-    Scanned {
-        quote,
-        continues: false,
-        heredocs,
-    }
-}
-
-/// The word that ends a heredoc, from the text after `<<`.
-fn heredoc_end(after: &[char]) -> Option<String> {
-    let text: String = after.iter().collect();
-    let text = text.strip_prefix('-').unwrap_or(&text).trim_start();
-    let word: String = text
-        .chars()
-        .filter(|c| !matches!(c, '\'' | '"' | '\\'))
-        .take_while(|c| c.is_alphanumeric() || *c == '_')
-        .collect();
-    (!word.is_empty()).then_some(word)
-}
-
 /// Rate one command as it would run in `cwd`. `None` means there's nothing
 /// to rate: a line that only gives the script its shape.
 pub fn assess(
@@ -222,25 +70,34 @@ pub fn assess(
         return None;
     }
 
-    // Quotes and backslashes don't change what the shell runs: `r\m` is `rm`.
-    let plain: String = text
-        .chars()
-        .filter(|c| !matches!(c, '\'' | '"' | '\\'))
-        .collect();
-    let mut found = hazards(text);
-    found.extend(hazards(&plain));
+    // The text of a here-document is searched only where something runs it,
+    // and then line by line. Quotes and backslashes don't change what the
+    // shell runs: `r\m` is `rm`.
+    let texts = hazard_texts(text, cwd, home);
+    let mut found = Vec::new();
+    let mut said = Vec::new();
+    for text in &texts {
+        let plain: String = text
+            .chars()
+            .filter(|c| !matches!(c, '\'' | '"' | '\\'))
+            .collect();
+        found.extend(hazards(text));
+        found.extend(hazards(&plain));
+        said.extend(warnings(text));
+        said.extend(warnings(&plain));
+    }
     let severity = found.iter().map(|hazard| hazard.severity).max();
-
-    let mut said = warnings(text);
-    said.extend(warnings(&plain));
     if statement.oversized {
         said.push(TOO_LONG);
     }
     if text.chars().any(hidden) {
         said.push(HIDDEN_TEXT);
     }
-    if builds_what_it_runs(text) {
+    let command = &statement.outline;
+    if builds_what_it_runs(command) {
         said.push(CANNOT_CHECK);
+    } else if runs_other_language(command) {
+        said.push(OTHER_LANGUAGE);
     }
     let mut seen = Vec::new();
     said.retain(|warning| {
@@ -251,7 +108,7 @@ pub fn assess(
 
     let rating = if !said.is_empty() {
         Rating::Risky
-    } else if !statement.heredoc && read_only_in(text, cwd, home).is_err() {
+    } else if read_only_in(text, cwd, home).is_err() {
         Rating::Changes
     } else {
         Rating::ReadsOnly
@@ -265,10 +122,12 @@ pub fn assess(
     })
 }
 
-/// Tabs are normal in scripts. The replacement character marks bytes that
-/// weren't text.
+/// Tabs are normal in scripts, and a command that runs over several lines
+/// holds line breaks. The replacement character marks bytes that weren't
+/// text.
 fn hidden(c: char) -> bool {
-    c != '\t' && (is_hidden(c) || c == char::REPLACEMENT_CHARACTER)
+    !matches!(c, '\t' | '\n')
+        && (is_hidden(c) || c == char::REPLACEMENT_CHARACTER)
 }
 
 /// Does `$'…'` spell characters by number, as `$'\x72\x6d'` spells `rm`? Tabs
@@ -322,8 +181,13 @@ fn builds_what_it_runs(text: &str) -> bool {
             program.starts_with('$')
                 || program.starts_with('`')
                 || program == "eval"
-                || runs_inline_code(start.text())
         })
+}
+
+fn runs_other_language(text: &str) -> bool {
+    command_starts(text)
+        .iter()
+        .any(|start| runs_inline_code(start.text()))
 }
 
 /// Code handed to another language on the command line. termite only reads
@@ -533,19 +397,47 @@ mod tests {
     }
 
     #[test]
-    fn given_harmless_heredoc_text_then_it_stays_harmless() {
-        let found = findings("cat <<EOF\nhello there\nEOF\nls");
+    fn given_a_heredoc_then_its_text_stays_with_its_command() {
+        let found = statements("cat <<EOF\nhello there\nEOF\nls");
 
-        assert_eq!(found.len(), 3);
-        assert_eq!(found[1].rating, Rating::ReadsOnly);
-        assert_eq!(found[2].command, "ls");
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[0].text, "cat <<EOF\nhello there\nEOF");
+        assert_eq!(found[0].outline, "cat <<EOF\nEOF");
+        assert_eq!((found[1].line, &*found[1].text), (4, "ls"));
+    }
+
+    #[test]
+    fn given_heredoc_text_that_nothing_runs_then_it_is_not_a_command() {
+        let note =
+            "cat > notes.md <<'EOF'\nNever run rm -rf / on a server.\nEOF";
+        assert_eq!(worst(note), Rating::Changes);
+
+        let message = "git commit -m \"$(cat <<'EOF'\nDon't run rm -rf ~ (ever)\n\n1) first \"point\"\nEOF\n)\"";
+        assert_eq!(statements(message).len(), 1);
+        assert_eq!(worst(message), Rating::Changes);
+    }
+
+    #[test]
+    fn given_heredoc_text_in_another_language_then_each_line_is_searched() {
+        let code = "python3 - <<'PY'\nimport os\nos.system('rm -rf ~')\nPY";
+        assert_eq!(worst(code), Rating::Risky);
+
+        let fine = "python3 - <<'PY'\nprint(sum(range(4)))\nPY";
+        assert_eq!(worst(fine), Rating::Changes);
     }
 
     #[test]
     fn given_a_here_string_then_no_heredoc_starts() {
         let found = statements("grep x <<< hello\nls");
 
-        assert!(found.iter().all(|s| !s.heredoc));
+        assert_eq!(found.len(), 2);
+    }
+
+    #[test]
+    fn given_a_shift_then_no_heredoc_starts() {
+        let found = statements("echo $((1 << 4))\nls");
+
+        assert_eq!(found.len(), 2);
     }
 
     #[test]

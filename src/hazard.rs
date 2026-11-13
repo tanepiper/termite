@@ -242,25 +242,39 @@ fn in_order(text: &str, words: &[&str]) -> bool {
         Some(at) => &text[at + first.len()..],
         None => return false,
     };
+    if !ends_its_word(first, rest) {
+        return false;
+    }
     others.iter().all(|word| match rest.find(word) {
         Some(at) => {
             rest = &rest[at + word.len()..];
-            true
+            ends_its_word(word, rest)
         },
         None => false,
     })
+}
+
+/// A signature that ends in a shell's name must end the word there, so
+/// `| shasum` is not `| sh`.
+fn ends_its_word(word: &str, rest: &str) -> bool {
+    !word.ends_with("sh")
+        || !rest.starts_with(|c: char| c.is_alphanumeric() || c == '_')
 }
 
 /// Where `word` first appears at the start of a word. A signature that
 /// starts with punctuation, such as `.ssh`, may appear anywhere.
 fn word_start(text: &str, word: &str) -> Option<usize> {
     let needs_start = word.starts_with(|c: char| c.is_ascii_alphanumeric());
+    // `eval` is part of the shell, so it never follows a folder:
+    // `examples/eval ` is a path.
+    let never_in_a_path = word == "eval ";
     text.match_indices(word).map(|(at, _)| at).find(|&at| {
         !needs_start
-            || !text[..at]
-                .chars()
-                .next_back()
-                .is_some_and(|c| c.is_alphanumeric() || c == '-')
+            || !text[..at].chars().next_back().is_some_and(|c| {
+                c.is_alphanumeric()
+                    || c == '-'
+                    || (never_in_a_path && matches!(c, '/' | '.' | '_'))
+            })
     })
 }
 

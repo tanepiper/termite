@@ -41,8 +41,8 @@ Each row may use only the rows above it.
 | `merge` | joins commands that do the same thing | pure; the most harmful risk label wins | `candidate` |
 | `policy` | what `?x` may inject with no question | an allowlist; anything unknown is refused; reads only git config | `command` |
 | `rating` | the rating each command shows | a model's label can raise a rating and never lower it | `candidate`, `hazard`, `policy` |
-| `classify` | puts every command at one of six levels | plain code, no model; doubt raises a level; a model's label can only raise it; reads the disk only to find the project and symlinks | `candidate`, `hazard`, `policy` |
-| `script` | reads a script or a stream and rates each command | reads text only; memory stays bounded; anything it cannot read is risky | `command`, `hazard`, `policy`, `rating` |
+| `classify` | puts every command at one of six levels | plain code, no model; doubt raises a level, and the level before doubt is kept beside it; a model's label can only raise it; reads the disk only to find the project and symlinks, to read a script a command runs, and to read the names of files below a folder a command searches | `candidate`, `hazard`, `policy` |
+| `script` | reads a script or a stream and rates each command | reads text only; memory stays bounded; anything it cannot read is risky; a here-document and an open quote stay in one statement | `classify`, `command`, `hazard`, `policy`, `rating` |
 | `config` | the config file | checks URLs; holds no token | `error`, `home` |
 | `decide` | the decision model's client | can only make an answer stricter than the thresholds allow | `candidate`, `command`, `config`, `context`, `error` |
 | `generate` | the chat model's client | 1 to 5 candidates, or a typed error, which includes the model declining | `candidate`, `command`, `config`, `context`, `error`, `heartbeat`, `progress`, `sse` |
@@ -53,6 +53,17 @@ Inside a module, `policy` is split into `shell` (reading a command line),
 `programs` (the allowlist), `options` (shared option checks), `services`
 (git, docker, kubectl, package tools), `secrets` (sensitive paths) and
 `git_config` (a repository's own config).
+
+Inside `classify`, the parser (`parse`, with `parse/heredoc`, `parse/vars`
+and `parse/groups`) splits a command into stages. It keeps the text of each
+here-document apart from the command, puts the value of a variable where the
+same command uses it, and reads the body of a function, a `( … )` group and
+a `case` branch as commands where they stand. `walk` rates each stage, and
+`files` judges here-document text by the program that receives it. `reads`
+looks below a searched folder for the name of a secret. `verdict` adds what
+only the whole line shows. An agent is judged on the level before doubt, and
+on three flags: it may show private data, it can carry data off the machine,
+or it runs code that can't be read.
 
 The binary adds `check` (`tmite check`), `scripts` (`tmite script` and
 `tmite scripts`), `script_tools` (the only code that calls `bash -n` and
@@ -100,7 +111,7 @@ harness ─▶ tmite hook NAME ─▶ adapter ─▶ check ─▶ answer in the 
 | Part | Job | Rule |
 |---|---|---|
 | `harness` | the table of harnesses: where each keeps its hooks, where its message holds the command, and how it is told to stop | a new harness is mostly a new row |
-| `adapter` | `tmite hook NAME`: reads the message, rates the command as `TERMITE_AGENT=1 tmite check` does, and answers pass, needs approval or stop | a pass never approves anything; a question goes out only to a part of a harness that was tried, shown by the message itself; anything else is a stop |
+| `adapter` | `tmite hook NAME`: reads the message, rates the command as `TERMITE_AGENT=1 tmite check` does, and answers pass, needs approval or stop; only level 5 and critical hazards are refused with nobody asked | a pass never approves anything; a question goes out only to a part of a harness that was tried, shown by the message itself; anything else is a stop |
 | `plan` | works out what installing or removing changes | writes nothing; the result is a list of files with their old and new text |
 | `entries` | builds the text of each hook | only builds text; the shell line stops the command if `tmite` is missing |
 | `json` | keeps the key order of a person's settings file | a change shows as a small change |

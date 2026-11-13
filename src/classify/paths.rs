@@ -25,6 +25,47 @@ const SCRATCH_FOLDERS: &[&str] = &[
     "/dev/stderr",
 ];
 
+/// Files in the home folder that a shell runs when it starts.
+const STARTUP_FILES: &[&str] = &[
+    ".bash_login",
+    ".bash_logout",
+    ".bash_profile",
+    ".bashrc",
+    ".profile",
+    ".zlogin",
+    ".zlogout",
+    ".zprofile",
+    ".zshenv",
+    ".zshrc",
+];
+
+/// Folders for files that are made to be thrown away.
+const TEMPORARY_FOLDERS: &[&str] = &[
+    "/tmp",
+    "/private/tmp",
+    "/var/tmp",
+    "/var/folders",
+    "/private/var/folders",
+];
+
+/// Inside a temporary folder, and not that folder itself. Deleting such a
+/// file loses nothing a project keeps. The caller only asks this for a path
+/// written in full, so a project that lives in a temporary folder keeps the
+/// usual rule for the paths inside it.
+pub(super) fn is_scratch_file(path: &Path) -> bool {
+    let inside =
+        |path: &Path, folder: &Path| path != folder && path.starts_with(folder);
+    // A link in a temporary folder can point out of it.
+    let real = path.ancestors().find_map(|one| fs::canonicalize(one).ok());
+    let folders = TEMPORARY_FOLDERS.iter().map(Path::new);
+    folders.clone().any(|folder| inside(path, folder))
+        && real.is_some_and(|real| {
+            folders
+                .filter_map(|folder| fs::canonicalize(folder).ok())
+                .any(|folder| inside(&real, &folder))
+        })
+}
+
 /// The folders a command is judged against.
 #[derive(Debug, Clone)]
 pub(super) struct Place {
@@ -91,6 +132,22 @@ impl Place {
             return false;
         };
         path != project && path.starts_with(project) && !escapes(path, project)
+    }
+
+    /// The project or the home folder is at this path or below it.
+    pub(super) fn holds_work(&self, path: &Path) -> bool {
+        let below = |folder: &Option<PathBuf>| {
+            folder.as_deref().is_some_and(|one| one.starts_with(path))
+        };
+        below(&self.project) || below(&self.home)
+    }
+
+    /// A file in the home folder that a shell runs when it starts.
+    pub(super) fn is_startup_file(&self, path: &Path) -> bool {
+        path.parent() == self.home.as_deref()
+            && path.file_name().is_some_and(|name| {
+                STARTUP_FILES.iter().any(|one| name == *one)
+            })
     }
 
     /// The project itself, or inside it.

@@ -226,16 +226,41 @@ fn starts_with(arguments: &[String], verb: &[&str]) -> bool {
     verb.iter().zip(words).filter(|(a, b)| *a == b).count() == verb.len()
 }
 
+/// `curl` options that take a value and still send nothing anywhere else.
+const LOCAL_CURL_VALUES: &[&str] = &[
+    "-H",
+    "-X",
+    "-d",
+    "-m",
+    "-w",
+    "--connect-timeout",
+    "--data",
+    "--header",
+    "--max-time",
+    "--request",
+    "--write-out",
+];
+
 /// `curl` with only plain options, and every address on this machine.
 fn only_loopback(arguments: &[String]) -> bool {
-    !arguments.is_empty()
-        && arguments.iter().all(|word| {
-            if word.starts_with('-') {
-                LOCAL_CURL_OPTIONS.contains(&word.as_str())
-            } else {
-                is_loopback(word)
-            }
-        })
+    let mut words = arguments.iter();
+    let mut addresses = 0;
+    while let Some(word) = words.next() {
+        let plain = if LOCAL_CURL_VALUES.contains(&word.as_str()) {
+            words.next().is_some()
+        } else if word == "-o" || word == "--output" {
+            words.next().is_some_and(|file| file == "/dev/null")
+        } else if word.starts_with('-') {
+            LOCAL_CURL_OPTIONS.contains(&word.as_str())
+        } else {
+            addresses += 1;
+            is_loopback(word)
+        };
+        if !plain {
+            return false;
+        }
+    }
+    addresses > 0
 }
 
 fn is_loopback(address: &str) -> bool {

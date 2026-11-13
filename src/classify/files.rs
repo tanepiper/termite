@@ -9,8 +9,9 @@ use std::path::Path;
 
 use super::Level;
 use super::parse::Stage;
-use super::programs::{LANGUAGES, SHELLS};
+use super::programs::{LANGUAGES, SHELLS, runs_inline_code};
 use super::walk::Walk;
+use crate::policy::read_only_in;
 
 /// The most of a script that is read. A longer one counts as unread.
 const MAX_BYTES: u64 = 256 * 1024;
@@ -52,7 +53,9 @@ const CODE_WORDS: &[&str] = &[
     "require(\"http",
     "require(\"net",
     "require(\"tls",
-    "requests",
+    "requests.",
+    "import requests",
+    "from requests",
     "shell_exec",
     "smtplib",
     "socket",
@@ -119,9 +122,13 @@ impl Walk<'_> {
         self.files_left -= 1;
         let base = self.base.clone();
         let paths = self.place.resolve(word, base.as_deref());
-        match paths.as_slice() {
-            [Some(path)] => read(path),
-            _ => Script::Unread,
+        let [Some(path)] = paths.as_slice() else {
+            return Script::Unread;
+        };
+        let written = self.written.iter().rev().find(|(to, _)| to == path);
+        match written {
+            Some((_, text)) => Script::Text(text.clone()),
+            None => read(path),
         }
     }
 
@@ -136,6 +143,71 @@ impl Walk<'_> {
         let sensitive = inner.sensitive;
         let found = inner.finish(code);
         sensitive || found.leaves || found.level >= Level::SystemDangerous
+    }
+
+    /// Code in another language, given in the command itself. It can't be
+    /// read as shell, so it counts as doubt, and the same words that make a
+    /// script file unfit for an agent make this unfit.
+    pub(super) fn inline_code(&mut self, name: &str, arguments: &[String]) {
+        if !runs_inline_code(name, arguments) {
+            return;
+        }
+        self.doubt = true;
+        self.unchecked = true;
+        if is_language(name) && has_code_word(&arguments.join(" ")) {
+            self.stop_agent(UNFIT);
+        }
+    }
+
+    /// The text of a here-document, judged by what receives it. A shell
+    /// runs it, so it is read as commands. A language runs it, so it is
+    /// searched as a script file in that language is. A program that only
+    /// reads can't run it, so it is plain text and isn't searched at all.
+    /// For any other program each line is searched for hazards.
+    pub(super) fn fed_text(
+        &mut self,
+        name: &str,
+        stage: &Stage,
+        body: &str,
+        depth: usize,
+    ) {
+        if SHELLS.contains(&name) || matches!(name, "source" | ".") {
+            self.doubt = true;
+            self.fed_code.push(body.to_owned());
+            self.line(body, depth + 1);
+        } else if is_language(name) {
+            self.doubt = true;
+            self.fed_code.push(body.to_owned());
+            if has_code_word(&without_comments(body)) {
+                self.stop_agent(UNFIT);
+            }
+        } else {
+            if !self.only_reads(stage) {
+                self.fed_code.push(body.to_owned());
+            }
+            self.keep_written(stage, body);
+        }
+    }
+
+    /// `cat > run.py <<END` writes a file this command may run next, before
+    /// it is on disk. Its text is kept, so it is read as the file will be.
+    fn keep_written(&mut self, stage: &Stage, body: &str) {
+        let base = self.base.clone();
+        for target in &stage.writes {
+            let paths = self.place.resolve(target, base.as_deref());
+            if let [Some(path)] = paths.as_slice()
+                && self.written.len() < MAX_FILES
+            {
+                self.written.push((path.clone(), body.to_owned()));
+            }
+        }
+    }
+
+    fn only_reads(&self, stage: &Stage) -> bool {
+        self.base.as_deref().is_some_and(|folder| {
+            read_only_in(&stage.text, folder, self.place.home.as_deref())
+                .is_ok()
+        })
     }
 
     fn stop_agent(&mut self, reason: &'static str) {
